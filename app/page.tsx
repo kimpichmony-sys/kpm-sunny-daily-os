@@ -866,10 +866,10 @@ export default function Home() {
     <div className="sunny-mobile-shell min-h-screen overflow-x-hidden bg-[#05070d] text-slate-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(245,158,11,0.18),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.13),transparent_24%),linear-gradient(135deg,#05070d_0%,#09111f_48%,#02030a_100%)]" />
       {!isOnline ? <OfflineBanner /> : null}
-      <div className="relative grid min-h-screen lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_330px]">
+      <div className="app-shell relative grid min-h-screen min-w-0 max-w-full lg:grid-cols-[230px_minmax(0,1fr)] 2xl:grid-cols-[230px_minmax(0,1fr)_300px]">
         <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
 
-        <main className="sunny-main min-w-0 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:px-6 lg:px-7 lg:pb-8 lg:pt-5">
+        <main className="sunny-main min-w-0 max-w-full overflow-x-hidden px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:px-6 lg:px-5 lg:pb-8 lg:pt-5 xl:px-6">
           <CommandHeader stats={stats} dayLevel={dayLevel} activeSection={activeSection} todayKey={todayKey} />
           <MobilePriorityPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} />
 
@@ -996,14 +996,14 @@ function Sidebar({
   setActiveSection: Dispatch<SetStateAction<SectionId>>;
 }) {
   return (
-    <aside className="sticky top-0 hidden h-screen border-r border-white/10 bg-black/25 p-5 backdrop-blur-xl lg:block">
+    <aside className="sticky top-0 hidden h-screen w-[230px] min-w-0 border-r border-white/10 bg-black/25 p-4 backdrop-blur-xl lg:block">
       <div className="flex h-full flex-col">
         <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 shadow-[0_0_40px_rgba(245,158,11,0.12)]">
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-orange-500 text-slate-950">
             <Sun size={24} />
           </div>
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-200">Daily OS</p>
-          <h1 className="mt-1 text-2xl font-black leading-tight">KPM Sunny Daily OS</h1>
+          <h1 className="mt-1 break-words text-xl font-black leading-tight">KPM Sunny Daily OS</h1>
         </div>
 
         <nav className="mt-7 grid gap-2">
@@ -1077,8 +1077,8 @@ function BottomNav({
 function CommandHeader({ stats, dayLevel, activeSection, todayKey }: { stats: Stats; dayLevel: string; activeSection: SectionId; todayKey: string }) {
   const pageTitle = navItems.find((item) => item.id === activeSection)?.label || "Dashboard";
   return (
-    <header className="sunny-command-header rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:rounded-[1.75rem] sm:p-6">
-      <div className="flex flex-col gap-4 sm:gap-5 xl:flex-row xl:items-center xl:justify-between">
+    <header className="sunny-command-header min-w-0 rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:rounded-[1.75rem] sm:p-5 xl:p-6">
+      <div className="flex min-w-0 flex-col gap-4 sm:gap-5 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <ArtImage
             src={artPaths.sunnyMascot}
@@ -1097,11 +1097,11 @@ function CommandHeader({ stats, dayLevel, activeSection, todayKey }: { stats: St
             <CalendarDays size={17} />
             {formatLongDate(parseDateKey(todayKey))}
           </div>
-          <h2 className="sunny-page-title mt-2 text-2xl font-black tracking-tight text-white sm:mt-3 sm:text-5xl">{pageTitle}</h2>
+          <h2 className="sunny-page-title mt-2 break-words text-2xl font-black tracking-tight text-white sm:mt-3 lg:text-4xl 2xl:text-5xl">{pageTitle}</h2>
           <p className="mt-1 text-sm text-slate-400 sm:mt-2 sm:text-lg">Personal life command center for today's missions.</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:min-w-[360px] sm:grid-cols-[auto_1fr_1fr]">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] xl:w-auto xl:max-w-[360px]">
           <ArtImage
             src={artPaths.avatar}
             alt="User avatar"
@@ -1118,12 +1118,12 @@ function CommandHeader({ stats, dayLevel, activeSection, todayKey }: { stats: St
 
 function HeaderPill({ label, value, icon: Icon }: { label: string; value: string | number; icon: LucideIcon }) {
   return (
-    <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
+    <div className="min-w-0 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
       <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-amber-200">
         <Icon size={15} />
         {label}
       </div>
-      <p className="text-2xl font-black text-white">{value}</p>
+      <p className="break-words text-xl font-black text-white 2xl:text-2xl">{value}</p>
     </div>
   );
 }
@@ -1387,21 +1387,21 @@ function Dashboard({
         <ModeSelector value={selectedTodayMode} onChange={setSelectedTodayMode} />
       </Panel>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-4">
         <StatCard icon={Trophy} label="KPM Score" value={stats.points} detail={dayLevel} accent="gold" />
         <StatCard icon={CheckCircle2} label="Missions Cleared" value={stats.completed} detail={`${stats.remaining} remaining`} accent="green" />
         <StatCard icon={Clock3} label="Next Mission" value={nextTask?.time || "Clear"} detail={nextTask?.title || "No active mission"} accent="blue" />
         <StatCard icon={Flame} label="Main Mission" value={mainMission?.time || "Set one"} detail={mainMission?.title || "Plan tomorrow"} accent="gold" />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-4">
         <StatCard icon={Flame} label="Current Streak" value={streaks.current} detail="51+ KPM days" accent="gold" />
         <StatCard icon={Trophy} label="Best Streak" value={streaks.best} detail="Best 51+ KPM run" accent="green" />
         <StatCard icon={BarChart3} label="Productive Streak" value={streaks.productive} detail="121+ KPM days" accent="blue" />
         <StatCard icon={Target} label="Main Mission Streak" value={streaks.mainMission} detail="Main mission cleared" accent="gold" />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
         <Panel>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1527,13 +1527,13 @@ function SevenDayProgress({ summary }: { summary: SevenDayTestSummary }) {
 
   return (
     <Panel className="sunny-seven-panel">
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+      <div className="mb-5 flex min-w-0 flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">7-Day Test Progress</p>
           <h3 className="mt-2 text-2xl font-black text-white">Day {summary.currentDay} / 7</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">{summary.completedDays} / 7 review days completed since {summary.startDate}.</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[520px]">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-3 xl:w-full xl:max-w-[520px]">
           <MiniMetric label="Best day so far" value={bestLabel} />
           <MiniMetric label="Average score" value={summary.averageScore} />
           <MiniMetric label="Main mission rate" value={`${summary.mainMissionCompletionRate}%`} />
@@ -1546,13 +1546,13 @@ function SevenDayProgress({ summary }: { summary: SevenDayTestSummary }) {
 
 function SevenDayTracker({ days, compact = false }: { days: SevenDayTestDay[]; compact?: boolean }) {
   return (
-    <div className={`grid gap-3 ${compact ? "md:grid-cols-2 xl:grid-cols-7" : "lg:grid-cols-2"}`}>
+    <div className={`grid min-w-0 gap-3 ${compact ? "sm:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(135px,1fr))]" : "lg:grid-cols-2"}`}>
       {days.map((day) => (
-        <div key={day.date} className="rounded-2xl border border-white/10 bg-black/20 p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+        <div key={day.date} className="min-w-0 rounded-2xl border border-white/10 bg-black/20 p-3">
+          <div className="flex min-w-0 flex-col gap-2 2xl:flex-row 2xl:items-start 2xl:justify-between">
+            <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-200">Day {day.dayNumber}</p>
-              <p className="mt-1 font-black text-white">{day.date}</p>
+              <p className="mt-1 break-words text-sm font-black text-white">{day.date}</p>
             </div>
             <Badge tone={day.reviewCompleted ? "gold" : "dark"}>{day.reviewCompleted ? "Reviewed" : "Open"}</Badge>
           </div>
@@ -2912,11 +2912,11 @@ function RightPanel({
   todayMode: DailyMode;
 }) {
   return (
-    <aside className="sticky top-0 hidden h-screen overflow-y-auto border-l border-white/10 bg-black/20 p-5 backdrop-blur-xl xl:block">
-      <div className="grid gap-4">
+    <aside className="sticky top-0 hidden h-screen w-[300px] min-w-0 overflow-y-auto border-l border-white/10 bg-black/20 p-4 backdrop-blur-xl 2xl:block">
+      <div className="grid min-w-0 gap-4">
         <Panel compact>
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">KPM Score</p>
-          <p className="mt-2 text-5xl font-black text-white">{stats.points}</p>
+          <p className="mt-2 break-words text-4xl font-black text-white">{stats.points}</p>
           <p className="mt-1 text-slate-400">{dayLevel}</p>
           <Badge tone="gold">{todayMode} Mode</Badge>
         </Panel>
@@ -2945,7 +2945,7 @@ function RightPanel({
 
 function Panel({ children, compact = false, className = "" }: { children: ReactNode; compact?: boolean; className?: string }) {
   return (
-    <div className={`sunny-panel rounded-[1.5rem] border border-white/10 bg-white/[0.06] shadow-[0_22px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl ${compact ? "p-4" : "p-5 sm:p-6"} ${className}`}>
+    <div className={`sunny-panel min-w-0 max-w-full rounded-[1.5rem] border border-white/10 bg-white/[0.06] shadow-[0_22px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl ${compact ? "p-4" : "p-5 sm:p-6"} ${className}`}>
       {children}
     </div>
   );
@@ -2966,12 +2966,12 @@ function StatCard({
 }) {
   const color = accent === "green" ? "from-emerald-300 to-emerald-500" : accent === "blue" ? "from-sky-300 to-cyan-500" : "from-amber-300 to-orange-500";
   return (
-    <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-5 shadow-[0_22px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+    <div className="min-w-0 rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl 2xl:p-5">
       <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${color} text-slate-950`}>
         <Icon size={23} />
       </div>
       <p className="text-sm font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
-      <p className="mt-2 text-3xl font-black text-white">{value}</p>
+      <p className="mt-2 break-words text-2xl font-black text-white 2xl:text-3xl">{value}</p>
       <p className="mt-1 line-clamp-2 text-sm text-slate-400">{detail}</p>
     </div>
   );
@@ -2979,12 +2979,12 @@ function StatCard({
 
 function MissionPreview({ label, task }: { label: string; task?: Task }) {
   return (
-    <div className="rounded-[1.25rem] border border-white/10 bg-[#0b1220]/75 p-4">
+    <div className="min-w-0 rounded-[1.25rem] border border-white/10 bg-[#0b1220]/75 p-4">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-200">{label}</p>
       {task ? (
         <div className="mt-3">
           <p className="text-sm font-black text-amber-100">{task.time}</p>
-          <p className="mt-1 text-lg font-black leading-snug text-white">{task.title}</p>
+          <p className="mt-1 break-words text-lg font-black leading-snug text-white">{task.title}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge tone={task.category}>{task.category}</Badge>
             <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
@@ -3046,7 +3046,7 @@ function DailyNotesCard({ value, onChange }: { value: string; onChange: Dispatch
 
 function MiniMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.06] p-4">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
       <p className="mt-2 break-words text-2xl font-black text-white">{value}</p>
     </div>
