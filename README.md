@@ -76,6 +76,25 @@ npm run start
 7. Use **Evening Review** at night to save what happened today.
 8. Check **History** and **Analytics** to review progress over time.
 
+## Customize Manhwa Artwork
+
+To customize the manhwa artwork, place PNG files in `public/art` using the exact file names.
+
+Supported artwork files:
+
+```text
+public/art/sunny-mascot.png
+public/art/avatar-manhwa.png
+public/art/hero-working.png
+public/art/morning-reset.png
+public/art/main-mission.png
+public/art/afternoon-growth.png
+public/art/evening-control.png
+public/art/night-shutdown.png
+```
+
+If an artwork file is missing, the app shows a dark gold/teal gradient placeholder instead.
+
 ## Export / Import Data Backup
 
 All data lives in this browser's `localStorage`, so backups matter.

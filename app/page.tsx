@@ -36,6 +36,7 @@ type GoalCategory = "Money" | "Skill" | "Health" | "Cleaning" | "Admin" | "Perso
 type Energy = "Low" | "Medium" | "High";
 type TimeNeeded = "15 min" | "30 min" | "1 hour" | "2 hours" | "3 hours";
 type DailyMode = "Full Day" | "Low Energy" | "Recovery" | "Money" | "Skill" | "CEO";
+type MainLifeFocus = "Money" | "Health" | "Skill" | "Cleaning" | "Stability" | "Personal Growth";
 type SectionId = "Dashboard" | "Today Task List" | "Plan Tomorrow" | "Evening Review" | "History" | "Analytics" | "Template Editor" | "Settings";
 
 type Task = {
@@ -60,9 +61,28 @@ type Plan = {
   timeNeeded: TimeNeeded;
   priority: Priority;
   energy: Energy;
+  isBigGoal: boolean;
   tomorrowMode: DailyMode;
   suggested: string;
   scheduledAt: string;
+};
+
+type ConflictAction = "replace" | "add-after" | "move-next" | "bonus" | "skip";
+
+type MissionPlanPreviewItem = {
+  id: string;
+  title: string;
+  time: string;
+  originalTime: string;
+  category: Category;
+  goalCategory: GoalCategory;
+  priority: Priority;
+  points: number;
+  notes: string;
+  hasConflict: boolean;
+  conflictTaskId?: string;
+  conflictTaskTitle?: string;
+  action: ConflictAction;
 };
 
 type Review = {
@@ -71,6 +91,8 @@ type Review = {
   learned: string;
   improve: string;
   tomorrowMainMission: string;
+  mainMissionCompleted?: boolean;
+  appFeedback?: string;
   energy: number;
   mood: number;
   focus: number;
@@ -80,6 +102,10 @@ type Review = {
 
 type SettingsState = {
   scheduleVersion: "5:30" | "5:00";
+  onboardingComplete?: boolean;
+  defaultDailyMode?: DailyMode;
+  mainLifeFocus?: MainLifeFocus;
+  sevenDayTestStartDate?: string;
 };
 
 type Stats = {
@@ -128,6 +154,26 @@ type AnalyticsSummary = {
   mostSkippedCategory: string;
   recentDays: HistoryEntry[];
   categoryStats: Record<Category, CategoryStats>;
+};
+
+type SevenDayTestDay = {
+  dayNumber: number;
+  date: string;
+  entry?: HistoryEntry;
+  score: number;
+  dayLevel: string;
+  mainMissionCompleted: boolean;
+  reviewCompleted: boolean;
+};
+
+type SevenDayTestSummary = {
+  startDate: string;
+  currentDay: number;
+  completedDays: number;
+  bestDay?: SevenDayTestDay;
+  averageScore: number;
+  mainMissionCompletionRate: number;
+  days: SevenDayTestDay[];
 };
 
 type CategoryStats = {
@@ -191,6 +237,13 @@ const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const priorities: Priority[] = ["S", "A", "B", "C"];
 const categories: Category[] = ["Knowledge", "Plan", "Monitoring", "Sunny"];
 const dailyModes: DailyMode[] = ["Full Day", "Low Energy", "Recovery", "Money", "Skill", "CEO"];
+const mainLifeFocusOptions: MainLifeFocus[] = ["Money", "Health", "Skill", "Cleaning", "Stability", "Personal Growth"];
+const defaultSettings: SettingsState = {
+  scheduleVersion: "5:30",
+  onboardingComplete: false,
+  defaultDailyMode: "Full Day",
+  mainLifeFocus: "Stability"
+};
 
 const modeProfiles: Record<DailyMode, { description: string; bestFor: string; difficulty: string; note: string }> = {
   "Full Day": {
@@ -241,6 +294,7 @@ const navItems: NavItem[] = [
   { id: "Template Editor", label: "Default Schedule Template", mobile: "Template", icon: Pencil },
   { id: "Settings", label: "Settings", mobile: "Settings", icon: Settings }
 ];
+const mobileNavItems = navItems.filter((item) => ["Dashboard", "Today Task List", "Plan Tomorrow", "Evening Review", "Settings"].includes(item.id));
 
 const baseSchedule: Array<[string, string, Category, Priority, number]> = [
   ["5:30 AM", "Wake up", "Sunny", "A", 10],
@@ -287,6 +341,18 @@ const blocks = [
   { name: "Night Shutdown", start: "10:00 PM", end: "11:00 PM", description: "Lower friction for sleep and recovery." }
 ] as const;
 const blockNames: string[] = blocks.map((block) => block.name);
+const artPaths = {
+  sunnyMascot: "/art/sunny-mascot.png",
+  avatar: "/art/avatar-manhwa.png",
+  heroWorking: "/art/hero-working.png",
+  block: {
+    "Morning Reset": "/art/morning-reset.png",
+    "Main Mission Block": "/art/main-mission.png",
+    "Afternoon Growth Block": "/art/afternoon-growth.png",
+    "Evening Control Block": "/art/evening-control.png",
+    "Night Shutdown": "/art/night-shutdown.png"
+  } as Record<string, string>
+};
 
 const defaultPlan: Plan = {
   title: "",
@@ -295,6 +361,7 @@ const defaultPlan: Plan = {
   timeNeeded: "1 hour",
   priority: "A",
   energy: "Medium",
+  isBigGoal: false,
   tomorrowMode: "Full Day",
   suggested: "",
   scheduledAt: ""
@@ -306,6 +373,8 @@ const defaultReview: Review = {
   learned: "",
   improve: "",
   tomorrowMainMission: "",
+  mainMissionCompleted: false,
+  appFeedback: "",
   energy: 5,
   mood: 5,
   focus: 5,
@@ -334,7 +403,7 @@ const defaultTemplateDraft: TemplateDraft = {
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState<SectionId>("Dashboard");
-  const [settings, setSettings] = useLocalStorage<SettingsState>(SETTINGS_KEY, { scheduleVersion: "5:30" });
+  const [settings, setSettings] = useLocalStorage<SettingsState>(SETTINGS_KEY, defaultSettings);
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
   const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
   const tomorrowKey = getNextDateKey(todayKey);
@@ -345,6 +414,7 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>(defaultTasks);
   const [tomorrowTasks, setTomorrowTasks] = useState<Task[]>(defaultTasks);
   const [plan, setPlan] = useState<Plan>(defaultPlan);
+  const [missionPreview, setMissionPreview] = useState<MissionPlanPreviewItem[]>([]);
   const [review, setReview] = useState<Review>(defaultReview);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [todayMode, setTodayMode] = useState<DailyMode>("Full Day");
@@ -356,9 +426,11 @@ export default function Home() {
 
   useEffect(() => {
     const currentDate = getCurrentDateKey();
+    const loadedSettings = normalizeSettings(readStorage<Partial<SettingsState>>(SETTINGS_KEY, defaultSettings));
     const loadedTemplate = normalizeTemplate(readStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate()));
-    const loadedDefaultTasks = buildSchedule(loadedTemplate, settings.scheduleVersion === "5:00");
-    const loadedTodayMode = readMode(`${MODE_KEY_PREFIX}:${currentDate}`, "Full Day");
+    const loadedDefaultTasks = buildSchedule(loadedTemplate, loadedSettings.scheduleVersion === "5:00");
+    const preferredMode = loadedSettings.defaultDailyMode ?? "Full Day";
+    const loadedTodayMode = readMode(`${MODE_KEY_PREFIX}:${currentDate}`, preferredMode);
     const loadedHistory = readStorage<HistoryEntry[]>(HISTORY_KEY, []);
     const lastActiveDate = window.localStorage.getItem(LAST_ACTIVE_DATE_KEY);
     let nextHistory = loadedHistory;
@@ -387,6 +459,7 @@ export default function Home() {
     const loadedTomorrowMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${nextTomorrowKey}`, loadedPlan.tomorrowMode);
     const storedTomorrowTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${nextTomorrowKey}`, buildModeSchedule(loadedDefaultTasks, loadedTomorrowMode));
 
+    setSettings(loadedSettings);
     setTemplateTasks(loadedTemplate);
     setTodayKey(currentDate);
     setTasks(nextTodayTasks);
@@ -506,6 +579,30 @@ export default function Home() {
   const combinedDays = useMemo(() => [createHistoryEntry(todayKey, tasks, review, todayMode), ...history.filter((day) => day.date !== todayKey)], [history, review, tasks, todayKey, todayMode]);
   const streaks = useMemo(() => calculateStreaks(combinedDays, todayKey), [combinedDays, todayKey]);
   const analytics = useMemo(() => calculateAnalytics(history), [history]);
+  const sevenDayTest = useMemo(
+    () => createSevenDayTest(settings.sevenDayTestStartDate ?? todayKey, todayKey, combinedDays),
+    [combinedDays, settings.sevenDayTestStartDate, todayKey]
+  );
+
+  function completeOnboarding(nextSettings: Required<Pick<SettingsState, "scheduleVersion" | "defaultDailyMode" | "mainLifeFocus">>) {
+    const nextTemplate = normalizeTemplate(templateTasks);
+    const nextDefaultTasks = buildSchedule(nextTemplate, nextSettings.scheduleVersion === "5:00");
+    const nextTasks = buildModeSchedule(nextDefaultTasks, nextSettings.defaultDailyMode);
+    setSettings({
+      ...settings,
+      ...nextSettings,
+      onboardingComplete: true,
+      sevenDayTestStartDate: todayKey
+    });
+    setTodayMode(nextSettings.defaultDailyMode);
+    setSelectedTodayMode(nextSettings.defaultDailyMode);
+    setTomorrowMode(nextSettings.defaultDailyMode);
+    setTasks(nextTasks);
+    setTomorrowTasks(buildModeSchedule(nextDefaultTasks, nextSettings.defaultDailyMode));
+    setPlan({ ...defaultPlan, tomorrowMode: nextSettings.defaultDailyMode });
+    setMissionPreview([]);
+    setReview(defaultReview);
+  }
 
   function updateTask(id: string, patch: Partial<Task>) {
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
@@ -522,7 +619,7 @@ export default function Home() {
     Object.keys(window.localStorage)
       .filter((key) => key.startsWith("kpm-sunny"))
       .forEach((key) => window.localStorage.removeItem(key));
-    setSettings({ scheduleVersion: "5:30" });
+    setSettings(defaultSettings);
     const originalTemplate = createOriginalTemplate();
     setTemplateTasks(originalTemplate);
     setTodayMode("Full Day");
@@ -531,6 +628,7 @@ export default function Home() {
     setTasks(buildModeSchedule(buildSchedule(originalTemplate, false), "Full Day"));
     setTomorrowTasks(buildModeSchedule(buildSchedule(originalTemplate, false), "Full Day"));
     setPlan(defaultPlan);
+    setMissionPreview([]);
     setReview(defaultReview);
     setHistory([]);
     window.localStorage.setItem(LAST_ACTIVE_DATE_KEY, getCurrentDateKey());
@@ -547,6 +645,16 @@ export default function Home() {
         .map((task) => (task.id === id ? { ...task, ...draft, block: getTaskBlock(draft.time), points: Number(draft.points) || 0 } : task))
         .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
     );
+  }
+
+  function updateMainMissionTitle(title: string) {
+    const cleanTitle = title.trim();
+    if (!cleanTitle) return;
+    setTasks((current) => {
+      const existingMain = getMainMissionForDay(current);
+      if (!existingMain) return current;
+      return current.map((task) => (task.id === existingMain.id ? { ...task, title: cleanTitle } : task));
+    });
   }
 
   function deleteTask(id: string) {
@@ -612,33 +720,64 @@ export default function Home() {
     const cleanTitle = plan.title.trim();
     if (!cleanTitle) {
       setPlan({ ...plan, suggested: "Add tomorrow's main mission first.", scheduledAt: "" });
+      setMissionPreview([]);
       return;
     }
 
-    const slots = chooseSlots(plan);
-    const pieces = splitGoal(cleanTitle, plan, slots);
-    const withoutOldGoal = tomorrowTasks.filter((task) => !task.insertedGoal);
-    const next = [...withoutOldGoal, ...pieces].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
-    setTomorrowTasks(next);
+    const preview = buildMissionPlanPreview(cleanTitle, plan, tomorrowTasks);
+    setMissionPreview(preview);
     setPlan({
       ...plan,
-      scheduledAt: pieces[0]?.time ?? "",
-      suggested: `Mission scheduled for tomorrow at ${pieces[0]?.time ?? "the best available slot"}.`
+      scheduledAt: preview[0]?.time ?? "",
+      suggested: preview.length > 1
+        ? `Mission plan preview created with ${preview.length} smaller missions.`
+        : `Mission preview ready for tomorrow at ${preview[0]?.time ?? "the best available slot"}.`
     });
   }
 
-  function generateTodayByMode(mode: DailyMode = selectedTodayMode) {
-    if (!window.confirm(`Generate today's missions using ${mode} Mode? This will overwrite today's current list.`)) return;
+  function updateMissionPreviewAction(id: string, action: ConflictAction) {
+    setMissionPreview((current) => current.map((item) => (item.id === id ? { ...item, action } : item)));
+  }
+
+  function applyMissionPreview() {
+    if (missionPreview.length === 0) return;
+    const nextTasks = applyMissionPlanPreview(tomorrowTasks, missionPreview);
+    const applied = nextTasks.filter((task) => task.insertedGoal);
+    setTomorrowTasks(nextTasks);
+    setPlan({
+      ...plan,
+      scheduledAt: applied[0]?.time ?? "",
+      suggested: applied.length
+        ? `Applied ${applied.length} mission${applied.length === 1 ? "" : "s"} to tomorrow.`
+        : "No generated missions were applied."
+    });
+    setMissionPreview([]);
+  }
+
+  function cancelMissionPreview() {
+    setMissionPreview([]);
+    setPlan((current) => ({ ...current, suggested: "", scheduledAt: "" }));
+  }
+
+  function generateTodayByMode(mode: DailyMode = selectedTodayMode, mainMissionTitle?: string) {
+    if (!window.confirm(`Generate today's missions using ${mode} Mode? This will overwrite today's current list.`)) return false;
+    const nextTasks = applyMainMissionTitle(buildModeSchedule(defaultTasks, mode), mainMissionTitle);
     setTodayMode(mode);
     setSelectedTodayMode(mode);
-    setTasks(buildModeSchedule(defaultTasks, mode));
+    setTasks(nextTasks);
     setReview(defaultReview);
+    return true;
+  }
+
+  function startDay(mode: DailyMode, mainMissionTitle: string) {
+    if (generateTodayByMode(mode, mainMissionTitle)) setActiveSection("Today Task List");
   }
 
   function selectTomorrowMode(mode: DailyMode) {
     setTomorrowMode(mode);
     setPlan((current) => ({ ...current, tomorrowMode: mode }));
     setTomorrowTasks(buildModeSchedule(defaultTasks, mode));
+    setMissionPreview([]);
   }
 
   function addTemplateTask(draft: TemplateDraft) {
@@ -674,6 +813,7 @@ export default function Home() {
   function applyTemplateToTomorrow() {
     setTomorrowTasks(buildModeSchedule(defaultTasks, tomorrowMode));
     setPlan((current) => ({ ...defaultPlan, tomorrowMode: current.tomorrowMode }));
+    setMissionPreview([]);
   }
 
   function applyTemplateToToday() {
@@ -683,15 +823,18 @@ export default function Home() {
   }
 
   if (!isReady) return <LoadingShell />;
+  if (!settings.onboardingComplete) {
+    return <OnboardingScreen completeOnboarding={completeOnboarding} />;
+  }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#05070d] text-slate-100">
+    <div className="sunny-mobile-shell min-h-screen overflow-x-hidden bg-[#05070d] text-slate-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(245,158,11,0.18),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.13),transparent_24%),linear-gradient(135deg,#05070d_0%,#09111f_48%,#02030a_100%)]" />
       {!isOnline ? <OfflineBanner /> : null}
       <div className="relative grid min-h-screen lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_330px]">
         <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
 
-        <main className="min-w-0 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:px-6 lg:px-7 lg:pb-8 lg:pt-5">
+        <main className="sunny-main min-w-0 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:px-6 lg:px-7 lg:pb-8 lg:pt-5">
           <CommandHeader stats={stats} dayLevel={dayLevel} activeSection={activeSection} todayKey={todayKey} />
           <MobilePriorityPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} />
 
@@ -708,6 +851,9 @@ export default function Home() {
                 selectedTodayMode={selectedTodayMode}
                 setSelectedTodayMode={setSelectedTodayMode}
                 generateTodayByMode={generateTodayByMode}
+                startDay={startDay}
+                updateMainMissionTitle={updateMainMissionTitle}
+                sevenDayTest={sevenDayTest}
                 setActiveSection={setActiveSection}
               />
             )}
@@ -721,6 +867,10 @@ export default function Home() {
                 tomorrowMode={tomorrowMode}
                 selectTomorrowMode={selectTomorrowMode}
                 findBestTimeSlot={findBestTimeSlot}
+                missionPreview={missionPreview}
+                updateMissionPreviewAction={updateMissionPreviewAction}
+                applyMissionPreview={applyMissionPreview}
+                cancelMissionPreview={cancelMissionPreview}
                 tomorrowTasks={tomorrowTasks}
               />
             )}
@@ -728,7 +878,7 @@ export default function Home() {
               <EveningReview review={review} setReview={setReview} stats={stats} dayLevel={dayLevel} tasks={tasks} todayKey={todayKey} />
             )}
             {activeSection === "History" && (
-              <HistoryPage history={history} />
+              <HistoryPage history={history} sevenDayTest={sevenDayTest} />
             )}
             {activeSection === "Analytics" && (
               <AnalyticsPage analytics={analytics} streaks={streaks} />
@@ -862,16 +1012,16 @@ function BottomNav({
   setActiveSection: Dispatch<SetStateAction<SectionId>>;
 }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070b14]/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl lg:hidden">
-      <div className="grid grid-cols-4 gap-1 min-[420px]:grid-cols-8">
-        {navItems.map((item) => {
+    <nav className="sunny-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070b14]/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl lg:hidden">
+      <div className="grid grid-cols-5 gap-1">
+        {mobileNavItems.map((item) => {
           const Icon = item.icon;
           const active = activeSection === item.id;
           return (
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id)}
-              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-bold ${
+              className={`sunny-bottom-nav-button flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-bold ${
                 active ? "bg-amber-300 text-slate-950" : "text-slate-400"
               }`}
             >
@@ -888,17 +1038,37 @@ function BottomNav({
 function CommandHeader({ stats, dayLevel, activeSection, todayKey }: { stats: Stats; dayLevel: string; activeSection: SectionId; todayKey: string }) {
   const pageTitle = navItems.find((item) => item.id === activeSection)?.label || "Dashboard";
   return (
-    <header className="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:rounded-[1.75rem] sm:p-6">
+    <header className="sunny-command-header rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:rounded-[1.75rem] sm:p-6">
       <div className="flex flex-col gap-4 sm:gap-5 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-amber-200">
+        <div className="flex min-w-0 items-start gap-3">
+          <ArtImage
+            src={artPaths.sunnyMascot}
+            alt="Sunny mascot"
+            className="hidden h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-amber-300/50 shadow-[0_0_34px_rgba(251,191,36,0.30)] sm:block"
+            fallback={<span className="sunny-face hidden shrink-0 sm:inline-flex" aria-hidden="true">☀</span>}
+          />
+          <div className="min-w-0">
+          <div className="sunny-date-row flex flex-wrap items-center gap-2 text-sm font-bold text-amber-200">
+            <ArtImage
+              src={artPaths.sunnyMascot}
+              alt="Sunny mascot"
+              className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-amber-300/50 shadow-[0_0_30px_rgba(251,191,36,0.25)] sm:hidden"
+              fallback={<span className="sunny-face shrink-0 sm:hidden" aria-hidden="true">☀</span>}
+            />
             <CalendarDays size={17} />
             {formatLongDate(parseDateKey(todayKey))}
           </div>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:mt-3 sm:text-5xl">{pageTitle}</h2>
+          <h2 className="sunny-page-title mt-2 text-2xl font-black tracking-tight text-white sm:mt-3 sm:text-5xl">{pageTitle}</h2>
           <p className="mt-1 text-sm text-slate-400 sm:mt-2 sm:text-lg">Personal life command center for today's missions.</p>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:min-w-[360px]">
+        <div className="grid gap-3 sm:min-w-[360px] sm:grid-cols-[auto_1fr_1fr]">
+          <ArtImage
+            src={artPaths.avatar}
+            alt="User avatar"
+            className="hidden h-20 w-20 rounded-full border border-amber-300/35 object-cover shadow-[0_0_30px_rgba(251,191,36,0.18)] sm:block"
+            fallback={<div className="hidden h-20 w-20 items-center justify-center rounded-full border border-amber-300/35 bg-black/30 text-2xl font-black text-amber-100 sm:flex">K</div>}
+          />
           <HeaderPill label="Day Level" value={dayLevel} icon={Sparkles} />
           <HeaderPill label="KPM Score" value={stats.points} icon={Trophy} />
         </div>
@@ -968,6 +1138,132 @@ function ModeSelector({ value, onChange }: { value: DailyMode; onChange: (mode: 
   );
 }
 
+function OnboardingScreen({ completeOnboarding }: { completeOnboarding: (settings: Required<Pick<SettingsState, "scheduleVersion" | "defaultDailyMode" | "mainLifeFocus">>) => void }) {
+  const [scheduleVersion, setScheduleVersion] = useState<"5:30" | "5:00">("5:30");
+  const [defaultDailyMode, setDefaultDailyMode] = useState<DailyMode>("Full Day");
+  const [mainLifeFocus, setMainLifeFocus] = useState<MainLifeFocus>("Stability");
+
+  return (
+    <div className="min-h-screen overflow-x-hidden bg-[#05070d] px-4 py-6 text-slate-100 sm:px-6">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(245,158,11,0.18),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.13),transparent_24%),linear-gradient(135deg,#05070d_0%,#09111f_48%,#02030a_100%)]" />
+      <main className="relative mx-auto grid min-h-[calc(100vh-3rem)] max-w-5xl place-items-center">
+        <Panel>
+          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <div>
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-orange-500 text-slate-950 shadow-[0_0_40px_rgba(245,158,11,0.24)]">
+                <Sun size={30} />
+              </div>
+              <p className="mt-6 text-sm font-bold uppercase tracking-[0.22em] text-amber-200">Welcome</p>
+              <h1 className="mt-2 text-4xl font-black text-white sm:text-5xl">Welcome to KPM Sunny Daily OS</h1>
+              <p className="mt-4 text-base leading-7 text-slate-300">Your personal daily mission board for body, mind, money, skill, and life control.</p>
+            </div>
+
+            <div className="grid gap-5">
+              <div>
+                <h2 className="text-lg font-black text-white">Default start time</h2>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {(["5:30", "5:00"] as const).map((option) => (
+                    <ChoiceCard key={option} active={scheduleVersion === option} title={`${option} AM`} body={option === "5:30" ? "Normal Sunny schedule." : "Move missions 30 minutes earlier."} onClick={() => setScheduleVersion(option)} />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-white">Default daily mode</h2>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {dailyModes.map((mode) => (
+                    <ChoiceCard key={mode} active={defaultDailyMode === mode} title={`${mode} Mode`} body={modeProfiles[mode].bestFor} onClick={() => setDefaultDailyMode(mode)} />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-lg font-black text-white">Main life focus</h2>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {mainLifeFocusOptions.map((focus) => (
+                    <ChoiceCard key={focus} active={mainLifeFocus === focus} title={focus} body={focus === "Stability" ? "Build a clean baseline first." : `Keep ${focus.toLowerCase()} visible this week.`} onClick={() => setMainLifeFocus(focus)} />
+                  ))}
+                </div>
+              </div>
+
+              <button onClick={() => completeOnboarding({ scheduleVersion, defaultDailyMode, mainLifeFocus })} className="primary-button min-h-14 justify-center text-base">
+                <Sparkles size={20} />
+                Start 7-Day Test
+              </button>
+            </div>
+          </div>
+        </Panel>
+      </main>
+    </div>
+  );
+}
+
+function ChoiceCard({ active, title, body, onClick }: { active: boolean; title: string; body: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border p-4 text-left transition ${
+        active ? "border-amber-300/70 bg-amber-300/[0.14] shadow-[0_0_34px_rgba(245,158,11,0.14)]" : "border-white/10 bg-white/[0.04] hover:border-amber-300/30 hover:bg-white/[0.07]"
+      }`}
+    >
+      <p className="font-black text-white">{title}</p>
+      <p className="mt-1 text-sm leading-6 text-slate-400">{body}</p>
+    </button>
+  );
+}
+
+function ArtImage({ src, alt, className, fallback }: { src: string; alt: string; className?: string; fallback?: ReactNode }) {
+  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
+
+  if (status === "error") return fallback ? <>{fallback}</> : null;
+
+  return (
+    <>
+      {status !== "loaded" && fallback ? fallback : null}
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        loading="lazy"
+        decoding="async"
+        style={{ opacity: status === "loaded" ? undefined : 0 }}
+        onLoad={() => setStatus("loaded")}
+        onError={() => setStatus("error")}
+      />
+    </>
+  );
+}
+
+function MissionArtPanel({
+  imageSrc,
+  title,
+  eyebrow,
+  children,
+  className = "",
+  minHeight = "min-h-[11rem]"
+}: {
+  imageSrc: string;
+  title?: string;
+  eyebrow?: string;
+  children?: ReactNode;
+  className?: string;
+  minHeight?: string;
+}) {
+  return (
+    <div className={`manhwa-art-panel relative isolate w-full max-w-full overflow-hidden rounded-[1.35rem] border border-amber-300/30 bg-[#06101f] ${minHeight} ${className}`}>
+      <ArtImage src={imageSrc} alt={title ?? "KPM Sunny artwork"} className="mission-art-image absolute inset-0 h-full w-full object-cover opacity-85" />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,14,0.97),rgba(2,6,14,0.72)_46%,rgba(2,6,14,0.30)),linear-gradient(0deg,rgba(2,6,14,0.88),transparent_58%),radial-gradient(circle_at_12%_18%,rgba(251,191,36,0.34),transparent_32%),radial-gradient(circle_at_90%_80%,rgba(45,212,191,0.22),transparent_34%)]" />
+      <div className="absolute inset-0 opacity-70 [background-image:linear-gradient(135deg,rgba(255,255,255,0.06)_0_1px,transparent_1px_18px)]" />
+      <div className="mission-art-content relative z-10 flex h-full min-h-full flex-col justify-end p-4 sm:p-5">
+        {eyebrow ? <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-200">{eyebrow}</p> : null}
+        {title ? <h3 className="mt-1 font-serif text-2xl font-black leading-tight text-amber-100 sm:text-3xl">{title}</h3> : null}
+        {children ? <div className="mt-3">{children}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({
   stats,
   dayLevel,
@@ -979,6 +1275,9 @@ function Dashboard({
   selectedTodayMode,
   setSelectedTodayMode,
   generateTodayByMode,
+  startDay,
+  updateMainMissionTitle,
+  sevenDayTest,
   setActiveSection
 }: {
   stats: Stats;
@@ -990,11 +1289,24 @@ function Dashboard({
   todayMode: DailyMode;
   selectedTodayMode: DailyMode;
   setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
-  generateTodayByMode: (mode?: DailyMode) => void;
+  generateTodayByMode: (mode?: DailyMode) => boolean;
+  startDay: (mode: DailyMode, mainMissionTitle: string) => void;
+  updateMainMissionTitle: (title: string) => void;
+  sevenDayTest: SevenDayTestSummary;
   setActiveSection: Dispatch<SetStateAction<SectionId>>;
 }) {
   return (
-    <section className="grid gap-5">
+    <section className="sunny-dashboard grid gap-5">
+      <DailyStartFlow
+        selectedTodayMode={selectedTodayMode}
+        setSelectedTodayMode={setSelectedTodayMode}
+        mainMission={mainMission}
+        startDay={startDay}
+        updateMainMissionTitle={updateMainMissionTitle}
+        openToday={() => setActiveSection("Today Task List")}
+      />
+      <SevenDayProgress summary={sevenDayTest} />
+
       <Panel>
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -1036,6 +1348,16 @@ function Dashboard({
               Open Missions <ChevronRight size={18} />
             </button>
           </div>
+          <MissionArtPanel imageSrc={artPaths.heroWorking} eyebrow="Today's Main Mission" title={mainMission?.title ?? "Choose one mission"} className="mt-5" minHeight="min-h-[13rem]">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="gold">{mainMission?.time ?? "Set time"}</Badge>
+              <Badge tone={mainMission?.category ?? "gold"}>{mainMission?.category ?? "Plan"}</Badge>
+              <Badge tone="dark">{stats.completed}/{tasks.length} missions clear</Badge>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/15">
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-teal-300" style={{ width: `${Math.round((stats.completed / Math.max(tasks.length, 1)) * 100)}%` }} />
+            </div>
+          </MissionArtPanel>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <MissionPreview label="Main Mission" task={mainMission} />
             <MissionPreview label="Next Mission" task={nextTask} />
@@ -1057,6 +1379,128 @@ function Dashboard({
         </Panel>
       </div>
     </section>
+  );
+}
+
+function DailyStartFlow({
+  selectedTodayMode,
+  setSelectedTodayMode,
+  mainMission,
+  startDay,
+  updateMainMissionTitle,
+  openToday
+}: {
+  selectedTodayMode: DailyMode;
+  setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
+  mainMission?: Task;
+  startDay: (mode: DailyMode, mainMissionTitle: string) => void;
+  updateMainMissionTitle: (title: string) => void;
+  openToday: () => void;
+}) {
+  const [mainMissionTitle, setMainMissionTitle] = useState(mainMission?.title ?? "");
+
+  useEffect(() => {
+    setMainMissionTitle(mainMission?.title ?? "");
+  }, [mainMission?.id, mainMission?.title]);
+
+  return (
+    <Panel className="sunny-start-panel">
+      <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">Morning Start</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Start today in 4 steps</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Choose the mode, confirm the main mission, generate missions, then start the day.</p>
+        </div>
+        <div className="grid gap-4">
+          <div>
+            <p className="mb-2 text-sm font-black text-white">1. Choose today&apos;s mode</p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {dailyModes.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setSelectedTodayMode(mode)}
+                  className={`min-h-11 shrink-0 rounded-2xl px-4 text-sm font-black ${selectedTodayMode === mode ? "bg-amber-300 text-slate-950" : "bg-white/[0.06] text-slate-300"}`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Field label="2. Confirm or edit today's main mission">
+            <input
+              value={mainMissionTitle}
+              onChange={(event) => setMainMissionTitle(event.target.value)}
+              onBlur={() => updateMainMissionTitle(mainMissionTitle)}
+              className="form-control"
+              placeholder="One mission that matters today"
+            />
+          </Field>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button onClick={() => startDay(selectedTodayMode, mainMissionTitle)} className="primary-button min-h-14 justify-center">
+              <Sparkles size={19} />
+              3. Generate Today's Missions
+            </button>
+            <button type="button" onClick={() => updateMainMissionTitle(mainMissionTitle)} className="secondary-button min-h-14 justify-center">
+              <Check size={18} />
+              Save Main Mission
+            </button>
+            <button type="button" onClick={openToday} className="secondary-button min-h-14 justify-center sm:col-span-2">
+              <ChevronRight size={18} />
+              4. Start the Day
+            </button>
+          </div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function SevenDayProgress({ summary }: { summary: SevenDayTestSummary }) {
+  const bestLabel = summary.bestDay ? `${summary.bestDay.date} · ${summary.bestDay.score} KPM` : "No completed day yet";
+
+  return (
+    <Panel className="sunny-seven-panel">
+      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">7-Day Test Progress</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Day {summary.currentDay} / 7</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{summary.completedDays} / 7 review days completed since {summary.startDate}.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[520px]">
+          <MiniMetric label="Best day so far" value={bestLabel} />
+          <MiniMetric label="Average score" value={summary.averageScore} />
+          <MiniMetric label="Main mission rate" value={`${summary.mainMissionCompletionRate}%`} />
+        </div>
+      </div>
+      <SevenDayTracker days={summary.days} compact />
+    </Panel>
+  );
+}
+
+function SevenDayTracker({ days, compact = false }: { days: SevenDayTestDay[]; compact?: boolean }) {
+  return (
+    <div className={`grid gap-3 ${compact ? "md:grid-cols-2 xl:grid-cols-7" : "lg:grid-cols-2"}`}>
+      {days.map((day) => (
+        <div key={day.date} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-200">Day {day.dayNumber}</p>
+              <p className="mt-1 font-black text-white">{day.date}</p>
+            </div>
+            <Badge tone={day.reviewCompleted ? "gold" : "dark"}>{day.reviewCompleted ? "Reviewed" : "Open"}</Badge>
+          </div>
+          <div className="mt-3 grid gap-2 text-sm">
+            <SummaryRow label="KPM Score" value={`${day.score}`} />
+            <SummaryRow label="Day level" value={day.dayLevel} />
+            <SummaryRow label="Main mission" value={day.mainMissionCompleted ? "Yes" : "No"} />
+            <SummaryRow label="Review" value={day.reviewCompleted ? "Yes" : "No"} />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1102,7 +1546,7 @@ function TaskList({
   }
 
   return (
-    <section className="grid gap-5">
+    <section className="sunny-today-board grid gap-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">Daily Mission Board</p>
@@ -1436,7 +1880,7 @@ function MissionSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl sm:p-5">
+    <section className="sunny-mission-section rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl sm:p-5">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h3 className="text-2xl font-black text-white">{block.name}</h3>
@@ -1447,6 +1891,9 @@ function MissionSection({
           <Badge tone="dark">{done}/{total} clear</Badge>
         </div>
       </div>
+      <MissionArtPanel imageSrc={artPaths.block[block.name]} title={block.name} eyebrow={`${done} / ${total} clear`} className="mb-4" minHeight="min-h-[8.5rem]">
+        <p className="max-w-[18rem] text-sm leading-6 text-slate-200">{block.description}</p>
+      </MissionArtPanel>
       <div className="grid gap-3">{children}</div>
     </section>
   );
@@ -1472,7 +1919,7 @@ function TaskCard({
         : "border-white/10 bg-[#0b1220]/80";
 
   return (
-    <article className={`rounded-2xl border p-4 transition ${statusClass}`}>
+    <article className={`sunny-task-card rounded-2xl border p-4 transition ${statusClass}`}>
       <div className="grid gap-4 sm:grid-cols-[auto_1fr_auto] sm:items-start">
         <button
           aria-label="Mark complete"
@@ -1533,6 +1980,10 @@ function PlanTomorrow({
   tomorrowMode,
   selectTomorrowMode,
   findBestTimeSlot,
+  missionPreview,
+  updateMissionPreviewAction,
+  applyMissionPreview,
+  cancelMissionPreview,
   tomorrowTasks
 }: {
   plan: Plan;
@@ -1540,18 +1991,27 @@ function PlanTomorrow({
   tomorrowMode: DailyMode;
   selectTomorrowMode: (mode: DailyMode) => void;
   findBestTimeSlot: () => void;
+  missionPreview: MissionPlanPreviewItem[];
+  updateMissionPreviewAction: (id: string, action: ConflictAction) => void;
+  applyMissionPreview: () => void;
+  cancelMissionPreview: () => void;
   tomorrowTasks: Task[];
 }) {
   const plannedGoals = tomorrowTasks.filter((task) => task.insertedGoal);
+  const previewConflictCount = missionPreview.filter((item) => item.hasConflict).length;
 
   return (
-    <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-      <Panel>
+    <section className="sunny-plan-page grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <Panel className="sunny-plan-form">
         <div className="mb-5">
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">Plan Tomorrow</p>
           <h2 className="mt-2 text-3xl font-black text-white">Tomorrow's Main Mission</h2>
           <p className="mt-2 text-base text-slate-400">Choose the mission your future self will thank you for.</p>
         </div>
+
+        <MissionArtPanel imageSrc={artPaths.heroWorking} eyebrow="Tomorrow Focus" title={plan.title || "Choose the mission"} className="mb-5" minHeight="min-h-[12rem]">
+          <p className="max-w-sm text-sm leading-6 text-slate-200">{plan.why || "Your future self needs one clear target."}</p>
+        </MissionArtPanel>
 
         <div className="grid gap-4">
           <div>
@@ -1587,6 +2047,30 @@ function PlanTomorrow({
             <SelectField label="Priority" value={plan.priority} options={priorities} onChange={(priority) => setPlan({ ...plan, priority: priority as Priority })} />
             <SelectField label="Energy needed" value={plan.energy} options={["Low", "Medium", "High"]} onChange={(energy) => setPlan({ ...plan, energy: energy as Energy })} />
           </div>
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-black text-white">Is this a big goal?</p>
+                <p className="mt-1 text-sm leading-6 text-slate-400">Big goals are broken into smaller scheduled missions.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:min-w-48">
+                <button
+                  type="button"
+                  onClick={() => setPlan({ ...plan, isBigGoal: true })}
+                  className={`min-h-11 rounded-2xl px-4 text-sm font-black ${plan.isBigGoal ? "bg-amber-300 text-slate-950" : "bg-white/[0.06] text-slate-300"}`}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlan({ ...plan, isBigGoal: false })}
+                  className={`min-h-11 rounded-2xl px-4 text-sm font-black ${!plan.isBigGoal ? "bg-amber-300 text-slate-950" : "bg-white/[0.06] text-slate-300"}`}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+          </div>
           <button onClick={findBestTimeSlot} className="primary-button min-h-14 justify-center text-base">
             <Target size={20} />
             Find Best Time Slot
@@ -1598,14 +2082,77 @@ function PlanTomorrow({
               {plannedGoals.length > 1 && <p className="mt-1 text-sm text-emerald-100">Long mission split into {plannedGoals.length} focused blocks.</p>}
             </div>
           )}
+
+          {missionPreview.length > 0 && (
+            <div className="rounded-2xl border border-amber-300/30 bg-amber-300/[0.08] p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">Tomorrow Mission Plan Preview</p>
+                  <h3 className="mt-2 text-2xl font-black text-white">{missionPreview.length} mission{missionPreview.length === 1 ? "" : "s"} ready</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">
+                    {previewConflictCount ? `${previewConflictCount} time conflict${previewConflictCount === 1 ? "" : "s"} need a choice.` : "No time conflicts detected."}
+                  </p>
+                </div>
+                <Badge tone={previewConflictCount ? "orange" : "green"}>{previewConflictCount ? "Conflict Check" : "Clean Plan"}</Badge>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {missionPreview.map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-white/10 bg-black/24 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-black text-amber-200">{item.time}</p>
+                        <p className="font-black text-white">{item.title}</p>
+                        {item.hasConflict ? (
+                          <p className="mt-1 text-sm leading-6 text-orange-200">Conflict: {item.conflictTaskTitle}</p>
+                        ) : (
+                          <p className="mt-1 text-sm leading-6 text-emerald-200">Open slot</p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge tone={item.category}>{item.category}</Badge>
+                        <Badge tone="dark">{item.priority}-Tier</Badge>
+                        <Badge tone="gold">{item.points} KPM</Badge>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                      <p className="text-sm leading-6 text-slate-400">
+                        {describePreviewAction(item)}
+                      </p>
+                      {item.hasConflict ? (
+                        <select
+                          value={item.action}
+                          onChange={(event) => updateMissionPreviewAction(item.id, event.target.value as ConflictAction)}
+                          className="form-control min-h-11 py-2 text-sm"
+                        >
+                          <option value="move-next">Move to next best slot</option>
+                          <option value="add-after">Add after existing task</option>
+                          <option value="replace">Replace existing task</option>
+                          <option value="bonus">Add as bonus mission</option>
+                          <option value="skip">Skip this generated mission</option>
+                        </select>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <button type="button" onClick={applyMissionPreview} className="primary-button justify-center">Apply to Tomorrow</button>
+                <button type="button" onClick={() => setPlan({ ...plan, suggested: "Edit the plan, then run Find Best Time Slot again." })} className="secondary-button justify-center">Edit Plan</button>
+                <button type="button" onClick={cancelMissionPreview} className="secondary-button justify-center">Cancel</button>
+              </div>
+            </div>
+          )}
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className="sunny-plan-timeline">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-2xl font-black text-white">Tomorrow Mission Timeline</h3>
           <Badge tone="gold">{tomorrowMode} Mode</Badge>
         </div>
+        <MissionArtPanel imageSrc={artPaths.block["Main Mission Block"]} eyebrow="Suggested time slot" title={plan.scheduledAt || "Find the best slot"} className="mt-5" minHeight="min-h-[10rem]">
+          <p className="text-sm leading-6 text-slate-200">{plan.scheduledAt ? "The main mission is placed into tomorrow's timeline." : "Use the planner to place the mission into the day."}</p>
+        </MissionArtPanel>
         {plannedGoals.length === 0 ? (
           <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
             <p className="text-lg font-black text-white">No tomorrow main mission yet.</p>
@@ -1657,7 +2204,8 @@ function EveningReview({
   const categoryStats = getCategoryStatsFromTasks(tasks);
   const bestCategory = topCategoryByPercent(categoryStats, "best");
   const weakestCategory = topCategoryByPercent(categoryStats, "weakest");
-  const showSummary = Boolean(review.savedAt);
+  const savedReview = normalizeReview(review);
+  const showSummary = Boolean(savedReview.savedAt);
 
   function saveReview() {
     setReview({ ...review, savedAt: new Date().toISOString() });
@@ -1676,20 +2224,44 @@ function EveningReview({
         </div>
 
         <div className="grid gap-4">
-          <Field label="What did I complete today?">
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-black text-white">Did I complete my main mission?</p>
+                <p className="mt-1 text-sm text-slate-400">{mainMission?.title ?? "No main mission set"}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Yes", value: true },
+                  { label: "No", value: false }
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setReview({ ...review, mainMissionCompleted: option.value, savedAt: undefined })}
+                    className={`min-h-11 rounded-2xl px-5 text-sm font-black ${savedReview.mainMissionCompleted === option.value ? "bg-amber-300 text-slate-950" : "bg-white/[0.06] text-slate-300"}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <Field label="What went well?">
             <textarea value={review.wins} onChange={(event) => setReview({ ...review, wins: event.target.value, savedAt: undefined })} className="form-control min-h-28" />
           </Field>
-          <Field label="What blocked me today?">
+          <Field label="What blocked me?">
             <textarea value={review.stuck} onChange={(event) => setReview({ ...review, stuck: event.target.value, savedAt: undefined })} className="form-control min-h-24" />
           </Field>
-          <Field label="What did I learn today?">
-            <textarea value={review.learned} onChange={(event) => setReview({ ...review, learned: event.target.value, savedAt: undefined })} className="form-control min-h-24" />
-          </Field>
-          <Field label="What should I improve tomorrow?">
+          <Field label="What should tomorrow focus on?">
             <textarea value={review.improve} onChange={(event) => setReview({ ...review, improve: event.target.value, savedAt: undefined })} className="form-control min-h-24" />
           </Field>
           <Field label="What is tomorrow's main mission?">
             <input value={review.tomorrowMainMission} onChange={(event) => setReview({ ...review, tomorrowMainMission: event.target.value, savedAt: undefined })} className="form-control" placeholder="One mission that matters most" />
+          </Field>
+          <Field label="What felt annoying or missing in the app today?">
+            <textarea value={review.appFeedback ?? ""} onChange={(event) => setReview({ ...review, appFeedback: event.target.value, savedAt: undefined })} className="form-control min-h-24" placeholder="Tiny friction, confusing wording, missing shortcut, anything." />
           </Field>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -1715,10 +2287,11 @@ function EveningReview({
               <SummaryRow label="KPM Score" value={`${stats.points}`} />
               <SummaryRow label="Day Result Level" value={dayLevel} />
               <SummaryRow label="Missions Cleared" value={`${stats.completed}/${tasks.length}`} />
-              <SummaryRow label="Main Mission completed" value={mainMission?.completed ? "Yes" : "No"} />
+              <SummaryRow label="Main Mission completed" value={savedReview.mainMissionCompleted ? "Yes" : "No"} />
               <SummaryRow label="Best category" value={bestCategory} />
               <SummaryRow label="Weakest category" value={weakestCategory} />
               <SummaryRow label="Tomorrow's Main Mission" value={review.tomorrowMainMission || "Not set"} />
+              <SummaryRow label="App feedback" value={review.appFeedback || "None"} />
             </div>
           </Panel>
         ) : (
@@ -1775,7 +2348,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function HistoryPage({ history }: { history: HistoryEntry[] }) {
+function HistoryPage({ history, sevenDayTest }: { history: HistoryEntry[]; sevenDayTest: SevenDayTestSummary }) {
   const recent = [...history].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
   const [openDate, setOpenDate] = useState<string | null>(null);
 
@@ -1785,6 +2358,17 @@ function HistoryPage({ history }: { history: HistoryEntry[] }) {
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">Daily Archive</p>
         <h2 className="mt-2 text-3xl font-black text-white">History</h2>
       </div>
+
+      <Panel>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">7-Day Test Tracker</p>
+            <h3 className="mt-2 text-2xl font-black text-white">Day {sevenDayTest.currentDay} / 7</h3>
+          </div>
+          <Badge tone="gold">{sevenDayTest.completedDays}/7 reviews saved</Badge>
+        </div>
+        <SevenDayTracker days={sevenDayTest.days} />
+      </Panel>
 
       {recent.length === 0 ? (
         <Panel>
@@ -1832,9 +2416,9 @@ function HistoryPage({ history }: { history: HistoryEntry[] }) {
                   <p className="font-black text-white">Evening Review</p>
                   <p className="mt-2 text-sm text-slate-300">Completed: {day.eveningReview.wins || "No answer"}</p>
                   <p className="mt-1 text-sm text-slate-300">Blocked: {day.eveningReview.stuck || "No answer"}</p>
-                  <p className="mt-1 text-sm text-slate-300">Learned: {day.eveningReview.learned || "No answer"}</p>
-                  <p className="mt-1 text-sm text-slate-300">Improve: {day.eveningReview.improve || "No answer"}</p>
+                  <p className="mt-1 text-sm text-slate-300">Tomorrow focus: {day.eveningReview.improve || "No answer"}</p>
                   <p className="mt-1 text-sm text-slate-300">Tomorrow: {day.eveningReview.tomorrowMainMission || "No answer"}</p>
+                  <p className="mt-1 text-sm text-slate-300">App feedback: {day.eveningReview.appFeedback || "No feedback"}</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-4">
                     <Badge tone="dark">Energy {day.eveningReview.energy}/10</Badge>
                     <Badge tone="dark">Mood {day.eveningReview.mood}/10</Badge>
@@ -2044,7 +2628,7 @@ function SettingsPanel({
   todayMode: DailyMode;
   selectedTodayMode: DailyMode;
   setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
-  generateTodayByMode: (mode?: DailyMode) => void;
+  generateTodayByMode: (mode?: DailyMode) => boolean;
 }) {
   const [importText, setImportText] = useState("");
   const [importStatus, setImportStatus] = useState("");
@@ -2221,9 +2805,9 @@ function RightPanel({
   );
 }
 
-function Panel({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
+function Panel({ children, compact = false, className = "" }: { children: ReactNode; compact?: boolean; className?: string }) {
   return (
-    <div className={`rounded-[1.5rem] border border-white/10 bg-white/[0.06] shadow-[0_22px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl ${compact ? "p-4" : "p-5 sm:p-6"}`}>
+    <div className={`sunny-panel rounded-[1.5rem] border border-white/10 bg-white/[0.06] shadow-[0_22px_60px_rgba(0,0,0,0.24)] backdrop-blur-xl ${compact ? "p-4" : "p-5 sm:p-6"} ${className}`}>
       {children}
     </div>
   );
@@ -2279,7 +2863,7 @@ function MiniMetric({ label, value }: { label: string; value: string | number })
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-black text-white">{value}</p>
+      <p className="mt-2 break-words text-2xl font-black text-white">{value}</p>
     </div>
   );
 }
@@ -2319,13 +2903,15 @@ function SelectField({ label, value, options, onChange }: { label: string; value
   );
 }
 
-function Badge({ children, tone = "dark" }: { children: ReactNode; tone?: Category | "gold" | "dark" }) {
-  const tones: Record<Category | "gold" | "dark", string> = {
+function Badge({ children, tone = "dark" }: { children: ReactNode; tone?: Category | "gold" | "dark" | "green" | "orange" }) {
+  const tones: Record<Category | "gold" | "dark" | "green" | "orange", string> = {
     Knowledge: "border-sky-300/25 bg-sky-400/10 text-sky-100",
     Plan: "border-amber-300/30 bg-amber-400/10 text-amber-100",
     Monitoring: "border-violet-300/25 bg-violet-400/10 text-violet-100",
     Sunny: "border-emerald-300/25 bg-emerald-400/10 text-emerald-100",
     gold: "border-amber-300/35 bg-amber-300/15 text-amber-100",
+    green: "border-emerald-300/30 bg-emerald-400/10 text-emerald-100",
+    orange: "border-orange-300/35 bg-orange-400/10 text-orange-100",
     dark: "border-white/10 bg-white/[0.06] text-slate-300"
   };
   return <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-black ${tones[tone]}`}>{children}</span>;
@@ -2351,6 +2937,7 @@ function writeStorage<T>(key: string, value: T) {
 function createHistoryEntry(date: string, dayTasks: Task[], dayReview: Review, mode: DailyMode = "Full Day"): HistoryEntry {
   const stats = getStats(dayTasks);
   const mainMission = getMainMissionForDay(dayTasks);
+  const review = normalizeReview(dayReview);
   return {
     date,
     mode,
@@ -2360,8 +2947,8 @@ function createHistoryEntry(date: string, dayTasks: Task[], dayReview: Review, m
     skippedMissions: dayTasks.filter((task) => task.skipped).length,
     totalMissions: dayTasks.length,
     mainMission: mainMission?.title ?? "No main mission",
-    mainMissionCompleted: Boolean(mainMission?.completed),
-    eveningReview: normalizeReview(dayReview),
+    mainMissionCompleted: review.mainMissionCompleted ?? Boolean(mainMission?.completed),
+    eveningReview: review,
     taskSummary: dayTasks.map((task) => ({
       id: task.id,
       time: task.time,
@@ -2382,6 +2969,48 @@ function upsertHistoryEntry(history: HistoryEntry[], entry: HistoryEntry): Histo
 
 function getMainMissionForDay(dayTasks: Task[]): Task | undefined {
   return dayTasks.find((task) => task.insertedGoal) || dayTasks.find((task) => task.priority === "S");
+}
+
+function applyMainMissionTitle(dayTasks: Task[], title?: string): Task[] {
+  const cleanTitle = title?.trim();
+  if (!cleanTitle) return dayTasks;
+  const mainMission = getMainMissionForDay(dayTasks);
+  if (!mainMission) return dayTasks;
+  return dayTasks.map((task) => (task.id === mainMission.id ? { ...task, title: cleanTitle } : task));
+}
+
+function createSevenDayTest(startDate: string, todayKey: string, days: HistoryEntry[]): SevenDayTestSummary {
+  const byDate = new Map(days.map((day) => [day.date, day]));
+  const start = /^\d{4}-\d{2}-\d{2}$/.test(startDate) ? startDate : todayKey;
+  const rows = Array.from({ length: 7 }, (_, index) => {
+    const date = getDateKey(addDays(parseDateKey(start), index));
+    const entry = byDate.get(date);
+    return {
+      dayNumber: index + 1,
+      date,
+      entry,
+      score: entry?.totalScore ?? 0,
+      dayLevel: entry?.dayLevel ?? "Not started",
+      mainMissionCompleted: Boolean(entry?.mainMissionCompleted),
+      reviewCompleted: Boolean(entry?.eveningReview?.savedAt)
+    };
+  });
+  const activeRows = rows.filter((row) => row.reviewCompleted || row.score > 0);
+  const completedDays = rows.filter((row) => row.reviewCompleted).length;
+  const bestDay = activeRows.reduce<SevenDayTestDay | undefined>((best, day) => (!best || day.score > best.score ? day : best), undefined);
+  const totalScore = activeRows.reduce((total, day) => total + day.score, 0);
+  const completedMainMissions = activeRows.filter((day) => day.mainMissionCompleted).length;
+  const currentDay = Math.min(7, Math.max(1, Math.floor((parseDateKey(todayKey).getTime() - parseDateKey(start).getTime()) / 86400000) + 1));
+
+  return {
+    startDate: start,
+    currentDay,
+    completedDays,
+    bestDay,
+    averageScore: activeRows.length ? Math.round(totalScore / activeRows.length) : 0,
+    mainMissionCompletionRate: activeRows.length ? Math.round((completedMainMissions / activeRows.length) * 100) : 0,
+    days: rows
+  };
 }
 
 function resetTaskStatuses(dayTasks: Task[]): Task[] {
@@ -2529,6 +3158,8 @@ function normalizeReview(review: Partial<Review>): Review {
     learned: review.learned ?? "",
     improve: review.improve ?? "",
     tomorrowMainMission: review.tomorrowMainMission ?? "",
+    mainMissionCompleted: Boolean(review.mainMissionCompleted),
+    appFeedback: review.appFeedback ?? "",
     energy: clampRating(review.energy),
     mood: clampRating(review.mood),
     focus: clampRating(review.focus),
@@ -2545,7 +3176,22 @@ function normalizePlan(plan: Partial<Plan>): Plan {
     timeNeeded: plan.timeNeeded && ["15 min", "30 min", "1 hour", "2 hours", "3 hours"].includes(plan.timeNeeded) ? plan.timeNeeded : defaultPlan.timeNeeded,
     priority: plan.priority && priorities.includes(plan.priority) ? plan.priority : defaultPlan.priority,
     energy: plan.energy && ["Low", "Medium", "High"].includes(plan.energy) ? plan.energy : defaultPlan.energy,
+    isBigGoal: Boolean(plan.isBigGoal),
     tomorrowMode: plan.tomorrowMode && dailyModes.includes(plan.tomorrowMode) ? plan.tomorrowMode : "Full Day"
+  };
+}
+
+function normalizeSettings(settings: Partial<SettingsState>): SettingsState {
+  const scheduleVersion = settings.scheduleVersion === "5:00" ? "5:00" : "5:30";
+  const defaultDailyMode = settings.defaultDailyMode && dailyModes.includes(settings.defaultDailyMode) ? settings.defaultDailyMode : "Full Day";
+  const mainLifeFocus = settings.mainLifeFocus && mainLifeFocusOptions.includes(settings.mainLifeFocus) ? settings.mainLifeFocus : "Stability";
+  const sevenDayTestStartDate = settings.sevenDayTestStartDate && /^\d{4}-\d{2}-\d{2}$/.test(settings.sevenDayTestStartDate) ? settings.sevenDayTestStartDate : undefined;
+  return {
+    scheduleVersion,
+    onboardingComplete: Boolean(settings.onboardingComplete),
+    defaultDailyMode,
+    mainLifeFocus,
+    sevenDayTestStartDate
   };
 }
 
@@ -2800,41 +3446,167 @@ function mergeSchedule(current: Task[], fresh: Task[]): Task[] {
 function chooseSlots(plan: Plan): string[] {
   const category = plan.goalCategory.toLowerCase();
   const title = plan.title.toLowerCase();
-  let slots = ["8:00 AM", "10:15 AM"];
+  let slots = smartSlotsByCategory.Money;
 
-  if (category === "skill" || title.includes("learn") || title.includes("practice")) slots = ["1:30 PM", "7:30 PM", "10:15 AM"];
-  if (category === "health" || title.includes("exercise") || title.includes("walk")) slots = ["3:00 PM", "3:45 PM"];
-  if (category === "cleaning" || title.includes("clean")) slots = ["4:15 PM", "7:00 PM"];
-  if (category === "admin" || title.includes("message") || title.includes("email")) slots = ["4:30 PM", "7:15 PM"];
-  if (category === "personal" || title.includes("planning") || title.includes("reading") || title.includes("review")) slots = ["7:30 PM", "9:00 PM"];
-  if (category === "fun" || title.includes("hobby") || title.includes("game")) slots = ["5:00 PM", "8:30 PM"];
-  if (category === "money" || title.includes("money") || title.includes("work") || title.includes("job") || title.includes("business") || title.includes("project")) slots = ["8:00 AM", "10:15 AM"];
+  if (category === "skill" || title.includes("learn") || title.includes("practice") || title.includes("study")) slots = smartSlotsByCategory.Skill;
+  if (category === "health" || title.includes("exercise") || title.includes("walk")) slots = smartSlotsByCategory.Health;
+  if (category === "cleaning" || title.includes("clean") || title.includes("room")) slots = smartSlotsByCategory.Cleaning;
+  if (category === "admin" || title.includes("message") || title.includes("email")) slots = smartSlotsByCategory.Admin;
+  if (category === "personal" || title.includes("planning") || title.includes("reading") || title.includes("review")) slots = smartSlotsByCategory.Personal;
+  if (category === "fun" || title.includes("hobby") || title.includes("game")) slots = smartSlotsByCategory.Fun;
+  if (category === "money" || title.includes("money") || title.includes("work") || title.includes("job") || title.includes("business") || title.includes("project")) slots = smartSlotsByCategory.Money;
   if (plan.priority === "S") slots = [...slots].sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
 
   return slots;
 }
 
-function splitGoal(title: string, plan: Plan, slots: string[]): Task[] {
-  const minutes = timeNeededToMinutes(plan.timeNeeded);
-  const parts = minutes > 60 ? Math.ceil(minutes / 60) : 1;
-  const points = plan.priority === "S" ? 40 : plan.priority === "A" ? 30 : plan.priority === "B" ? 20 : 10;
+const smartSlotsByCategory: Record<GoalCategory, string[]> = {
+  Money: ["8:00 AM", "10:15 AM", "1:30 PM"],
+  Skill: ["8:00 AM", "1:30 PM", "7:30 PM"],
+  Health: ["6:05 AM", "3:00 PM", "9:30 PM"],
+  Cleaning: ["7:30 AM", "4:15 PM", "9:00 PM"],
+  Admin: ["4:30 PM", "7:15 PM"],
+  Personal: ["7:45 AM", "7:30 PM", "10:15 PM"],
+  Fun: ["5:00 PM", "8:30 PM"]
+};
 
-  return Array.from({ length: parts }, (_, index) => {
+const categoryBreakdownTemplates: Record<GoalCategory, string[]> = {
+  Money: ["Check opportunities", "Choose best option", "Prepare materials", "Do main money task", "Record result"],
+  Skill: ["Review old lesson", "Learn new concept", "Practice", "Test yourself", "Write lesson learned"],
+  Health: ["Water", "Light movement", "Meal check", "Walk/sunlight", "Sleep preparation"],
+  Cleaning: ["Trash", "Desk", "Clothes", "Floor", "Bed", "Supplies"],
+  Admin: ["Check messages", "Check bills", "Organize notes", "Finish important admin task", "Record follow-up"],
+  Personal: ["Clarify goal", "Do one meaningful action", "Reflect", "Plan next step"],
+  Fun: ["Choose fun activity", "Set time limit", "Enjoy without guilt", "Stop on time"]
+};
+
+const titleBreakdownTemplates: Array<{ keywords: string[]; steps: string[] }> = [
+  {
+    keywords: ["apply for job", "apply for jobs", "job application", "jobs"],
+    steps: ["Check job sites", "Pick 3 suitable jobs", "Edit resume/CV", "Apply to first job", "Apply to second job", "Apply to third job", "Record applications"]
+  },
+  {
+    keywords: ["clean my room", "clean room", "room"],
+    steps: ["Throw trash", "Clear desk", "Organize clothes", "Sweep or clean floor", "Reset bed", "Put important items in place"]
+  },
+  {
+    keywords: ["study coding", "coding", "learn code", "programming"],
+    steps: ["Review previous lesson", "Watch or read lesson", "Code practice", "Fix one bug", "Write what I learned"]
+  },
+  {
+    keywords: ["build app", "app", "mvp"],
+    steps: ["Open project", "Choose one feature", "Code first version", "Test feature", "Fix bugs", "Write next step"]
+  }
+];
+
+function buildMissionPlanPreview(title: string, plan: Plan, tomorrowTasks: Task[]): MissionPlanPreviewItem[] {
+  const slots = chooseSlots(plan);
+  const steps = getGoalBreakdownSteps(title, plan);
+  const points = getMissionPoints(plan.priority);
+
+  return steps.map((stepTitle, index) => {
     const time = slots[index % slots.length];
+    const conflict = tomorrowTasks.find((task) => task.time === time && !task.insertedGoal);
     return {
-      id: `goal-${Date.now()}-${index}`,
+      id: `preview-${Date.now()}-${index}`,
+      title: stepTitle,
       time,
-      title: parts > 1 ? `${title} (${index + 1}/${parts})` : title,
+      originalTime: time,
       category: mapGoalCategory(plan.goalCategory),
+      goalCategory: plan.goalCategory,
       priority: plan.priority,
       points,
-      completed: false,
-      skipped: false,
-      notes: plan.why ? `Why: ${plan.why} / Energy: ${plan.energy}` : `Energy: ${plan.energy}`,
-      insertedGoal: true,
-      block: getTaskBlock(time)
+      notes: buildMissionNote(title, plan, index + 1, steps.length),
+      hasConflict: Boolean(conflict),
+      conflictTaskId: conflict?.id,
+      conflictTaskTitle: conflict?.title,
+      action: conflict ? "move-next" : "bonus"
     };
   });
+}
+
+function getGoalBreakdownSteps(title: string, plan: Plan): string[] {
+  if (!plan.isBigGoal) return [title];
+  const cleanTitle = title.toLowerCase();
+  const titleTemplate = titleBreakdownTemplates.find((template) => template.keywords.some((keyword) => cleanTitle.includes(keyword)));
+  return titleTemplate?.steps ?? categoryBreakdownTemplates[plan.goalCategory];
+}
+
+function applyMissionPlanPreview(currentTasks: Task[], preview: MissionPlanPreviewItem[]): Task[] {
+  let nextTasks = currentTasks.filter((task) => !task.insertedGoal);
+
+  preview.forEach((item) => {
+    if (item.action === "skip") return;
+    if (item.action === "replace" && item.conflictTaskId) {
+      nextTasks = nextTasks.filter((task) => task.id !== item.conflictTaskId);
+    }
+
+    const time =
+      item.action === "add-after"
+        ? findOpenTimeAfter(item.originalTime, nextTasks)
+        : item.action === "move-next"
+          ? findNextBestOpenSlot(item, nextTasks)
+          : item.originalTime;
+
+    nextTasks.push(previewItemToTask(item, time, item.action === "bonus"));
+  });
+
+  return nextTasks.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+}
+
+function previewItemToTask(item: MissionPlanPreviewItem, time: string, bonus: boolean): Task {
+  return {
+    id: `goal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    time,
+    title: bonus && item.hasConflict ? `${item.title} (Bonus)` : item.title,
+    category: item.category,
+    priority: item.priority,
+    points: item.points,
+    completed: false,
+    skipped: false,
+    notes: `${item.notes}${bonus && item.hasConflict ? " / Added as bonus mission" : ""}`,
+    insertedGoal: true,
+    block: getTaskBlock(time)
+  };
+}
+
+function findNextBestOpenSlot(item: MissionPlanPreviewItem, tasks: Task[]): string {
+  const slots = smartSlotsByCategory[item.goalCategory];
+  const startIndex = Math.max(0, slots.indexOf(item.originalTime));
+  const ordered = [...slots.slice(startIndex + 1), ...slots.slice(0, startIndex + 1)];
+  return ordered.find((slot) => !tasks.some((task) => task.time === slot)) ?? findOpenTimeAfter(item.originalTime, tasks);
+}
+
+function findOpenTimeAfter(time: string, tasks: Task[]): string {
+  let minutes = timeToMinutes(time) + 15;
+  for (let attempts = 0; attempts < 12; attempts += 1) {
+    const candidate = minutesToTime(minutes);
+    if (!tasks.some((task) => task.time === candidate)) return candidate;
+    minutes += 15;
+  }
+  return minutesToTime(timeToMinutes(time) + 15);
+}
+
+function getMissionPoints(priority: Priority): number {
+  if (priority === "S") return 40;
+  if (priority === "A") return 30;
+  if (priority === "B") return 20;
+  return 10;
+}
+
+function buildMissionNote(parentGoal: string, plan: Plan, step: number, totalSteps: number): string {
+  const parts = [`Goal: ${parentGoal}`, `Step ${step}/${totalSteps}`, `Energy: ${plan.energy}`];
+  if (plan.why.trim()) parts.push(`Why: ${plan.why.trim()}`);
+  return parts.join(" / ");
+}
+
+function describePreviewAction(item: MissionPlanPreviewItem): string {
+  if (!item.hasConflict) return "This mission will be added to an open recommended slot.";
+  if (item.action === "replace") return "This will remove the existing task at this time and use the slot for this mission.";
+  if (item.action === "add-after") return "This will keep the existing task and place this mission shortly after it.";
+  if (item.action === "move-next") return "This will keep the existing task and move this mission to the next best open slot.";
+  if (item.action === "bonus") return "This will add the mission at the same time as a bonus mission.";
+  return "This generated mission will not be added.";
 }
 
 function mapGoalCategory(goalCategory: GoalCategory): Category {

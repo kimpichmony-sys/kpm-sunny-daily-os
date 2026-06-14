@@ -148,3 +148,271 @@ select option {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.manhwa-art-panel {
+  isolation: isolate;
+  max-width: 100%;
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.30),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    inset 0 0 42px rgba(251, 191, 36, 0.06);
+}
+
+.manhwa-art-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(251, 191, 36, 0.30), transparent 25%),
+    radial-gradient(circle at 86% 78%, rgba(45, 212, 191, 0.18), transparent 32%),
+    linear-gradient(135deg, #071426, #030712 58%, #01030a);
+}
+
+.manhwa-art-panel img {
+  filter: saturate(1.05) contrast(1.04);
+}
+
+.mission-art-image {
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mission-art-content {
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
+}
+
+@media (max-width: 767px) {
+  body {
+    background:
+      radial-gradient(circle at 50% -10%, rgba(252, 211, 77, 0.16), transparent 34%),
+      radial-gradient(circle at 92% 22%, rgba(45, 212, 191, 0.11), transparent 30%),
+      linear-gradient(180deg, #06101f 0%, #030712 52%, #02040a 100%);
+  }
+
+  .sunny-mobile-shell {
+    background:
+      radial-gradient(circle at 25% 4%, rgba(251, 191, 36, 0.20), transparent 22%),
+      radial-gradient(circle at 95% 16%, rgba(45, 212, 191, 0.14), transparent 24%),
+      linear-gradient(180deg, #071426 0%, #040916 46%, #01030a 100%);
+  }
+
+  .sunny-main {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: clip;
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+    padding-top: calc(0.8rem + env(safe-area-inset-top));
+    padding-bottom: calc(6.8rem + env(safe-area-inset-bottom));
+  }
+
+  .sunny-main > *,
+  .sunny-panel,
+  .sunny-mission-section,
+  .sunny-start-panel,
+  .sunny-plan-form,
+  .sunny-plan-timeline,
+  .form-control,
+  .primary-button,
+  .secondary-button,
+  .danger-button {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .sunny-panel,
+  .sunny-mission-section {
+    width: 100%;
+    overflow-x: clip;
+  }
+
+  .sunny-panel > *,
+  .sunny-mission-section > *,
+  .sunny-start-panel > *,
+  .sunny-plan-form > *,
+  .sunny-plan-timeline > * {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .sunny-panel input,
+  .sunny-panel textarea,
+  .sunny-panel select,
+  .sunny-panel button,
+  .sunny-mission-section button {
+    max-width: 100%;
+  }
+
+  .manhwa-art-panel {
+    border-radius: 1.15rem;
+  }
+
+  .mission-art-image {
+    object-position: 58% center;
+  }
+
+  .sunny-command-header {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(251, 191, 36, 0.28);
+    background:
+      linear-gradient(135deg, rgba(8, 16, 32, 0.96), rgba(4, 8, 17, 0.82)),
+      radial-gradient(circle at 18% 18%, rgba(251, 191, 36, 0.18), transparent 26%),
+      radial-gradient(circle at 88% 0%, rgba(45, 212, 191, 0.12), transparent 30%);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+  }
+
+  .sunny-command-header::after {
+    content: "";
+    position: absolute;
+    inset: auto -25% -45% 30%;
+    height: 8rem;
+    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.18), transparent);
+    transform: rotate(-8deg);
+    pointer-events: none;
+  }
+
+  .sunny-face {
+    display: inline-flex;
+    width: 3.2rem;
+    height: 3.2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid rgba(251, 191, 36, 0.55);
+    background: radial-gradient(circle at 35% 30%, #fff7c2, #facc15 48%, #b45309 100%);
+    color: #3b2105;
+    font-size: 1.9rem;
+    box-shadow: 0 0 34px rgba(251, 191, 36, 0.35);
+  }
+
+  .sunny-date-row svg {
+    display: none;
+  }
+
+  .sunny-page-title {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #fff4c2;
+    text-shadow: 0 0 22px rgba(251, 191, 36, 0.24);
+    letter-spacing: 0;
+  }
+
+  .sunny-panel,
+  .sunny-mission-section {
+    border-color: rgba(251, 191, 36, 0.22);
+    background:
+      linear-gradient(135deg, rgba(8, 15, 29, 0.94), rgba(3, 7, 18, 0.86)),
+      radial-gradient(circle at 100% 0%, rgba(45, 212, 191, 0.08), transparent 34%);
+    box-shadow: 0 20px 52px rgba(0, 0, 0, 0.32), inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+  }
+
+  .sunny-start-panel,
+  .sunny-plan-form {
+    border-color: rgba(251, 191, 36, 0.42);
+    background:
+      linear-gradient(135deg, rgba(18, 15, 8, 0.58), rgba(2, 6, 14, 0.94)),
+      radial-gradient(circle at 15% 0%, rgba(251, 191, 36, 0.20), transparent 30%);
+  }
+
+  .sunny-seven-panel {
+    background:
+      linear-gradient(135deg, rgba(7, 20, 38, 0.94), rgba(4, 8, 17, 0.90)),
+      radial-gradient(circle at 18% 10%, rgba(45, 212, 191, 0.12), transparent 28%);
+  }
+
+  .sunny-mission-section {
+    padding: 0.9rem;
+    border-radius: 1.3rem;
+  }
+
+  .sunny-mission-section h3,
+  .sunny-plan-page h2,
+  .sunny-dashboard h3,
+  .sunny-today-board h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #fde68a;
+    text-shadow: 0 0 18px rgba(251, 191, 36, 0.18);
+  }
+
+  .sunny-task-card {
+    position: relative;
+    overflow: hidden;
+    padding: 0.9rem;
+    border-radius: 1.15rem;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+  }
+
+  .sunny-task-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, rgba(251, 191, 36, 0.10), transparent 36%, rgba(45, 212, 191, 0.06));
+    opacity: 0.8;
+    pointer-events: none;
+  }
+
+  .sunny-task-card > * {
+    position: relative;
+  }
+
+  .sunny-plan-timeline {
+    border-color: rgba(45, 212, 191, 0.24);
+  }
+
+  .form-control {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(2, 6, 14, 0.72);
+    border-radius: 1rem;
+  }
+
+  .primary-button {
+    min-height: 3.25rem;
+    border-radius: 1rem;
+    background-image: linear-gradient(135deg, #fff2a3, #fbbf24 52%, #d97706);
+    box-shadow: 0 16px 34px rgba(251, 191, 36, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  }
+
+  .secondary-button {
+    min-height: 3.1rem;
+    border-color: rgba(251, 191, 36, 0.20);
+    background: rgba(8, 15, 29, 0.72);
+  }
+
+  .sunny-bottom-nav {
+    left: 0.85rem;
+    right: 0.85rem;
+    bottom: calc(0.55rem + env(safe-area-inset-bottom));
+    border: 1px solid rgba(251, 191, 36, 0.18);
+    border-radius: 1.45rem;
+    background:
+      linear-gradient(180deg, rgba(10, 20, 35, 0.96), rgba(3, 7, 18, 0.96)),
+      radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.10), transparent 40%);
+    box-shadow: 0 -12px 44px rgba(0, 0, 0, 0.42), 0 0 34px rgba(45, 212, 191, 0.08);
+    padding: 0.45rem;
+    backdrop-filter: blur(18px);
+  }
+
+  .sunny-bottom-nav-button {
+    min-height: 3.8rem;
+    border-radius: 1rem;
+    font-size: 0.68rem;
+  }
+
+  .sunny-bottom-nav-button.bg-amber-300 {
+    background: linear-gradient(180deg, #fde68a, #f59e0b);
+    box-shadow: 0 0 22px rgba(251, 191, 36, 0.38);
+  }
+
+  .sunny-bottom-nav-button svg {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  .sunny-dashboard,
+  .sunny-today-board,
+  .sunny-plan-page {
+    gap: 1rem;
+  }
+}
