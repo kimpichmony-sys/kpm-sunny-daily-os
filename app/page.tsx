@@ -124,6 +124,7 @@ type HistoryEntry = {
   totalMissions: number;
   mainMission: string;
   mainMissionCompleted: boolean;
+  dailyNotes?: string;
   eveningReview: Review;
   taskSummary: Array<{
     id: string;
@@ -154,6 +155,12 @@ type AnalyticsSummary = {
   mostSkippedCategory: string;
   recentDays: HistoryEntry[];
   categoryStats: Record<Category, CategoryStats>;
+};
+
+type StorageInfo = {
+  usedBytes: number;
+  limitBytes: number;
+  percent: number;
 };
 
 type SevenDayTestDay = {
@@ -227,12 +234,16 @@ const TOMORROW_KEY_PREFIX = "kpm-sunny-tomorrow-tasks";
 const SETTINGS_KEY = "kpm-sunny-settings";
 const PLAN_KEY = "kpm-sunny-plan";
 const REVIEW_KEY = "kpm-sunny-review";
+const DAILY_NOTES_KEY_PREFIX = "kpm-sunny-daily-notes";
 const HISTORY_KEY = "kpm-sunny-history";
 const LAST_ACTIVE_DATE_KEY = "kpm-sunny-last-active-date";
 const DATE_OVERRIDE_KEY = "kpm-sunny-date-override";
 const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
+const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
+const APP_VERSION = "V1.9";
+const APP_LAST_UPDATED = "June 14, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
 const categories: Category[] = ["Knowledge", "Plan", "Monitoring", "Sunny"];
@@ -415,6 +426,7 @@ export default function Home() {
   const [tomorrowTasks, setTomorrowTasks] = useState<Task[]>(defaultTasks);
   const [plan, setPlan] = useState<Plan>(defaultPlan);
   const [missionPreview, setMissionPreview] = useState<MissionPlanPreviewItem[]>([]);
+  const [dailyNotes, setDailyNotes] = useState("");
   const [review, setReview] = useState<Review>(defaultReview);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [todayMode, setTodayMode] = useState<DailyMode>("Full Day");
@@ -422,6 +434,7 @@ export default function Home() {
   const [tomorrowMode, setTomorrowMode] = useState<DailyMode>("Full Day");
   const [isReady, setIsReady] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [quickStartMessage, setQuickStartMessage] = useState("");
   const previousScheduleVersion = useRef(settings.scheduleVersion);
 
   useEffect(() => {
@@ -438,9 +451,10 @@ export default function Home() {
     if (lastActiveDate && lastActiveDate !== currentDate) {
       const previousTasks = readStorage<Task[]>(`${TASKS_KEY_PREFIX}:${lastActiveDate}`, []);
       const previousReview = normalizeReview(readStorage<Partial<Review>>(`${REVIEW_KEY}:${lastActiveDate}`, defaultReview));
+      const previousDailyNotes = readStorage<string>(`${DAILY_NOTES_KEY_PREFIX}:${lastActiveDate}`, "");
       const previousMode = readMode(`${MODE_KEY_PREFIX}:${lastActiveDate}`, "Full Day");
       if (previousTasks.length > 0) {
-        nextHistory = upsertHistoryEntry(loadedHistory, createHistoryEntry(lastActiveDate, previousTasks, previousReview, previousMode));
+        nextHistory = upsertHistoryEntry(loadedHistory, createHistoryEntry(lastActiveDate, previousTasks, previousReview, previousMode, previousDailyNotes));
         writeStorage(HISTORY_KEY, nextHistory);
       }
     }
@@ -466,6 +480,7 @@ export default function Home() {
     setTomorrowTasks(storedTomorrowTasks);
     setPlan(loadedPlan);
     setReview(normalizeReview(readStorage<Partial<Review>>(`${REVIEW_KEY}:${currentDate}`, defaultReview)));
+    setDailyNotes(readStorage<string>(`${DAILY_NOTES_KEY_PREFIX}:${currentDate}`, ""));
     setHistory(nextHistory);
     setTodayMode(carriedMode);
     setSelectedTodayMode(carriedMode);
@@ -496,7 +511,7 @@ export default function Home() {
       const currentDate = getCurrentDateKey();
       if (currentDate === todayKey) return;
 
-      const archived = createHistoryEntry(todayKey, tasks, review, todayMode);
+      const archived = createHistoryEntry(todayKey, tasks, review, todayMode, dailyNotes);
       const nextHistory = upsertHistoryEntry(history, archived);
       const nextDefaultTasks = buildSchedule(templateTasks, settings.scheduleVersion === "5:00");
       const carriedTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${currentDate}`, []);
@@ -517,6 +532,7 @@ export default function Home() {
       setTomorrowTasks(readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${nextTomorrowKey}`, buildModeSchedule(nextDefaultTasks, nextTomorrowMode)));
       setPlan(nextPlan);
       setReview(normalizeReview(readStorage<Partial<Review>>(`${REVIEW_KEY}:${currentDate}`, defaultReview)));
+      setDailyNotes(readStorage<string>(`${DAILY_NOTES_KEY_PREFIX}:${currentDate}`, ""));
       setHistory(nextHistory);
       setTodayMode(carriedMode);
       setSelectedTodayMode(carriedMode);
@@ -524,7 +540,7 @@ export default function Home() {
     }, 60000);
 
     return () => window.clearInterval(interval);
-  }, [history, isReady, review, settings.scheduleVersion, tasks, templateTasks, todayKey, todayMode]);
+  }, [dailyNotes, history, isReady, review, settings.scheduleVersion, tasks, templateTasks, todayKey, todayMode]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -566,6 +582,11 @@ export default function Home() {
 
   useEffect(() => {
     if (!isReady) return;
+    writeStorage(`${DAILY_NOTES_KEY_PREFIX}:${todayKey}`, dailyNotes);
+  }, [dailyNotes, isReady, todayKey]);
+
+  useEffect(() => {
+    if (!isReady) return;
     writeStorage(HISTORY_KEY, history);
   }, [history, isReady]);
 
@@ -576,7 +597,7 @@ export default function Home() {
     () => tasks.find((task) => task.priority === "S" && !task.completed && !task.skipped) || tasks.find((task) => task.priority === "S"),
     [tasks]
   );
-  const combinedDays = useMemo(() => [createHistoryEntry(todayKey, tasks, review, todayMode), ...history.filter((day) => day.date !== todayKey)], [history, review, tasks, todayKey, todayMode]);
+  const combinedDays = useMemo(() => [createHistoryEntry(todayKey, tasks, review, todayMode, dailyNotes), ...history.filter((day) => day.date !== todayKey)], [dailyNotes, history, review, tasks, todayKey, todayMode]);
   const streaks = useMemo(() => calculateStreaks(combinedDays, todayKey), [combinedDays, todayKey]);
   const analytics = useMemo(() => calculateAnalytics(history), [history]);
   const sevenDayTest = useMemo(
@@ -615,7 +636,7 @@ export default function Home() {
   }
 
   function clearAllLocalData() {
-    if (!window.confirm("Clear all KPM Sunny Daily OS local data on this device? This deletes tasks, history, settings, templates, and plans.")) return;
+    if (!window.confirm("This deletes all local data on this device. Clear all KPM Sunny Daily OS data?")) return;
     Object.keys(window.localStorage)
       .filter((key) => key.startsWith("kpm-sunny"))
       .forEach((key) => window.localStorage.removeItem(key));
@@ -674,7 +695,7 @@ export default function Home() {
 
     const payload = {
       app: "KPM Sunny Daily OS",
-      version: "1.6",
+      version: "1.9",
       exportedAt: new Date().toISOString(),
       data
     };
@@ -682,7 +703,7 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `kpm-sunny-daily-os-backup-${getDateKey(new Date())}.json`;
+    link.download = `kpm-sunny-backup-${getDateKey(new Date())}.json`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -695,11 +716,11 @@ export default function Home() {
       return "Import failed: JSON could not be parsed.";
     }
 
-    const payload = parsed as { data?: Record<string, unknown> };
-    if (!payload || typeof payload !== "object" || !payload.data || typeof payload.data !== "object") {
-      return "Import failed: backup must include a data object.";
+    if (!isKpmBackupPayload(parsed)) {
+      return "Import failed: this does not look like KPM Sunny app data.";
     }
 
+    const payload = parsed;
     const entries = Object.entries(payload.data).filter(([key]) => key.startsWith("kpm-sunny"));
     if (entries.length === 0) return "Import failed: no KPM Sunny data keys were found.";
     if (!window.confirm(`Import ${entries.length} saved data keys? This will replace current KPM Sunny data on this device.`)) return "Import cancelled.";
@@ -771,6 +792,20 @@ export default function Home() {
 
   function startDay(mode: DailyMode, mainMissionTitle: string) {
     if (generateTodayByMode(mode, mainMissionTitle)) setActiveSection("Today Task List");
+  }
+
+  function quickStartToday() {
+    if (tasks.length > 0) {
+      setQuickStartMessage("Today already has missions.");
+      return;
+    }
+
+    const mode = settings.defaultDailyMode ?? "Full Day";
+    setTodayMode(mode);
+    setSelectedTodayMode(mode);
+    setTasks(buildModeSchedule(defaultTasks, mode));
+    setReview(defaultReview);
+    setQuickStartMessage("Today's missions are ready.");
   }
 
   function selectTomorrowMode(mode: DailyMode) {
@@ -852,6 +887,10 @@ export default function Home() {
                 setSelectedTodayMode={setSelectedTodayMode}
                 generateTodayByMode={generateTodayByMode}
                 startDay={startDay}
+                quickStartToday={quickStartToday}
+                quickStartMessage={quickStartMessage}
+                dailyNotes={dailyNotes}
+                setDailyNotes={setDailyNotes}
                 updateMainMissionTitle={updateMainMissionTitle}
                 sevenDayTest={sevenDayTest}
                 setActiveSection={setActiveSection}
@@ -1276,6 +1315,10 @@ function Dashboard({
   setSelectedTodayMode,
   generateTodayByMode,
   startDay,
+  quickStartToday,
+  quickStartMessage,
+  dailyNotes,
+  setDailyNotes,
   updateMainMissionTitle,
   sevenDayTest,
   setActiveSection
@@ -1291,6 +1334,10 @@ function Dashboard({
   setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
   generateTodayByMode: (mode?: DailyMode) => boolean;
   startDay: (mode: DailyMode, mainMissionTitle: string) => void;
+  quickStartToday: () => void;
+  quickStartMessage: string;
+  dailyNotes: string;
+  setDailyNotes: Dispatch<SetStateAction<string>>;
   updateMainMissionTitle: (title: string) => void;
   sevenDayTest: SevenDayTestSummary;
   setActiveSection: Dispatch<SetStateAction<SectionId>>;
@@ -1305,6 +1352,23 @@ function Dashboard({
         updateMainMissionTitle={updateMainMissionTitle}
         openToday={() => setActiveSection("Today Task List")}
       />
+      <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+        <Panel compact>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">Quick Start</p>
+              <h3 className="mt-1 text-xl font-black text-white">Start today's system</h3>
+              {quickStartMessage ? <p className="mt-2 text-sm font-bold text-emerald-100">{quickStartMessage}</p> : null}
+            </div>
+            <button type="button" onClick={quickStartToday} className="primary-button justify-center">
+              <Sparkles size={18} />
+              Quick Start Today
+            </button>
+          </div>
+        </Panel>
+        <NextMissionCard task={nextTask} />
+      </div>
+      <DailyNotesCard value={dailyNotes} onChange={setDailyNotes} />
       <SevenDayProgress summary={sevenDayTest} />
 
       <Panel>
@@ -2412,6 +2476,12 @@ function HistoryPage({ history, sevenDayTest }: { history: HistoryEntry[]; seven
                   <p className="mt-2 text-sm text-slate-300">{day.mode ?? "Full Day"} Mode</p>
                   <p className="mt-1 text-sm text-slate-400">{modeProfiles[day.mode ?? "Full Day"].note}</p>
                 </div>
+                {day.dailyNotes ? (
+                  <div className="rounded-2xl bg-black/20 p-4">
+                    <p className="font-black text-white">Daily Notes</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">{day.dailyNotes}</p>
+                  </div>
+                ) : null}
                 <div className="rounded-2xl bg-black/20 p-4">
                   <p className="font-black text-white">Evening Review</p>
                   <p className="mt-2 text-sm text-slate-300">Completed: {day.eveningReview.wins || "No answer"}</p>
@@ -2632,11 +2702,35 @@ function SettingsPanel({
 }) {
   const [importText, setImportText] = useState("");
   const [importStatus, setImportStatus] = useState("");
+  const [storageInfo, setStorageInfo] = useState<StorageInfo>({ usedBytes: 0, limitBytes: LOCAL_STORAGE_LIMIT_BYTES, percent: 0 });
+
+  useEffect(() => {
+    setStorageInfo(calculateStorageInfo());
+  }, [importStatus, settings]);
 
   function handleImport() {
     const result = importAllData(importText);
     setImportStatus(result);
   }
+
+  function handleImportFile(file?: File) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = importAllData(typeof reader.result === "string" ? reader.result : "");
+      setImportStatus(result);
+    };
+    reader.onerror = () => setImportStatus("Import failed: backup file could not be read.");
+    reader.readAsText(file);
+  }
+
+  const storageTone = storageInfo.percent >= 90 ? "border-red-300/35 bg-red-400/10 text-red-100" : storageInfo.percent >= 70 ? "border-orange-300/35 bg-orange-400/10 text-orange-100" : "border-emerald-300/25 bg-emerald-400/10 text-emerald-100";
+  const storageWarning = storageInfo.percent >= 90
+    ? "Danger: local storage is above 90%. Export a backup and clear old data soon."
+    : storageInfo.percent >= 70
+      ? "Warning: local storage is above 70%. Export a backup regularly."
+      : "Storage looks healthy.";
+  const environment = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname) ? "Local" : "Production";
 
   return (
     <Panel>
@@ -2705,17 +2799,35 @@ function SettingsPanel({
         <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h3 className="text-lg font-black text-white">Data Backup</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-400">Export your localStorage data before serious daily use. Import replaces KPM Sunny data on this device.</p>
+              <h3 className="text-lg font-black text-white">Storage + Backup</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-400">Your data is saved only on this device until cloud sync is added. Export backup regularly.</p>
             </div>
             <button onClick={exportAllData} className="primary-button justify-center">
               <Download size={18} />
-              Export all data
+              Export Data
             </button>
           </div>
 
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <MiniMetric label="Storage Used" value={formatBytes(storageInfo.usedBytes)} />
+            <MiniMetric label="Storage Limit" value={formatBytes(storageInfo.limitBytes)} />
+            <MiniMetric label="Used" value={`${storageInfo.percent}%`} />
+          </div>
+
+          <div className={`mt-4 rounded-2xl border p-4 ${storageTone}`}>
+            <p className="text-sm font-black">{storageWarning}</p>
+          </div>
+
           <div className="mt-4 grid gap-3">
-            <Field label="Import data from JSON">
+            <Field label="Import backup JSON file">
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={(event) => handleImportFile(event.target.files?.[0])}
+                className="form-control"
+              />
+            </Field>
+            <Field label="Or paste backup JSON">
               <textarea
                 value={importText}
                 onChange={(event) => setImportText(event.target.value)}
@@ -2725,7 +2837,11 @@ function SettingsPanel({
             </Field>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <button onClick={handleImport} className="secondary-button">
-                Import data from JSON
+                Import Data
+              </button>
+              <button onClick={clearAllLocalData} className="danger-button">
+                <Trash2 size={18} />
+                Clear All Data
               </button>
               {importStatus ? <p className="text-sm font-bold text-amber-100">{importStatus}</p> : null}
             </div>
@@ -2737,10 +2853,32 @@ function SettingsPanel({
             <RotateCcw size={18} />
             Reset today's list
           </button>
-          <button onClick={clearAllLocalData} className="danger-button">
-            <Trash2 size={18} />
-            Clear all local data
-          </button>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-lg font-black text-white">App Version</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-400">KPM Sunny Daily OS · {APP_VERSION}</p>
+            </div>
+            <Badge tone="gold">{environment}</Badge>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <MiniMetric label="Current version" value={APP_VERSION} />
+            <MiniMetric label="Last updated" value={APP_LAST_UPDATED} />
+            <MiniMetric label="Environment" value={environment} />
+          </div>
+          <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <p className="font-black text-white">Changelog</p>
+            <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-300">
+              <li>V1.6 Stability + backup foundation</li>
+              <li>V1.7 Vercel deployment</li>
+              <li>V1.8 7-day real use test</li>
+              <li>V1.9 Smart Mission Scheduler</li>
+              <li>Storage + Backup Center</li>
+            </ul>
+          </div>
+          <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
         </div>
       </div>
     </Panel>
@@ -2850,12 +2988,59 @@ function MissionPreview({ label, task }: { label: string; task?: Task }) {
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge tone={task.category}>{task.category}</Badge>
             <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
+            <Badge tone="dark">{task.points} KPM</Badge>
           </div>
         </div>
       ) : (
-        <p className="mt-3 text-sm font-semibold text-slate-400">All missions clear.</p>
+        <p className="mt-3 text-sm font-semibold text-slate-400">All missions cleared. Review your day.</p>
       )}
     </div>
+  );
+}
+
+function NextMissionCard({ task }: { task?: Task }) {
+  return (
+    <Panel compact>
+      <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">Next Mission</p>
+      {task ? (
+        <div className="mt-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-amber-100">{task.time}</p>
+              <h3 className="mt-1 text-2xl font-black leading-tight text-white">{task.title}</h3>
+            </div>
+            <Badge tone="gold">{task.points} KPM</Badge>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Badge tone={task.category}>{task.category}</Badge>
+            <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
+            <Badge tone="dark">{task.block}</Badge>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-3 text-lg font-black text-white">All missions cleared. Review your day.</p>
+      )}
+    </Panel>
+  );
+}
+
+function DailyNotesCard({ value, onChange }: { value: string; onChange: Dispatch<SetStateAction<string>> }) {
+  return (
+    <Panel compact>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-200">Daily Notes</p>
+          <h3 className="mt-1 text-xl font-black text-white">Quick notes for today</h3>
+        </div>
+        <Badge tone="dark">Auto-save</Badge>
+      </div>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="form-control mt-4 min-h-32 resize-y"
+        placeholder="Write anything important for today..."
+      />
+    </Panel>
   );
 }
 
@@ -2934,7 +3119,47 @@ function writeStorage<T>(key: string, value: T) {
   }
 }
 
-function createHistoryEntry(date: string, dayTasks: Task[], dayReview: Review, mode: DailyMode = "Full Day"): HistoryEntry {
+function calculateStorageInfo(): StorageInfo {
+  if (typeof window === "undefined") return { usedBytes: 0, limitBytes: LOCAL_STORAGE_LIMIT_BYTES, percent: 0 };
+  let usedBytes = 0;
+  try {
+    Object.keys(window.localStorage)
+      .filter((key) => key.startsWith("kpm-sunny"))
+      .forEach((key) => {
+        usedBytes += byteSize(key);
+        usedBytes += byteSize(window.localStorage.getItem(key) ?? "");
+      });
+  } catch {
+    usedBytes = 0;
+  }
+  return {
+    usedBytes,
+    limitBytes: LOCAL_STORAGE_LIMIT_BYTES,
+    percent: Math.min(100, Math.round((usedBytes / LOCAL_STORAGE_LIMIT_BYTES) * 100))
+  };
+}
+
+function byteSize(value: string): number {
+  return new Blob([value]).size;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function isKpmBackupPayload(payload: unknown): payload is { app?: string; data: Record<string, unknown> } {
+  if (!payload || typeof payload !== "object") return false;
+  const candidate = payload as { app?: unknown; data?: unknown };
+  if (!candidate.data || typeof candidate.data !== "object" || Array.isArray(candidate.data)) return false;
+  const data = candidate.data as Record<string, unknown>;
+  const keys = Object.keys(data);
+  if (keys.length === 0 || !keys.every((key) => key.startsWith("kpm-sunny"))) return false;
+  return typeof candidate.app !== "string" || candidate.app.includes("KPM Sunny");
+}
+
+function createHistoryEntry(date: string, dayTasks: Task[], dayReview: Review, mode: DailyMode = "Full Day", dailyNotes = ""): HistoryEntry {
   const stats = getStats(dayTasks);
   const mainMission = getMainMissionForDay(dayTasks);
   const review = normalizeReview(dayReview);
@@ -2948,6 +3173,7 @@ function createHistoryEntry(date: string, dayTasks: Task[], dayReview: Review, m
     totalMissions: dayTasks.length,
     mainMission: mainMission?.title ?? "No main mission",
     mainMissionCompleted: review.mainMissionCompleted ?? Boolean(mainMission?.completed),
+    dailyNotes,
     eveningReview: review,
     taskSummary: dayTasks.map((task) => ({
       id: task.id,
