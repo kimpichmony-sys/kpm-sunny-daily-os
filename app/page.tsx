@@ -229,6 +229,17 @@ type NavItem = {
   icon: LucideIcon;
 };
 
+type FocusPresetId = "quick-reset" | "routine" | "short-task" | "normal-focus" | "deep-work" | "ceo-block";
+type FocusPhase = "work" | "rest";
+type FocusPreset = {
+  id: FocusPresetId;
+  name: string;
+  shortLabel: string;
+  workMinutes: number;
+  restMinutes: number;
+  bestFor: string;
+};
+
 const TASKS_KEY_PREFIX = "kpm-sunny-tasks";
 const TOMORROW_KEY_PREFIX = "kpm-sunny-tomorrow-tasks";
 const SETTINGS_KEY = "kpm-sunny-settings";
@@ -249,6 +260,14 @@ const priorities: Priority[] = ["S", "A", "B", "C"];
 const categories: Category[] = ["Knowledge", "Plan", "Monitoring", "Sunny"];
 const dailyModes: DailyMode[] = ["Full Day", "Low Energy", "Recovery", "Money", "Skill", "CEO"];
 const mainLifeFocusOptions: MainLifeFocus[] = ["Money", "Health", "Skill", "Cleaning", "Stability", "Personal Growth"];
+const focusPresets: FocusPreset[] = [
+  { id: "quick-reset", name: "Quick Reset", shortLabel: "Quick Reset 5m", workMinutes: 5, restMinutes: 0, bestFor: "drink water, wake up, make bed, quick notes" },
+  { id: "routine", name: "Routine", shortLabel: "Routine 10m", workMinutes: 10, restMinutes: 0, bestFor: "brush teeth, wash face, toilet, simple clean-up" },
+  { id: "short-task", name: "Short Task", shortLabel: "Short Task 15/5", workMinutes: 15, restMinutes: 5, bestFor: "shower, messages, small admin, planning" },
+  { id: "normal-focus", name: "Normal Focus", shortLabel: "Normal Focus 25/5", workMinutes: 25, restMinutes: 5, bestFor: "light learning, small project task, low energy work" },
+  { id: "deep-work", name: "Deep Work", shortLabel: "Deep Work 50/10", workMinutes: 50, restMinutes: 10, bestFor: "main useful task, serious work, coding, job application, skill practice" },
+  { id: "ceo-block", name: "CEO Block", shortLabel: "CEO Block 90/20", workMinutes: 90, restMinutes: 20, bestFor: "high energy mode, major project, long deep work" }
+];
 const defaultSettings: SettingsState = {
   scheduleVersion: "5:30",
   onboardingComplete: false,
@@ -437,6 +456,7 @@ export default function Home() {
   const [isReady, setIsReady] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [quickStartMessage, setQuickStartMessage] = useState("");
+  const [activeFocusTaskId, setActiveFocusTaskId] = useState<string | null>(null);
   const previousScheduleVersion = useRef(settings.scheduleVersion);
 
   useEffect(() => {
@@ -599,6 +619,7 @@ export default function Home() {
     () => tasks.find((task) => task.priority === "S" && !task.completed && !task.skipped) || tasks.find((task) => task.priority === "S"),
     [tasks]
   );
+  const activeFocusTask = useMemo(() => tasks.find((task) => task.id === activeFocusTaskId), [activeFocusTaskId, tasks]);
   const combinedDays = useMemo(() => [createHistoryEntry(todayKey, tasks, review, todayMode, dailyNotes), ...history.filter((day) => day.date !== todayKey)], [dailyNotes, history, review, tasks, todayKey, todayMode]);
   const streaks = useMemo(() => calculateStreaks(combinedDays, todayKey), [combinedDays, todayKey]);
   const analytics = useMemo(() => calculateAnalytics(history), [history]);
@@ -900,6 +921,7 @@ export default function Home() {
                 tasks={tasks}
                 updateTask={updateTask}
                 snoozeTask={snoozeTask}
+                startMission={(id) => setActiveFocusTaskId(id)}
                 setActiveSection={setActiveSection}
               />
             )}
@@ -989,6 +1011,14 @@ export default function Home() {
       </div>
 
       <BottomNav activeSection={activeSection} setActiveSection={setActiveSection} />
+      {activeFocusTask ? (
+        <StartMissionModal
+          task={activeFocusTask}
+          updateTask={updateTask}
+          snoozeTask={snoozeTask}
+          close={() => setActiveFocusTaskId(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1342,6 +1372,7 @@ function TodayCommand({
   tasks,
   updateTask,
   snoozeTask,
+  startMission,
   setActiveSection
 }: {
   stats: Stats;
@@ -1350,6 +1381,7 @@ function TodayCommand({
   tasks: Task[];
   updateTask: (id: string, patch: Partial<Task>) => void;
   snoozeTask: (id: string) => void;
+  startMission: (id: string) => void;
   setActiveSection: Dispatch<SetStateAction<SectionId>>;
 }) {
   const nextMissions = tasks
@@ -1385,7 +1417,11 @@ function TodayCommand({
           </div>
 
           {currentMission ? (
-            <div className="grid min-w-0 gap-3 sm:grid-cols-3 xl:w-[360px] xl:grid-cols-1">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:w-[360px] xl:grid-cols-1">
+              <button type="button" onClick={() => startMission(currentMission.id)} className="primary-button">
+                <Target size={18} />
+                Start Mission
+              </button>
               <button type="button" onClick={() => updateTask(currentMission.id, { completed: true, skipped: false })} className="primary-button">
                 <CheckCircle2 size={18} />
                 Done
@@ -1483,6 +1519,210 @@ function TodayCommand({
         </button>
       </div>
     </section>
+  );
+}
+
+function StartMissionModal({
+  task,
+  updateTask,
+  snoozeTask,
+  close
+}: {
+  task: Task;
+  updateTask: (id: string, patch: Partial<Task>) => void;
+  snoozeTask: (id: string) => void;
+  close: () => void;
+}) {
+  const suggestedPreset = getSuggestedFocusPreset(task);
+  const [selectedPreset, setSelectedPreset] = useState<FocusPreset>(suggestedPreset);
+  const [phase, setPhase] = useState<FocusPhase>("work");
+  const activeMinutes = phase === "rest" ? selectedPreset.restMinutes : selectedPreset.workMinutes;
+  const defaultSeconds = activeMinutes * 60;
+  const [secondsLeft, setSecondsLeft] = useState(defaultSeconds);
+  const [isRunning, setIsRunning] = useState(false);
+  const [showStuckHelp, setShowStuckHelp] = useState(false);
+
+  useEffect(() => {
+    const nextPreset = getSuggestedFocusPreset(task);
+    setSelectedPreset(nextPreset);
+    setPhase("work");
+    setSecondsLeft(nextPreset.workMinutes * 60);
+    setIsRunning(false);
+    setShowStuckHelp(false);
+  }, [task.id]);
+
+  useEffect(() => {
+    if (!isRunning) return;
+    const interval = window.setInterval(() => {
+      setSecondsLeft((current) => {
+        if (current <= 1) {
+          window.clearInterval(interval);
+          setIsRunning(false);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [isRunning]);
+
+  function markDone() {
+    updateTask(task.id, { completed: true, skipped: false });
+    close();
+  }
+
+  function skipMission() {
+    updateTask(task.id, { skipped: true, completed: false });
+    close();
+  }
+
+  function snoozeMission() {
+    snoozeTask(task.id);
+    close();
+  }
+
+  function choosePreset(preset: FocusPreset) {
+    setSelectedPreset(preset);
+    setPhase("work");
+    setSecondsLeft(preset.workMinutes * 60);
+    setIsRunning(false);
+  }
+
+  function startRest() {
+    if (selectedPreset.restMinutes <= 0) return;
+    setPhase("rest");
+    setSecondsLeft(selectedPreset.restMinutes * 60);
+    setIsRunning(true);
+  }
+
+  function continueSession() {
+    setPhase("work");
+    setSecondsLeft(selectedPreset.workMinutes * 60);
+    setIsRunning(true);
+  }
+
+  function resetTimer() {
+    setSecondsLeft(defaultSeconds);
+    setIsRunning(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-5">
+      <section className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] border border-amber-300/25 bg-[#07101f] p-4 shadow-[0_28px_100px_rgba(0,0,0,0.55)] sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-200">Focus Mode</p>
+            <h2 className="mt-2 break-words text-2xl font-black leading-tight text-white sm:text-4xl">{task.title}</h2>
+          </div>
+          <button type="button" onClick={close} className="secondary-button min-h-11 shrink-0 rounded-full px-3" aria-label="Close focus mode">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Badge tone="gold">{task.time}</Badge>
+          <Badge tone={task.category}>{task.category}</Badge>
+          <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
+          <Badge tone="dark">{task.points} KPM</Badge>
+        </div>
+
+        <p className="mt-4 text-sm leading-6 text-slate-300">{getMissionReason(task)}</p>
+
+        <div className="mt-5 rounded-2xl border border-teal-300/20 bg-teal-300/10 p-4">
+          <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-100">Start with this small first step:</p>
+          <p className="mt-2 text-lg font-black leading-snug text-white">{getFirstMissionStep(task)}</p>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Focus Timer</p>
+              <p className="mt-1 text-sm font-bold text-slate-300">Suggested: {suggestedPreset.name} - {suggestedPreset.workMinutes} min focus{suggestedPreset.restMinutes > 0 ? ` + ${suggestedPreset.restMinutes} min rest` : ""}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge tone={phase === "rest" ? "green" : "gold"}>{phase === "rest" ? "Rest" : "Focus"}</Badge>
+                <Badge tone="dark">Work: {selectedPreset.workMinutes} min</Badge>
+                <Badge tone="dark">Rest: {selectedPreset.restMinutes} min</Badge>
+              </div>
+              <p className="mt-1 font-mono text-5xl font-black text-white">{formatTimer(secondsLeft)}</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <button type="button" onClick={() => setIsRunning((running) => !running)} className="primary-button">
+                {isRunning ? "Pause" : "Start"}
+              </button>
+              <button type="button" onClick={resetTimer} className="secondary-button">
+                Reset
+              </button>
+              <button type="button" onClick={() => setShowStuckHelp(true)} className="secondary-button border-amber-300/25 text-amber-100">
+                I&apos;m Stuck
+              </button>
+            </div>
+          </div>
+          {secondsLeft === 0 && phase === "work" ? (
+            <div className="mt-4 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 p-3">
+              <p className="text-sm font-black text-emerald-100">Focus session complete. Choose your next move.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={markDone} className="primary-button">Mark Done</button>
+                <button type="button" onClick={continueSession} className="secondary-button">Continue another session</button>
+                {selectedPreset.restMinutes > 0 ? <button type="button" onClick={startRest} className="secondary-button">Start {selectedPreset.restMinutes} min rest</button> : null}
+                <button type="button" onClick={skipMission} className="secondary-button border-orange-300/25 text-orange-100">Skip</button>
+              </div>
+            </div>
+          ) : null}
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {focusPresets.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => choosePreset(preset)}
+                className={`min-h-12 rounded-2xl px-4 text-left text-sm font-black ${
+                  selectedPreset.id === preset.id
+                    ? "bg-amber-300 text-slate-950"
+                    : "border border-white/10 bg-white/[0.06] text-slate-300"
+                }`}
+              >
+                {preset.shortLabel}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {showStuckHelp ? (
+          <div className="mt-5 rounded-2xl border border-orange-300/25 bg-orange-400/10 p-4">
+            <p className="text-lg font-black text-white">Reduce the mission to 5 minutes.</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <button type="button" onClick={() => { choosePreset(focusPresets[0]); setIsRunning(true); }} className="secondary-button">
+                Do only 5 minutes
+              </button>
+              <button type="button" onClick={() => setShowStuckHelp(false)} className="secondary-button">
+                Break into smaller task
+              </button>
+              <button type="button" onClick={skipMission} className="secondary-button border-orange-300/25 text-orange-100">
+                Skip without guilt
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <button type="button" onClick={markDone} className="primary-button">
+            <CheckCircle2 size={18} />
+            Mark Done
+          </button>
+          <button type="button" onClick={skipMission} className="secondary-button border-orange-300/25 text-orange-100">
+            <X size={18} />
+            Skip Mission
+          </button>
+          <button type="button" onClick={snoozeMission} className="secondary-button">
+            <Clock3 size={18} />
+            Snooze 15 min
+          </button>
+          <button type="button" onClick={close} className="secondary-button">
+            Close
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -3447,6 +3687,47 @@ function getMissionReason(task: Task): string {
   if (task.category === "Knowledge") return "This builds skill and long-term capability.";
   if (task.category === "Monitoring") return "This keeps your environment and resources under control.";
   return "This keeps the day organized and pointed in the right direction.";
+}
+
+function getFirstMissionStep(task: Task): string {
+  const text = `${task.title} ${task.notes}`.toLowerCase();
+  if (/(money|job|apply|income|business|spending|expense|opportunit|resume|cv)/.test(text)) return "Open your job/app/money tool and choose one action.";
+  if (task.category === "Knowledge" || /(skill|study|learn|coding|practice|lesson|project)/.test(text)) return "Open your lesson or project and review the last thing you did.";
+  if (/(health|exercise|walk|stretch|sunlight|water|shower|sleep|meal)/.test(text)) return "Stand up, drink water, and begin with light movement.";
+  if (/(clean|trash|desk|clothes|floor|bed|dish|room|mess)/.test(text)) return "Start with trash or the easiest visible mess.";
+  if (/(admin|message|bill|note|reply|email|document)/.test(text)) return "Open messages, bills, or notes and handle one item.";
+  if (task.category === "Sunny") return "Do the small reset action first.";
+  return "Open what you need and work for 5 minutes.";
+}
+
+function getFocusPreset(id: FocusPresetId): FocusPreset {
+  return focusPresets.find((preset) => preset.id === id) ?? focusPresets[3];
+}
+
+function getSuggestedFocusPreset(task: Task): FocusPreset {
+  const text = `${task.title} ${task.notes}`.toLowerCase();
+
+  if (/ceo mode|ceo block|major project|long deep work/.test(text)) return getFocusPreset("ceo-block");
+
+  if (/wake up|drink water|make bed|daily notes|quick notes|quick check/.test(text)) return getFocusPreset("quick-reset");
+  if (/use toilet|brush teeth|wash face|wear clean clothes|fix hair|deodorant|wash dishes|simple clean|light stretch|fresh air|check spending|money|supplies/.test(text)) return getFocusPreset("routine");
+
+  if (/shower|wipe body|bedtime routine|breakfast|reply important messages|message|small admin|plan tomorrow|evening review|relax time/.test(text)) return getFocusPreset("short-task");
+  if (/walk|sunlight/.test(text) && !/exercise/.test(text)) return getFocusPreset("short-task");
+
+  if (/main useful task|continue main task|serious work|deep work|coding|job application|apply for jobs|build app|study|skill learning|skill practice|practice/.test(text)) return getFocusPreset("deep-work");
+  if (/exercise/.test(text)) return getFocusPreset("deep-work");
+
+  if (/lunch|dinner|light learning|reading|planning|free time|hobby|game|small project|low energy work/.test(text)) return getFocusPreset("normal-focus");
+
+  if (task.category === "Knowledge" || task.priority === "S") return getFocusPreset("deep-work");
+  return getFocusPreset("normal-focus");
+}
+
+function formatTimer(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function applyMainMissionTitle(dayTasks: Task[], title?: string): Task[] {
