@@ -264,8 +264,12 @@ select option {
 }
 
 @media (min-width: 1536px) {
-  .sunny-main {
+  .app-shell.with-right-panel .sunny-main {
     max-width: calc(100vw - 530px);
+  }
+
+  .app-shell:not(.with-right-panel) .sunny-main {
+    max-width: calc(100vw - 230px);
   }
 }
 

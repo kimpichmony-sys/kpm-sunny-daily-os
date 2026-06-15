@@ -37,7 +37,7 @@ type Energy = "Low" | "Medium" | "High";
 type TimeNeeded = "15 min" | "30 min" | "1 hour" | "2 hours" | "3 hours";
 type DailyMode = "Full Day" | "Low Energy" | "Recovery" | "Money" | "Skill" | "CEO";
 type MainLifeFocus = "Money" | "Health" | "Skill" | "Cleaning" | "Stability" | "Personal Growth";
-type SectionId = "Dashboard" | "Today Task List" | "Plan Tomorrow" | "Evening Review" | "History" | "Analytics" | "Template Editor" | "Settings";
+type SectionId = "Dashboard" | "Today Task List" | "Plan Tomorrow" | "Evening Review" | "More" | "Command Center" | "History" | "Analytics" | "Template Editor" | "Settings";
 
 type Task = {
   id: string;
@@ -296,16 +296,18 @@ const modeProfiles: Record<DailyMode, { description: string; bestFor: string; di
 };
 
 const navItems: NavItem[] = [
-  { id: "Dashboard", label: "Dashboard", mobile: "Dashboard", icon: LayoutDashboard },
+  { id: "Dashboard", label: "Today Command", mobile: "Home", icon: LayoutDashboard },
   { id: "Today Task List", label: "Today's Missions", mobile: "Today", icon: ListChecks },
   { id: "Plan Tomorrow", label: "Plan Tomorrow", mobile: "Tomorrow", icon: Target },
   { id: "Evening Review", label: "Evening Review", mobile: "Review", icon: Moon },
+  { id: "More", label: "More", mobile: "More", icon: Settings },
+  { id: "Command Center", label: "Command Center", mobile: "Command", icon: BarChart3 },
   { id: "History", label: "History", mobile: "History", icon: History },
   { id: "Analytics", label: "Analytics", mobile: "Stats", icon: BarChart3 },
   { id: "Template Editor", label: "Default Schedule Template", mobile: "Template", icon: Pencil },
   { id: "Settings", label: "Settings", mobile: "Settings", icon: Settings }
 ];
-const mobileNavItems = navItems.filter((item) => ["Dashboard", "Today Task List", "Plan Tomorrow", "Evening Review", "Settings"].includes(item.id));
+const mobileNavItems = navItems.filter((item) => ["Dashboard", "Today Task List", "Plan Tomorrow", "Evening Review", "More"].includes(item.id));
 
 const baseSchedule: Array<[string, string, Category, Priority, number]> = [
   ["5:30 AM", "Wake up", "Sunny", "A", 10],
@@ -592,7 +594,7 @@ export default function Home() {
 
   const stats = useMemo(() => getStats(tasks), [tasks]);
   const dayLevel = getDayLevel(stats.points);
-  const nextTask = useMemo(() => tasks.find((task) => !task.completed && !task.skipped), [tasks]);
+  const nextTask = useMemo(() => getCurrentMission(tasks), [tasks]);
   const mainMission = useMemo(
     () => tasks.find((task) => task.priority === "S" && !task.completed && !task.skipped) || tasks.find((task) => task.priority === "S"),
     [tasks]
@@ -627,6 +629,22 @@ export default function Home() {
 
   function updateTask(id: string, patch: Partial<Task>) {
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
+  }
+
+  function snoozeTask(id: string) {
+    setTasks((current) =>
+      current
+        .map((task) => {
+          if (task.id !== id) return task;
+          const nextTime = shiftTime(task.time, 15);
+          const snoozeNote = "Snoozed 15 min";
+          const notes = task.notes.includes(snoozeNote)
+            ? task.notes
+            : [task.notes.trim(), snoozeNote].filter(Boolean).join(" | ");
+          return { ...task, time: nextTime, block: getTaskBlock(nextTime), notes };
+        })
+        .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+    );
   }
 
   function resetToday() {
@@ -866,15 +884,26 @@ export default function Home() {
     <div className="sunny-mobile-shell min-h-screen overflow-x-hidden bg-[#05070d] text-slate-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(245,158,11,0.18),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.13),transparent_24%),linear-gradient(135deg,#05070d_0%,#09111f_48%,#02030a_100%)]" />
       {!isOnline ? <OfflineBanner /> : null}
-      <div className="app-shell relative grid min-h-screen min-w-0 max-w-full lg:grid-cols-[230px_minmax(0,1fr)] 2xl:grid-cols-[230px_minmax(0,1fr)_300px]">
+      <div className={`app-shell relative grid min-h-screen min-w-0 max-w-full lg:grid-cols-[230px_minmax(0,1fr)] ${activeSection === "Dashboard" ? "" : "with-right-panel 2xl:grid-cols-[230px_minmax(0,1fr)_300px]"}`}>
         <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
 
         <main className="sunny-main min-w-0 max-w-full overflow-x-hidden px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:px-6 lg:px-5 lg:pb-8 lg:pt-5 xl:px-6">
           <CommandHeader stats={stats} dayLevel={dayLevel} activeSection={activeSection} todayKey={todayKey} />
-          <MobilePriorityPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} />
+          {activeSection !== "Dashboard" ? <MobilePriorityPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} /> : null}
 
           <div className="mt-6">
             {activeSection === "Dashboard" && (
+              <TodayCommand
+                stats={stats}
+                currentMission={nextTask}
+                mainMission={mainMission}
+                tasks={tasks}
+                updateTask={updateTask}
+                snoozeTask={snoozeTask}
+                setActiveSection={setActiveSection}
+              />
+            )}
+            {activeSection === "Command Center" && (
               <Dashboard
                 stats={stats}
                 dayLevel={dayLevel}
@@ -950,10 +979,13 @@ export default function Home() {
                 generateTodayByMode={generateTodayByMode}
               />
             )}
+            {activeSection === "More" && (
+              <MorePage setActiveSection={setActiveSection} />
+            )}
           </div>
         </main>
 
-        <RightPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} tasks={tasks} streaks={streaks} todayMode={todayMode} />
+        {activeSection !== "Dashboard" ? <RightPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} tasks={tasks} streaks={streaks} todayMode={todayMode} /> : null}
       </div>
 
       <BottomNav activeSection={activeSection} setActiveSection={setActiveSection} />
@@ -1055,7 +1087,7 @@ function BottomNav({
       <div className="grid grid-cols-5 gap-1">
         {mobileNavItems.map((item) => {
           const Icon = item.icon;
-          const active = activeSection === item.id;
+          const active = activeSection === item.id || (item.id === "More" && ["Command Center", "History", "Analytics", "Template Editor", "Settings"].includes(activeSection));
           return (
             <button
               key={item.id}
@@ -1300,6 +1332,199 @@ function MissionArtPanel({
         {children ? <div className="mt-3">{children}</div> : null}
       </div>
     </div>
+  );
+}
+
+function TodayCommand({
+  stats,
+  currentMission,
+  mainMission,
+  tasks,
+  updateTask,
+  snoozeTask,
+  setActiveSection
+}: {
+  stats: Stats;
+  currentMission?: Task;
+  mainMission?: Task;
+  tasks: Task[];
+  updateTask: (id: string, patch: Partial<Task>) => void;
+  snoozeTask: (id: string) => void;
+  setActiveSection: Dispatch<SetStateAction<SectionId>>;
+}) {
+  const nextMissions = tasks
+    .filter((task) => !task.completed && !task.skipped && task.id !== currentMission?.id)
+    .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+    .slice(0, 3);
+
+  const mainMissionStatus = getMainMissionStatus(mainMission);
+
+  return (
+    <section className="grid gap-5">
+      <Panel className="border-amber-300/25 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),rgba(255,255,255,0.045))]">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Current Mission</p>
+            {currentMission ? (
+              <>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Badge tone="gold">{currentMission.time}</Badge>
+                  <Badge tone={currentMission.category}>{currentMission.category}</Badge>
+                  <Badge tone={currentMission.priority === "S" ? "gold" : "dark"}>{currentMission.priority}-Tier</Badge>
+                  <Badge tone="dark">{currentMission.points} KPM</Badge>
+                </div>
+                <h2 className="mt-4 break-words text-3xl font-black leading-tight text-white sm:text-4xl xl:text-5xl">{currentMission.title}</h2>
+                <p className="mt-3 max-w-3xl text-base leading-7 text-slate-300">{getMissionReason(currentMission)}</p>
+              </>
+            ) : (
+              <>
+                <h2 className="mt-3 text-3xl font-black leading-tight text-white sm:text-4xl">All missions cleared.</h2>
+                <p className="mt-3 text-base leading-7 text-slate-300">Go to Evening Review and close the day cleanly.</p>
+              </>
+            )}
+          </div>
+
+          {currentMission ? (
+            <div className="grid min-w-0 gap-3 sm:grid-cols-3 xl:w-[360px] xl:grid-cols-1">
+              <button type="button" onClick={() => updateTask(currentMission.id, { completed: true, skipped: false })} className="primary-button">
+                <CheckCircle2 size={18} />
+                Done
+              </button>
+              <button type="button" onClick={() => updateTask(currentMission.id, { skipped: true, completed: false })} className="secondary-button border-orange-300/25 text-orange-100">
+                <X size={18} />
+                Skip
+              </button>
+              <button type="button" onClick={() => snoozeTask(currentMission.id)} className="secondary-button">
+                <Clock3 size={18} />
+                Snooze 15 min
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setActiveSection("Evening Review")} className="primary-button xl:min-w-64">
+              Evening Review
+              <ChevronRight size={18} />
+            </button>
+          )}
+        </div>
+      </Panel>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+        <Panel>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Today&apos;s Main Mission</p>
+              <h3 className="mt-2 break-words text-2xl font-black leading-tight text-white sm:text-3xl">{mainMission?.title ?? "No main mission set"}</h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge tone={mainMissionStatus === "Done" ? "green" : "gold"}>{mainMissionStatus}</Badge>
+                {mainMission ? <Badge tone="dark">{mainMission.time}</Badge> : null}
+                {mainMission ? <Badge tone={mainMission.category}>{mainMission.category}</Badge> : null}
+              </div>
+            </div>
+            {mainMission ? (
+              <button type="button" onClick={() => updateTask(mainMission.id, { completed: true, skipped: false })} className="primary-button sm:min-w-56">
+                <Check size={18} />
+                Mark main mission done
+              </button>
+            ) : null}
+          </div>
+        </Panel>
+
+        <Panel>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Simple Progress</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <MiniMetric label="Completed" value={stats.completed} />
+            <MiniMetric label="Remaining" value={stats.remaining} />
+            <MiniMetric label="KPM Score" value={stats.points} />
+          </div>
+        </Panel>
+      </div>
+
+      <Panel compact>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Next 3 Missions</p>
+            <h3 className="mt-1 text-xl font-black text-white">Keep the next step visible</h3>
+          </div>
+          <Badge tone="dark">{nextMissions.length} upcoming</Badge>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {nextMissions.length > 0 ? (
+            nextMissions.map((task) => (
+              <div key={task.id} className="flex min-w-0 flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-amber-100">{task.time}</p>
+                  <p className="mt-1 break-words text-lg font-black leading-snug text-white">{task.title}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge tone={task.category}>{task.category}</Badge>
+                    <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
+                    <Badge tone="dark">{task.points} KPM</Badge>
+                  </div>
+                </div>
+                <button type="button" onClick={() => updateTask(task.id, { completed: true, skipped: false })} className="secondary-button sm:min-w-28">
+                  Done
+                </button>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm font-semibold text-slate-300">No more upcoming missions. Evening Review is ready when you are.</p>
+          )}
+        </div>
+      </Panel>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <button type="button" onClick={() => setActiveSection("Today Task List")} className="secondary-button">
+          View Full Mission List
+        </button>
+        <button type="button" onClick={() => setActiveSection("Plan Tomorrow")} className="secondary-button">
+          Plan Tomorrow
+        </button>
+        <button type="button" onClick={() => setActiveSection("Evening Review")} className="secondary-button">
+          Evening Review
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function MorePage({ setActiveSection }: { setActiveSection: Dispatch<SetStateAction<SectionId>> }) {
+  const links: Array<{ id: SectionId; title: string; body: string; icon: LucideIcon }> = [
+    { id: "Command Center", title: "Command Center", body: "Open the full dashboard, streaks, notes, and 7-day test view.", icon: LayoutDashboard },
+    { id: "History", title: "History", body: "Review past days, scores, tasks, notes, and reflections.", icon: History },
+    { id: "Analytics", title: "Analytics", body: "See score trends and category summaries.", icon: BarChart3 },
+    { id: "Template Editor", title: "Default Schedule Template", body: "Edit the recurring schedule for future days.", icon: Pencil },
+    { id: "Settings", title: "Settings", body: "Backup data, install the app, change modes, and manage storage.", icon: Settings }
+  ];
+
+  return (
+    <section className="grid gap-4">
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">More</p>
+        <h2 className="mt-2 text-3xl font-black text-white">Advanced tools</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">The home screen stays simple. Everything deeper is still here when you need it.</p>
+      </Panel>
+      <div className="grid gap-3 md:grid-cols-2">
+        {links.map((link) => {
+          const Icon = link.icon;
+          return (
+            <button
+              key={link.id}
+              type="button"
+              onClick={() => setActiveSection(link.id)}
+              className="flex min-w-0 items-start gap-4 rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4 text-left shadow-[0_18px_44px_rgba(0,0,0,0.18)] transition hover:border-amber-300/30 hover:bg-white/[0.09]"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-300/15 text-amber-100">
+                <Icon size={21} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-black text-white">{link.title}</span>
+                <span className="mt-1 block text-sm leading-6 text-slate-400">{link.body}</span>
+              </span>
+              <ChevronRight className="ml-auto shrink-0 text-slate-500" size={18} />
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -3195,6 +3420,33 @@ function upsertHistoryEntry(history: HistoryEntry[], entry: HistoryEntry): Histo
 
 function getMainMissionForDay(dayTasks: Task[]): Task | undefined {
   return dayTasks.find((task) => task.insertedGoal) || dayTasks.find((task) => task.priority === "S");
+}
+
+function getCurrentMission(dayTasks: Task[]): Task | undefined {
+  const incompleteTasks = dayTasks
+    .filter((task) => !task.completed && !task.skipped)
+    .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  if (incompleteTasks.length === 0) return undefined;
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  return incompleteTasks.find((task) => timeToMinutes(task.time) >= nowMinutes) ?? incompleteTasks[0];
+}
+
+function getMainMissionStatus(task?: Task): "Not started" | "In progress" | "Done" {
+  if (!task) return "Not started";
+  if (task.completed) return "Done";
+  if (task.notes.trim().length > 0 || task.skipped) return "In progress";
+  return "Not started";
+}
+
+function getMissionReason(task: Task): string {
+  if (task.notes.trim()) return task.notes;
+  if (task.priority === "S") return "This is a high-impact mission. Clear it before the day gets noisy.";
+  if (task.category === "Sunny") return "This supports your body and keeps the day stable.";
+  if (task.category === "Knowledge") return "This builds skill and long-term capability.";
+  if (task.category === "Monitoring") return "This keeps your environment and resources under control.";
+  return "This keeps the day organized and pointed in the right direction.";
 }
 
 function applyMainMissionTitle(dayTasks: Task[], title?: string): Task[] {
