@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { Component } from "react";
+import type { Dispatch, ErrorInfo, ReactNode, SetStateAction } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   CalendarDays,
@@ -434,6 +435,14 @@ const defaultTemplateDraft: TemplateDraft = {
 };
 
 export default function Home() {
+  return (
+    <RecoveryErrorBoundary>
+      <HomeApp />
+    </RecoveryErrorBoundary>
+  );
+}
+
+function HomeApp() {
   const [activeSection, setActiveSection] = useState<SectionId>("Dashboard");
   const [settings, setSettings] = useLocalStorage<SettingsState>(SETTINGS_KEY, defaultSettings);
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
@@ -455,62 +464,74 @@ export default function Home() {
   const [tomorrowMode, setTomorrowMode] = useState<DailyMode>("Full Day");
   const [isReady, setIsReady] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [showLoadingRecovery, setShowLoadingRecovery] = useState(false);
   const [quickStartMessage, setQuickStartMessage] = useState("");
   const [activeFocusTaskId, setActiveFocusTaskId] = useState<string | null>(null);
   const previousScheduleVersion = useRef(settings.scheduleVersion);
 
   useEffect(() => {
-    const currentDate = getCurrentDateKey();
-    const loadedSettings = normalizeSettings(readStorage<Partial<SettingsState>>(SETTINGS_KEY, defaultSettings));
-    const loadedTemplate = normalizeTemplate(readStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate()));
-    const loadedDefaultTasks = buildSchedule(loadedTemplate, loadedSettings.scheduleVersion === "5:00");
-    const preferredMode = loadedSettings.defaultDailyMode ?? "Full Day";
-    const loadedTodayMode = readMode(`${MODE_KEY_PREFIX}:${currentDate}`, preferredMode);
-    const loadedHistory = readStorage<HistoryEntry[]>(HISTORY_KEY, []);
-    const lastActiveDate = window.localStorage.getItem(LAST_ACTIVE_DATE_KEY);
-    let nextHistory = loadedHistory;
+    try {
+      const currentDate = getCurrentDateKey();
+      const loadedSettings = normalizeSettings(readStorage<Partial<SettingsState>>(SETTINGS_KEY, defaultSettings));
+      const loadedTemplate = normalizeTemplate(readStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate()));
+      const loadedDefaultTasks = buildSchedule(loadedTemplate, loadedSettings.scheduleVersion === "5:00");
+      const preferredMode = loadedSettings.defaultDailyMode ?? "Full Day";
+      const loadedTodayMode = readMode(`${MODE_KEY_PREFIX}:${currentDate}`, preferredMode);
+      const loadedHistory = readStorage<HistoryEntry[]>(HISTORY_KEY, []);
+      const lastActiveDate = safeGetLocalStorageItem(LAST_ACTIVE_DATE_KEY);
+      let nextHistory = loadedHistory;
 
-    if (lastActiveDate && lastActiveDate !== currentDate) {
-      const previousTasks = readStorage<Task[]>(`${TASKS_KEY_PREFIX}:${lastActiveDate}`, []);
-      const previousReview = normalizeReview(readStorage<Partial<Review>>(`${REVIEW_KEY}:${lastActiveDate}`, defaultReview));
-      const previousDailyNotes = readStorage<string>(`${DAILY_NOTES_KEY_PREFIX}:${lastActiveDate}`, "");
-      const previousMode = readMode(`${MODE_KEY_PREFIX}:${lastActiveDate}`, "Full Day");
-      if (previousTasks.length > 0) {
-        nextHistory = upsertHistoryEntry(loadedHistory, createHistoryEntry(lastActiveDate, previousTasks, previousReview, previousMode, previousDailyNotes));
-        writeStorage(HISTORY_KEY, nextHistory);
+      if (lastActiveDate && lastActiveDate !== currentDate) {
+        const previousTasks = readStorage<Task[]>(`${TASKS_KEY_PREFIX}:${lastActiveDate}`, []);
+        const previousReview = normalizeReview(readStorage<Partial<Review>>(`${REVIEW_KEY}:${lastActiveDate}`, defaultReview));
+        const previousDailyNotes = readStorage<string>(`${DAILY_NOTES_KEY_PREFIX}:${lastActiveDate}`, "");
+        const previousMode = readMode(`${MODE_KEY_PREFIX}:${lastActiveDate}`, "Full Day");
+        if (previousTasks.length > 0) {
+          nextHistory = upsertHistoryEntry(loadedHistory, createHistoryEntry(lastActiveDate, previousTasks, previousReview, previousMode, previousDailyNotes));
+          writeStorage(HISTORY_KEY, nextHistory);
+        }
       }
+
+      const carriedTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${currentDate}`, []);
+      const carriedMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${currentDate}`, loadedTodayMode);
+      const storedTodayTasks = readStorage<Task[]>(`${TASKS_KEY_PREFIX}:${currentDate}`, []);
+      const nextTodayTasks = storedTodayTasks.length > 0
+        ? mergeSchedule(storedTodayTasks, loadedDefaultTasks)
+        : carriedTasks.length > 0
+          ? resetTaskStatuses(mergeSchedule(carriedTasks, loadedDefaultTasks))
+          : buildModeSchedule(loadedDefaultTasks, carriedMode);
+
+      const nextTomorrowKey = getNextDateKey(currentDate);
+      const loadedPlan = normalizePlan(readStorage<Partial<Plan>>(`${PLAN_KEY}:${nextTomorrowKey}`, defaultPlan));
+      const loadedTomorrowMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${nextTomorrowKey}`, loadedPlan.tomorrowMode);
+      const storedTomorrowTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${nextTomorrowKey}`, buildModeSchedule(loadedDefaultTasks, loadedTomorrowMode));
+
+      setSettings(loadedSettings);
+      setTemplateTasks(loadedTemplate);
+      setTodayKey(currentDate);
+      setTasks(nextTodayTasks);
+      setTomorrowTasks(storedTomorrowTasks);
+      setPlan(loadedPlan);
+      setReview(normalizeReview(readStorage<Partial<Review>>(`${REVIEW_KEY}:${currentDate}`, defaultReview)));
+      setDailyNotes(readStorage<string>(`${DAILY_NOTES_KEY_PREFIX}:${currentDate}`, ""));
+      setHistory(nextHistory);
+      setTodayMode(carriedMode);
+      setSelectedTodayMode(carriedMode);
+      setTomorrowMode(loadedTomorrowMode);
+      writeStorage(`${MODE_KEY_PREFIX}:${currentDate}`, carriedMode);
+      safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
+      setIsReady(true);
+    } catch (error) {
+      console.warn("KPM Sunny failed to load local data. Recovery mode is available.", error);
+      setShowLoadingRecovery(true);
     }
-
-    const carriedTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${currentDate}`, []);
-    const carriedMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${currentDate}`, loadedTodayMode);
-    const storedTodayTasks = readStorage<Task[]>(`${TASKS_KEY_PREFIX}:${currentDate}`, []);
-    const nextTodayTasks = storedTodayTasks.length > 0
-      ? mergeSchedule(storedTodayTasks, loadedDefaultTasks)
-      : carriedTasks.length > 0
-        ? resetTaskStatuses(mergeSchedule(carriedTasks, loadedDefaultTasks))
-        : buildModeSchedule(loadedDefaultTasks, carriedMode);
-
-    const nextTomorrowKey = getNextDateKey(currentDate);
-    const loadedPlan = normalizePlan(readStorage<Partial<Plan>>(`${PLAN_KEY}:${nextTomorrowKey}`, defaultPlan));
-    const loadedTomorrowMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${nextTomorrowKey}`, loadedPlan.tomorrowMode);
-    const storedTomorrowTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${nextTomorrowKey}`, buildModeSchedule(loadedDefaultTasks, loadedTomorrowMode));
-
-    setSettings(loadedSettings);
-    setTemplateTasks(loadedTemplate);
-    setTodayKey(currentDate);
-    setTasks(nextTodayTasks);
-    setTomorrowTasks(storedTomorrowTasks);
-    setPlan(loadedPlan);
-    setReview(normalizeReview(readStorage<Partial<Review>>(`${REVIEW_KEY}:${currentDate}`, defaultReview)));
-    setDailyNotes(readStorage<string>(`${DAILY_NOTES_KEY_PREFIX}:${currentDate}`, ""));
-    setHistory(nextHistory);
-    setTodayMode(carriedMode);
-    setSelectedTodayMode(carriedMode);
-    setTomorrowMode(loadedTomorrowMode);
-    writeStorage(`${MODE_KEY_PREFIX}:${currentDate}`, carriedMode);
-    window.localStorage.setItem(LAST_ACTIVE_DATE_KEY, currentDate);
-    setIsReady(true);
   }, []);
+
+  useEffect(() => {
+    if (isReady) return;
+    const timeout = window.setTimeout(() => setShowLoadingRecovery(true), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [isReady]);
 
   useEffect(() => {
     setIsOnline(window.navigator.onLine);
@@ -548,7 +569,7 @@ export default function Home() {
       writeStorage(HISTORY_KEY, nextHistory);
       writeStorage(`${TASKS_KEY_PREFIX}:${currentDate}`, nextTodayTasks);
       writeStorage(`${MODE_KEY_PREFIX}:${currentDate}`, carriedMode);
-      window.localStorage.setItem(LAST_ACTIVE_DATE_KEY, currentDate);
+      safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
       setTodayKey(currentDate);
       setTasks(nextTodayTasks);
       setTomorrowTasks(readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${nextTomorrowKey}`, buildModeSchedule(nextDefaultTasks, nextTomorrowMode)));
@@ -676,9 +697,7 @@ export default function Home() {
 
   function clearAllLocalData() {
     if (!window.confirm("This deletes all local data on this device. Clear all KPM Sunny Daily OS data?")) return;
-    Object.keys(window.localStorage)
-      .filter((key) => key.startsWith("kpm-sunny"))
-      .forEach((key) => window.localStorage.removeItem(key));
+    clearKpmLocalData();
     setSettings(defaultSettings);
     const originalTemplate = createOriginalTemplate();
     setTemplateTasks(originalTemplate);
@@ -691,7 +710,43 @@ export default function Home() {
     setMissionPreview([]);
     setReview(defaultReview);
     setHistory([]);
-    window.localStorage.setItem(LAST_ACTIVE_DATE_KEY, getCurrentDateKey());
+    safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, getCurrentDateKey());
+  }
+
+  function loadDefaultDashboard() {
+    const currentDate = getCurrentDateKey();
+    const originalTemplate = createOriginalTemplate();
+    const nextSettings: SettingsState = {
+      ...defaultSettings,
+      onboardingComplete: true,
+      sevenDayTestStartDate: currentDate
+    };
+    const nextDefaultTasks = buildSchedule(originalTemplate, false);
+    const nextTasks = buildModeSchedule(nextDefaultTasks, nextSettings.defaultDailyMode ?? "Full Day");
+
+    setSettings(nextSettings);
+    setTemplateTasks(originalTemplate);
+    setTodayKey(currentDate);
+    setTasks(nextTasks);
+    setTomorrowTasks(buildModeSchedule(nextDefaultTasks, nextSettings.defaultDailyMode ?? "Full Day"));
+    setPlan({ ...defaultPlan, tomorrowMode: nextSettings.defaultDailyMode ?? "Full Day" });
+    setMissionPreview([]);
+    setDailyNotes("");
+    setReview(defaultReview);
+    setHistory([]);
+    setTodayMode(nextSettings.defaultDailyMode ?? "Full Day");
+    setSelectedTodayMode(nextSettings.defaultDailyMode ?? "Full Day");
+    setTomorrowMode(nextSettings.defaultDailyMode ?? "Full Day");
+    setActiveFocusTaskId(null);
+    safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
+    setShowLoadingRecovery(false);
+    setIsReady(true);
+  }
+
+  function clearLocalDataFromRecovery() {
+    if (!window.confirm("This deletes all KPM Sunny data on this device.")) return;
+    clearKpmLocalData();
+    loadDefaultDashboard();
   }
 
   function addTask(draft: TaskDraft) {
@@ -724,19 +779,11 @@ export default function Home() {
   }
 
   function exportAllData() {
-    const data = Object.keys(window.localStorage)
-      .filter((key) => key.startsWith("kpm-sunny"))
-      .sort()
-      .reduce<Record<string, string>>((backup, key) => {
-        backup[key] = window.localStorage.getItem(key) ?? "";
-        return backup;
-      }, {});
-
     const payload = {
       app: "KPM Sunny Daily OS",
       version: "1.9",
       exportedAt: new Date().toISOString(),
-      data
+      data: getRawKpmLocalData()
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -764,12 +811,10 @@ export default function Home() {
     if (entries.length === 0) return "Import failed: no KPM Sunny data keys were found.";
     if (!window.confirm(`Import ${entries.length} saved data keys? This will replace current KPM Sunny data on this device.`)) return "Import cancelled.";
 
-    Object.keys(window.localStorage)
-      .filter((key) => key.startsWith("kpm-sunny"))
-      .forEach((key) => window.localStorage.removeItem(key));
+    clearKpmLocalData();
 
     entries.forEach(([key, value]) => {
-      window.localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+      safeSetLocalStorageItem(key, typeof value === "string" ? value : JSON.stringify(value));
     });
 
     window.location.reload();
@@ -819,18 +864,19 @@ export default function Home() {
     setPlan((current) => ({ ...current, suggested: "", scheduledAt: "" }));
   }
 
-  function generateTodayByMode(mode: DailyMode = selectedTodayMode, mainMissionTitle?: string) {
-    if (!window.confirm(`Generate today's missions using ${mode} Mode? This will overwrite today's current list.`)) return false;
-    const nextTasks = applyMainMissionTitle(buildModeSchedule(defaultTasks, mode), mainMissionTitle);
-    setTodayMode(mode);
-    setSelectedTodayMode(mode);
+  function generateTodayByMode(mode?: DailyMode, mainMissionTitle?: string) {
+    const resolvedMode = resolveDailyMode(mode, settings.defaultDailyMode);
+    if (!window.confirm(`Generate today's missions using ${resolvedMode} Mode? This will overwrite today's current list.`)) return false;
+    const nextTasks = applyMainMissionTitle(buildModeSchedule(defaultTasks, resolvedMode), mainMissionTitle);
+    setTodayMode(resolvedMode);
+    setSelectedTodayMode(resolvedMode);
     setTasks(nextTasks);
     setReview(defaultReview);
     return true;
   }
 
-  function startDay(mode: DailyMode, mainMissionTitle: string) {
-    if (generateTodayByMode(mode, mainMissionTitle)) setActiveSection("Today Task List");
+  function startDay(mode: DailyMode | undefined, mainMissionTitle: string) {
+    if (generateTodayByMode(resolveDailyMode(mode, settings.defaultDailyMode), mainMissionTitle)) setActiveSection("Today Task List");
   }
 
   function quickStartToday() {
@@ -839,7 +885,7 @@ export default function Home() {
       return;
     }
 
-    const mode = settings.defaultDailyMode ?? "Full Day";
+    const mode = resolveDailyMode(undefined, settings.defaultDailyMode);
     setTodayMode(mode);
     setSelectedTodayMode(mode);
     setTasks(buildModeSchedule(defaultTasks, mode));
@@ -896,7 +942,18 @@ export default function Home() {
     setReview(defaultReview);
   }
 
-  if (!isReady) return <LoadingShell />;
+  if (!isReady) {
+    return showLoadingRecovery ? (
+      <RecoveryPanel
+        retry={() => window.location.reload()}
+        loadDefaultDashboard={loadDefaultDashboard}
+        exportRawLocalData={exportRawLocalData}
+        clearLocalData={clearLocalDataFromRecovery}
+      />
+    ) : (
+      <LoadingShell />
+    );
+  }
   if (!settings.onboardingComplete) {
     return <OnboardingScreen completeOnboarding={completeOnboarding} />;
   }
@@ -918,6 +975,7 @@ export default function Home() {
                 stats={stats}
                 currentMission={nextTask}
                 mainMission={mainMission}
+                todayMode={todayMode}
                 tasks={tasks}
                 updateTask={updateTask}
                 snoozeTask={snoozeTask}
@@ -935,6 +993,7 @@ export default function Home() {
                 streaks={streaks}
                 todayMode={todayMode}
                 selectedTodayMode={selectedTodayMode}
+                defaultTodayMode={settings.defaultDailyMode}
                 setSelectedTodayMode={setSelectedTodayMode}
                 generateTodayByMode={generateTodayByMode}
                 startDay={startDay}
@@ -1039,6 +1098,75 @@ function LoadingShell() {
       </main>
     </div>
   );
+}
+
+function RecoveryPanel({
+  retry,
+  loadDefaultDashboard,
+  exportRawLocalData,
+  clearLocalData
+}: {
+  retry: () => void;
+  loadDefaultDashboard: () => void;
+  exportRawLocalData: () => void;
+  clearLocalData: () => void;
+}) {
+  return (
+    <div className="min-h-screen overflow-hidden bg-[#05070d] text-slate-100">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(245,158,11,0.18),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(16,185,129,0.13),transparent_24%),linear-gradient(135deg,#05070d_0%,#09111f_48%,#02030a_100%)]" />
+      <main className="relative flex min-h-screen items-center justify-center px-5 py-8">
+        <section className="w-full max-w-lg rounded-[1.75rem] border border-amber-300/20 bg-white/[0.06] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-orange-500 text-slate-950 shadow-[0_0_40px_rgba(245,158,11,0.24)]">
+            <Sun size={30} />
+          </div>
+          <p className="mt-5 text-xs font-bold uppercase tracking-[0.22em] text-amber-200">Recovery Mode</p>
+          <h1 className="mt-2 text-3xl font-black leading-tight text-white">Something went wrong loading your dashboard.</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-300">Your local app data may be missing or corrupted.</p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <button type="button" onClick={retry} className="secondary-button">Retry Loading</button>
+            <button type="button" onClick={loadDefaultDashboard} className="primary-button">Load Default Dashboard</button>
+            <button type="button" onClick={exportRawLocalData} className="secondary-button">Export Raw Local Data</button>
+            <button type="button" onClick={clearLocalData} className="danger-button">Clear Local Data</button>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+class RecoveryErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.warn("KPM Sunny UI crashed. Recovery screen is shown.", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <RecoveryPanel
+          retry={() => window.location.reload()}
+          loadDefaultDashboard={() => {
+            seedDefaultDashboard();
+            window.location.reload();
+          }}
+          exportRawLocalData={exportRawLocalData}
+          clearLocalData={() => {
+            if (!window.confirm("This deletes all KPM Sunny data on this device.")) return;
+            clearKpmLocalData();
+            seedDefaultDashboard();
+            window.location.reload();
+          }}
+        />
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 function OfflineBanner() {
@@ -1369,6 +1497,7 @@ function TodayCommand({
   stats,
   currentMission,
   mainMission,
+  todayMode,
   tasks,
   updateTask,
   snoozeTask,
@@ -1378,6 +1507,7 @@ function TodayCommand({
   stats: Stats;
   currentMission?: Task;
   mainMission?: Task;
+  todayMode: DailyMode;
   tasks: Task[];
   updateTask: (id: string, patch: Partial<Task>) => void;
   snoozeTask: (id: string) => void;
@@ -1396,7 +1526,10 @@ function TodayCommand({
       <Panel className="border-amber-300/25 bg-[linear-gradient(135deg,rgba(251,191,36,0.12),rgba(255,255,255,0.045))]">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Current Mission</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Current Mission</p>
+              <Badge tone="gold">{todayMode} Mode</Badge>
+            </div>
             {currentMission ? (
               <>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1777,6 +1910,7 @@ function Dashboard({
   streaks,
   todayMode,
   selectedTodayMode,
+  defaultTodayMode,
   setSelectedTodayMode,
   generateTodayByMode,
   startDay,
@@ -1796,9 +1930,10 @@ function Dashboard({
   streaks: Streaks;
   todayMode: DailyMode;
   selectedTodayMode: DailyMode;
+  defaultTodayMode?: DailyMode;
   setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
   generateTodayByMode: (mode?: DailyMode) => boolean;
-  startDay: (mode: DailyMode, mainMissionTitle: string) => void;
+  startDay: (mode: DailyMode | undefined, mainMissionTitle: string) => void;
   quickStartToday: () => void;
   quickStartMessage: string;
   dailyNotes: string;
@@ -1811,6 +1946,7 @@ function Dashboard({
     <section className="sunny-dashboard grid gap-5">
       <DailyStartFlow
         selectedTodayMode={selectedTodayMode}
+        defaultTodayMode={defaultTodayMode}
         setSelectedTodayMode={setSelectedTodayMode}
         mainMission={mainMission}
         startDay={startDay}
@@ -1914,6 +2050,7 @@ function Dashboard({
 function DailyStartFlow({
   selectedTodayMode,
   setSelectedTodayMode,
+  defaultTodayMode,
   mainMission,
   startDay,
   updateMainMissionTitle,
@@ -1921,16 +2058,35 @@ function DailyStartFlow({
 }: {
   selectedTodayMode: DailyMode;
   setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
+  defaultTodayMode?: DailyMode;
   mainMission?: Task;
-  startDay: (mode: DailyMode, mainMissionTitle: string) => void;
+  startDay: (mode: DailyMode | undefined, mainMissionTitle: string) => void;
   updateMainMissionTitle: (title: string) => void;
   openToday: () => void;
 }) {
+  const [flowMode, setFlowMode] = useState<DailyMode>(() => resolveDailyMode(selectedTodayMode, defaultTodayMode));
   const [mainMissionTitle, setMainMissionTitle] = useState(mainMission?.title ?? "");
+  const [mainMissionEdited, setMainMissionEdited] = useState(false);
+
+  useEffect(() => {
+    setFlowMode(resolveDailyMode(selectedTodayMode, defaultTodayMode));
+  }, [defaultTodayMode, selectedTodayMode]);
 
   useEffect(() => {
     setMainMissionTitle(mainMission?.title ?? "");
+    setMainMissionEdited(false);
   }, [mainMission?.id, mainMission?.title]);
+
+  function chooseFlowMode(mode: DailyMode) {
+    setFlowMode(mode);
+    setSelectedTodayMode(mode);
+  }
+
+  function generateFromFlow() {
+    const modeToGenerate = resolveDailyMode(flowMode, defaultTodayMode);
+    setSelectedTodayMode(modeToGenerate);
+    startDay(modeToGenerate, mainMissionEdited ? mainMissionTitle : "");
+  }
 
   return (
     <Panel className="sunny-start-panel">
@@ -1948,8 +2104,8 @@ function DailyStartFlow({
                 <button
                   key={mode}
                   type="button"
-                  onClick={() => setSelectedTodayMode(mode)}
-                  className={`min-h-11 shrink-0 rounded-2xl px-4 text-sm font-black ${selectedTodayMode === mode ? "bg-amber-300 text-slate-950" : "bg-white/[0.06] text-slate-300"}`}
+                  onClick={() => chooseFlowMode(mode)}
+                  className={`min-h-11 shrink-0 rounded-2xl px-4 text-sm font-black ${flowMode === mode ? "bg-amber-300 text-slate-950" : "bg-white/[0.06] text-slate-300"}`}
                 >
                   {mode}
                 </button>
@@ -1960,7 +2116,10 @@ function DailyStartFlow({
           <Field label="2. Confirm or edit today's main mission">
             <input
               value={mainMissionTitle}
-              onChange={(event) => setMainMissionTitle(event.target.value)}
+              onChange={(event) => {
+                setMainMissionTitle(event.target.value);
+                setMainMissionEdited(true);
+              }}
               onBlur={() => updateMainMissionTitle(mainMissionTitle)}
               className="form-control"
               placeholder="One mission that matters today"
@@ -1968,7 +2127,7 @@ function DailyStartFlow({
           </Field>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <button onClick={() => startDay(selectedTodayMode, mainMissionTitle)} className="primary-button min-h-14 justify-center">
+            <button onClick={generateFromFlow} className="primary-button min-h-14 justify-center">
               <Sparkles size={19} />
               3. Generate Today's Missions
             </button>
@@ -3571,7 +3730,8 @@ function readStorage<T>(key: string, fallback: T): T {
   try {
     const saved = window.localStorage.getItem(key);
     return saved ? (JSON.parse(saved) as T) : fallback;
-  } catch {
+  } catch (error) {
+    console.warn(`KPM Sunny could not parse localStorage key "${key}". Falling back to default data.`, error);
     return fallback;
   }
 }
@@ -3582,6 +3742,81 @@ function writeStorage<T>(key: string, value: T) {
   } catch {
     // localStorage can fail in private browsing; the app still works in memory.
   }
+}
+
+function safeGetLocalStorageItem(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (error) {
+    console.warn(`KPM Sunny could not read localStorage key "${key}".`, error);
+    return null;
+  }
+}
+
+function safeSetLocalStorageItem(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`KPM Sunny could not write localStorage key "${key}".`, error);
+  }
+}
+
+function clearKpmLocalData() {
+  try {
+    Object.keys(window.localStorage)
+      .filter((key) => key.startsWith("kpm-sunny"))
+      .forEach((key) => window.localStorage.removeItem(key));
+  } catch (error) {
+    console.warn("KPM Sunny could not clear local data.", error);
+  }
+}
+
+function getRawKpmLocalData(): Record<string, string> {
+  try {
+    return Object.keys(window.localStorage)
+      .filter((key) => key.startsWith("kpm-sunny"))
+      .sort()
+      .reduce<Record<string, string>>((data, key) => {
+        data[key] = window.localStorage.getItem(key) ?? "";
+        return data;
+      }, {});
+  } catch (error) {
+    console.warn("KPM Sunny could not read raw local data.", error);
+    return {};
+  }
+}
+
+function exportRawLocalData() {
+  const payload = {
+    app: "KPM Sunny Daily OS",
+    version: "raw-local-data",
+    exportedAt: new Date().toISOString(),
+    data: getRawKpmLocalData()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `kpm-sunny-raw-local-data-${getDateKey(new Date())}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function seedDefaultDashboard() {
+  const currentDate = getCurrentDateKey();
+  const settings: SettingsState = {
+    ...defaultSettings,
+    onboardingComplete: true,
+    sevenDayTestStartDate: currentDate
+  };
+  const template = createOriginalTemplate();
+  const defaultTasks = buildModeSchedule(buildSchedule(template, false), settings.defaultDailyMode ?? "Full Day");
+
+  writeStorage(SETTINGS_KEY, settings);
+  writeStorage(TEMPLATE_KEY, template);
+  writeStorage(`${TASKS_KEY_PREFIX}:${currentDate}`, defaultTasks);
+  writeStorage(`${MODE_KEY_PREFIX}:${currentDate}`, settings.defaultDailyMode ?? "Full Day");
+  safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
 }
 
 function calculateStorageInfo(): StorageInfo {
@@ -3687,6 +3922,12 @@ function getMissionReason(task: Task): string {
   if (task.category === "Knowledge") return "This builds skill and long-term capability.";
   if (task.category === "Monitoring") return "This keeps your environment and resources under control.";
   return "This keeps the day organized and pointed in the right direction.";
+}
+
+function resolveDailyMode(mode?: DailyMode, fallback?: DailyMode): DailyMode {
+  if (mode && dailyModes.includes(mode)) return mode;
+  if (fallback && dailyModes.includes(fallback)) return fallback;
+  return "Full Day";
 }
 
 function getFirstMissionStep(task: Task): string {
@@ -4024,7 +4265,8 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetState
       } else {
         setValue(initialValue);
       }
-    } catch {
+    } catch (error) {
+      console.warn(`KPM Sunny could not parse localStorage key "${key}". Falling back to default data.`, error);
       setValue(initialValue);
     } finally {
       setIsReady(true);
@@ -4433,7 +4675,7 @@ function getCurrentDateKey(): string {
   if (typeof window !== "undefined") {
     const queryDate = new URLSearchParams(window.location.search).get("date");
     if (queryDate && /^\d{4}-\d{2}-\d{2}$/.test(queryDate)) return queryDate;
-    const override = window.localStorage.getItem(DATE_OVERRIDE_KEY);
+    const override = safeGetLocalStorageItem(DATE_OVERRIDE_KEY);
     if (override && /^\d{4}-\d{2}-\d{2}$/.test(override)) return override;
   }
   return getDateKey(new Date());
