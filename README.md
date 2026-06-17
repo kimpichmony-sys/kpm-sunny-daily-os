@@ -115,6 +115,46 @@ To import:
 5. Click **Import data from JSON**.
 6. Confirm the import. Existing KPM Sunny data on that device will be replaced.
 
+## Next Big Feature: Flexible Day Start
+
+The app should not assume every day starts at 5:30 AM.
+
+Future feature idea: when opening the app, show two main cards.
+
+1. **Normal Day**
+   Subtitle: "I woke up normally or just need to shift today's schedule."
+
+2. **Special Day**
+   Subtitle: "Late wake, night shift, recovery, appointment, or custom day."
+
+Normal Day flow:
+
+- Ask wake-up time.
+- Ask energy level.
+- Ask today mode.
+- Generate schedule by shifting flexible tasks based on wake time.
+
+Special Day flow options:
+
+- Late Wake Day
+- Night Shift Day
+- Recovery Day
+- Appointment / Busy Day
+- Custom Day
+
+Important rules:
+
+- Flexible tasks can move.
+- Fixed-time tasks should not move.
+- Late wake should create a compressed schedule.
+- Night shift should use a night-shift schedule.
+- Recovery day should focus on food, hygiene, sleep, and one small useful task.
+- App should always show a preview before generating today.
+
+Philosophy:
+
+> "The app should adapt to my day, not punish me for waking up differently."
+
 ## Post-Deployment Test Checklist
 
 - App opens from the live link.
