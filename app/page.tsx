@@ -51,6 +51,10 @@ type Task = {
   skipped: boolean;
   notes: string;
   block: string;
+  displayLabel?: string;
+  subtitle?: string;
+  flexible?: boolean;
+  timerPresetMinutes?: number;
   insertedGoal?: boolean;
   custom?: boolean;
 };
@@ -210,6 +214,10 @@ type TemplateTask = {
   block: string;
   enabled: boolean;
   notes: string;
+  displayLabel?: string;
+  subtitle?: string;
+  flexible?: boolean;
+  timerPresetMinutes?: number;
 };
 
 type TemplateDraft = {
@@ -2527,7 +2535,9 @@ function TemplateTaskCard({
             <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
             <Badge tone="dark">{task.points} KPM</Badge>
             <Badge tone={task.enabled ? "gold" : "dark"}>{task.enabled ? "Enabled" : "Disabled"}</Badge>
+            {task.flexible ? <Badge tone="dark">Flexible</Badge> : null}
           </div>
+          {task.displayLabel ? <p className="mt-2 text-xs font-black uppercase tracking-[0.2em] text-amber-200">{task.displayLabel}</p> : null}
           <h4 className="mt-2 text-lg font-black leading-snug text-white sm:text-xl">{task.title}</h4>
           <p className="mt-1 text-sm font-semibold text-slate-400">{task.block}</p>
           {task.notes ? <p className="mt-3 rounded-2xl bg-black/20 px-4 py-3 text-sm leading-6 text-slate-300">{task.notes}</p> : null}
@@ -2627,8 +2637,11 @@ function TaskCard({
             <Badge tone={task.category}>{task.category}</Badge>
             <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
             <Badge tone="dark">{task.points} KPM</Badge>
+            {task.flexible ? <Badge tone="dark">Flexible</Badge> : null}
           </div>
+          {task.displayLabel ? <p className="mt-2 text-xs font-black uppercase tracking-[0.2em] text-amber-200">{task.displayLabel}</p> : null}
           <h4 className="mt-2 text-lg font-black leading-snug text-white sm:text-xl">{task.title}</h4>
+          {task.subtitle ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-300">{task.subtitle}</p> : null}
           <textarea
             value={task.notes}
             onChange={(event) => updateTask(task.id, { notes: event.target.value })}
@@ -3932,6 +3945,7 @@ function resolveDailyMode(mode?: DailyMode, fallback?: DailyMode): DailyMode {
 
 function getFirstMissionStep(task: Task): string {
   const text = `${task.title} ${task.notes}`.toLowerCase();
+  if (/(soak feet|warm water|nanno)/.test(text)) return "Prepare warm water, sit down, soak your feet, and let your body calm down.";
   if (/(money|job|apply|income|business|spending|expense|opportunit|resume|cv)/.test(text)) return "Open your job/app/money tool and choose one action.";
   if (task.category === "Knowledge" || /(skill|study|learn|coding|practice|lesson|project)/.test(text)) return "Open your lesson or project and review the last thing you did.";
   if (/(health|exercise|walk|stretch|sunlight|water|shower|sleep|meal)/.test(text)) return "Stand up, drink water, and begin with light movement.";
@@ -3949,6 +3963,7 @@ function getSuggestedFocusPreset(task: Task): FocusPreset {
   const text = `${task.title} ${task.notes}`.toLowerCase();
 
   if (/ceo mode|ceo block|major project|long deep work/.test(text)) return getFocusPreset("ceo-block");
+  if (task.timerPresetMinutes === 15 || /(soak feet|warm water|nanno)/.test(text)) return getFocusPreset("short-task");
 
   if (/wake up|drink water|make bed|daily notes|quick notes|quick check/.test(text)) return getFocusPreset("quick-reset");
   if (/use toilet|brush teeth|wash face|wear clean clothes|fix hair|deodorant|wash dishes|simple clean|light stretch|fresh air|check spending|money|supplies/.test(text)) return getFocusPreset("routine");
@@ -4286,7 +4301,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetState
 }
 
 function createOriginalTemplate(): TemplateTask[] {
-  return baseSchedule.map(([time, title, category, priority, points], index) => ({
+  const template = baseSchedule.map(([time, title, category, priority, points], index) => ({
     id: `base-${index}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
     time,
     title,
@@ -4297,13 +4312,33 @@ function createOriginalTemplate(): TemplateTask[] {
     enabled: true,
     notes: ""
   }));
+
+  return [...template, createNannoSleepBoostTemplateTask()].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+}
+
+function createNannoSleepBoostTemplateTask(): TemplateTask {
+  return {
+    id: "base-nanno-sleep-boost",
+    time: "10:20 PM",
+    title: "Soak feet with warm water",
+    category: "Sunny",
+    priority: "A",
+    points: 15,
+    block: "Night Shutdown",
+    enabled: true,
+    notes: "A calm night routine recommended by Nanno.",
+    displayLabel: "Nanno’s Sleep Boost",
+    subtitle: "A calm night routine recommended by Nanno.",
+    flexible: true,
+    timerPresetMinutes: 15
+  };
 }
 
 function normalizeTemplate(template: TemplateTask[]): TemplateTask[] {
   const original = createOriginalTemplate();
   if (!Array.isArray(template) || template.length === 0) return original;
 
-  return template
+  const normalized: TemplateTask[] = template
     .map((task, index) => ({
       id: task.id || `template-${index}-${Date.now()}`,
       time: task.time || "8:00 AM",
@@ -4313,9 +4348,19 @@ function normalizeTemplate(template: TemplateTask[]): TemplateTask[] {
       points: Number(task.points) || 0,
       block: blockNames.includes(task.block) ? task.block : getTaskBlock(task.time || "8:00 AM"),
       enabled: task.enabled !== false,
-      notes: task.notes || ""
-    }))
-    .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+      notes: task.notes || "",
+      displayLabel: task.displayLabel,
+      subtitle: task.subtitle,
+      flexible: task.flexible === true,
+      timerPresetMinutes: Number(task.timerPresetMinutes) || undefined
+    }));
+
+  const nannoTask = createNannoSleepBoostTemplateTask();
+  if (!normalized.some((task) => task.id === nannoTask.id || task.title.toLowerCase() === nannoTask.title.toLowerCase())) {
+    normalized.push(nannoTask);
+  }
+
+  return normalized.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
 }
 
 function buildSchedule(template: TemplateTask[], shiftEarlier: boolean): Task[] {
@@ -4331,7 +4376,11 @@ function buildSchedule(template: TemplateTask[], shiftEarlier: boolean): Task[] 
       completed: false,
       skipped: false,
       notes: templateTask.notes,
-      block: templateTask.block
+      block: templateTask.block,
+      displayLabel: templateTask.displayLabel,
+      subtitle: templateTask.subtitle,
+      flexible: templateTask.flexible,
+      timerPresetMinutes: templateTask.timerPresetMinutes
     };
   }).sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
 }
@@ -4365,7 +4414,7 @@ function buildModeSchedule(baseTasks: Task[], mode: DailyMode): Task[] {
   }
 
   if (mode === "Recovery") {
-    const keep = ["drink water", "brush teeth", "wash face", "shower", "breakfast", "lunch", "dinner", "stretch", "fresh air", "sunlight", "walk", "clean room", "screen brightness", "bedtime", "sleep"];
+    const keep = ["drink water", "brush teeth", "wash face", "shower", "breakfast", "lunch", "dinner", "stretch", "fresh air", "sunlight", "walk", "clean room", "screen brightness", "soak feet", "warm water", "nanno", "bedtime", "sleep"];
     return compactModeTasks(cleanBase, keep, [
       modeTask(cleanBase, mode, "8:00 AM", "Recovery planning and gentle reset", "Plan", "B", 15, "Main Mission Block"),
       modeTask(cleanBase, mode, "4:15 PM", "Room reset for 10 minutes", "Monitoring", "A", 18, "Afternoon Growth Block")
