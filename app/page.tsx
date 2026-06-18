@@ -230,7 +230,57 @@ type GetLeanPlan = {
   logs: FitnessLog[];
 };
 
-type ActivePlan = EverydayEssentialsPlan | GetLeanPlan;
+type StudyTask = {
+  id: string;
+  title: string;
+  completed: boolean;
+  disabled: boolean;
+};
+
+type StudyLog = {
+  date: string;
+  studyCompleted: boolean;
+  minutesStudied: number;
+  focusLevel: number;
+  difficulty: "Easy" | "Medium" | "Hard";
+  topicStudied: string;
+  notes: string;
+};
+
+type LearnMasterPlan = {
+  type: "learn_master_subject";
+  name: "Learn / Master Subject";
+  status: "active";
+  subjectName: string;
+  currentLevel: string;
+  goalType: string;
+  dailyMinutes: number;
+  speed: string;
+  startDate: string;
+  deadline: string;
+  studyStyle: string;
+  mainResource: string;
+  studyLoop: string[];
+  dailyTasks: StudyTask[];
+  weeklyReviewDay: "Sunday";
+  logs: StudyLog[];
+};
+
+type LearnMasterSetup = {
+  subjectName: string;
+  currentLevel: string;
+  goalType: string;
+  dailyStudyTime: string;
+  customDailyMinutes: number;
+  speed: string;
+  deadline: string;
+  customDeadline: string;
+  studyStyle: string;
+  mainResource: string;
+  customResource: string;
+};
+
+type ActivePlan = EverydayEssentialsPlan | GetLeanPlan | LearnMasterPlan;
 
 type DayMeta = {
   dayType: BuildDayType | "Default Day";
@@ -483,6 +533,20 @@ const defaultEssentialsSetup: EssentialsSetup = {
   restockReminder: "Weekly"
 };
 
+const defaultLearnMasterSetup: LearnMasterSetup = {
+  subjectName: "",
+  currentLevel: "Beginner",
+  goalType: "Become useful",
+  dailyStudyTime: "60 minutes",
+  customDailyMinutes: 60,
+  speed: "Moderate",
+  deadline: "No deadline",
+  customDeadline: "",
+  studyStyle: "Mixed",
+  mainResource: "Course",
+  customResource: ""
+};
+
 const everydayEssentialsTemplates = {
   dailyTasks: [
     ["toothbrush", "Toothbrush", "Hygiene"],
@@ -532,6 +596,22 @@ const getLeanDailyTaskTemplates = [
   ["workout-recovery", "Workout or recovery", "Health"],
   ["sleep-routine", "Sleep routine", "Sleep"]
 ] as const;
+
+const learnCurrentLevels = ["Beginner", "Basic", "Intermediate", "Advanced"];
+const learnGoalTypes = ["Learn basics", "Become useful", "Pass exam", "Build project", "Master deeply"];
+const learnDailyStudyTimes = ["30 minutes", "60 minutes", "120 minutes", "180 minutes", "Custom"];
+const learnSpeeds = ["Slow", "Moderate", "Intensive"];
+const learnDeadlines = ["No deadline", "30 days", "90 days", "1 year", "Custom date"];
+const learnStudyStyles = ["Reading", "Watching videos", "Practice", "Flashcards", "Project-based", "Mixed"];
+const learnMainResources = ["YouTube", "Course", "Book", "Notes", "App", "Custom"];
+const learnStudyLoop = ["Learn", "Practice", "Recall", "Review", "Apply"];
+const learnDailyTaskTemplates: Array<[string, string]> = [
+  ["review-yesterday", "Review yesterday"],
+  ["learn-topic", "Learn one topic"],
+  ["practice", "Practice"],
+  ["recall", "Test yourself without looking"],
+  ["notes", "Write notes"]
+];
 
 const modeProfiles: Record<DailyMode, { description: string; bestFor: string; difficulty: string; note: string }> = {
   "Full Day": {
@@ -1344,6 +1424,9 @@ function HomeApp() {
                 {!showBuildTodayFlow && tasks.length > 0 && activePlan?.type === "get_lean_shred" ? (
                   <GetLeanTodayCard activePlan={normalizeGetLeanPlan(activePlan)} setActivePlan={setActivePlan} />
                 ) : null}
+                {!showBuildTodayFlow && tasks.length > 0 && activePlan?.type === "learn_master_subject" ? (
+                  <LearnMasterTodayCard activePlan={normalizeLearnMasterPlan(activePlan)} setActivePlan={setActivePlan} />
+                ) : null}
               </div>
             )}
             {activeSection === "Command Center" && (
@@ -1404,7 +1487,21 @@ function HomeApp() {
               />
             )}
             {activeSection === "Profile" && (
-              <ProfileScreen profile={normalizeProfile(profile)} setProfile={setProfile} />
+              <ProfileScreen
+                profile={normalizeProfile(profile)}
+                setProfile={setProfile}
+                settings={settings}
+                setSettings={setSettings}
+                resetToday={resetToday}
+                clearAllLocalData={clearAllLocalData}
+                exportAllData={exportAllData}
+                importAllData={importAllData}
+                todayMode={todayMode}
+                selectedTodayMode={selectedTodayMode}
+                setSelectedTodayMode={setSelectedTodayMode}
+                generateTodayByMode={generateTodayByMode}
+                resetDefaultTemplate={resetDefaultTemplate}
+              />
             )}
             {activeSection === "Today Task List" && (
               <TaskList tasks={tasks} todayMode={todayMode} updateTask={updateTask} resetToday={resetToday} addTask={addTask} editTask={editTask} deleteTask={deleteTask} />
@@ -3337,16 +3434,21 @@ function PlanFoundation({
 }) {
   const normalizedEssentialsPlan = activePlan?.type === "everyday_essentials" ? normalizeEverydayEssentialsPlan(activePlan) : null;
   const normalizedGetLeanPlan = activePlan?.type === "get_lean_shred" ? normalizeGetLeanPlan(activePlan) : null;
-  const activePlanName = normalizedEssentialsPlan?.name ?? normalizedGetLeanPlan?.name ?? "No active plan selected";
+  const normalizedLearnPlan = activePlan?.type === "learn_master_subject" ? normalizeLearnMasterPlan(activePlan) : null;
+  const activePlanName = normalizedEssentialsPlan?.name ?? normalizedGetLeanPlan?.name ?? normalizedLearnPlan?.name ?? "No active plan selected";
   const activePlanDetails = normalizedEssentialsPlan
     ? `${normalizedEssentialsPlan.setup.restockReminder} restock rhythm`
     : normalizedGetLeanPlan
       ? `${Math.round(normalizedGetLeanPlan.calculations.targetCalories)} kcal target · ${Math.round(normalizedGetLeanPlan.calculations.proteinTarget)}g protein`
-      : activePlanFoundation.type || "Foundation ready";
+      : normalizedLearnPlan
+        ? `${normalizedLearnPlan.subjectName || "Subject"} · ${normalizedLearnPlan.dailyMinutes} min/day`
+        : activePlanFoundation.type || "Foundation ready";
   const [showEssentialsSetup, setShowEssentialsSetup] = useState(false);
   const [showGetLeanSetup, setShowGetLeanSetup] = useState(false);
+  const [showLearnSetup, setShowLearnSetup] = useState(false);
   const [essentialsSetup, setEssentialsSetup] = useState<EssentialsSetup>(normalizedEssentialsPlan?.setup ?? defaultEssentialsSetup);
   const [getLeanSetup, setGetLeanSetup] = useState<GetLeanSetup>(() => createGetLeanSetupFromProfile(profile));
+  const [learnSetup, setLearnSetup] = useState<LearnMasterSetup>(defaultLearnMasterSetup);
   const presetPlans = [
     { name: "Everyday Essentials", purpose: "Make sure I have the basic things I need for daily life." },
     { name: "Get Lean / Shred", purpose: "Create a simple rule-based fat-loss plan using my profile data." },
@@ -3371,16 +3473,31 @@ function PlanFoundation({
     setShowGetLeanSetup(false);
   }
 
+  function setupLearnMasterPlan() {
+    const nextPlan = createLearnMasterPlan(learnSetup);
+    setActivePlan(nextPlan);
+    setProfile((current) => ({ ...normalizeProfile(current), activePlan: nextPlan.name }));
+    setShowLearnSetup(false);
+  }
+
   function openPresetSetup(name: string) {
     if (name === "Everyday Essentials") {
       setShowEssentialsSetup((current) => !current);
       setShowGetLeanSetup(false);
+      setShowLearnSetup(false);
       return;
     }
     if (name === "Get Lean / Shred") {
       setGetLeanSetup((current) => mergeGetLeanSetupWithProfile(current, profile));
       setShowGetLeanSetup((current) => !current);
       setShowEssentialsSetup(false);
+      setShowLearnSetup(false);
+      return;
+    }
+    if (name === "Learn / Master Subject") {
+      setShowLearnSetup((current) => !current);
+      setShowEssentialsSetup(false);
+      setShowGetLeanSetup(false);
     }
   }
 
@@ -3418,7 +3535,7 @@ function PlanFoundation({
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {presetPlans.map((preset) => {
-            const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred";
+            const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred" || preset.name === "Learn / Master Subject";
             const isActive = activePlanName === preset.name;
             return (
               <article key={preset.name} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
@@ -3471,12 +3588,25 @@ function PlanFoundation({
         />
       ) : null}
 
+      {showLearnSetup ? (
+        <LearnMasterSetupPanel
+          setup={learnSetup}
+          setSetup={setLearnSetup}
+          onSave={setupLearnMasterPlan}
+          onCancel={() => setShowLearnSetup(false)}
+        />
+      ) : null}
+
       {normalizedEssentialsPlan ? (
         <EssentialsChecklistManager activePlan={normalizedEssentialsPlan} setActivePlan={setActivePlan} />
       ) : null}
 
       {normalizedGetLeanPlan ? (
         <GetLeanPlanDetails activePlan={normalizedGetLeanPlan} setActivePlan={setActivePlan} />
+      ) : null}
+
+      {normalizedLearnPlan ? (
+        <LearnMasterPlanDetails activePlan={normalizedLearnPlan} setActivePlan={setActivePlan} />
       ) : null}
 
       <PlanTomorrow
@@ -3524,6 +3654,7 @@ function ProgressFoundation({
 }) {
   const essentials = activePlan?.type === "everyday_essentials" ? normalizeEverydayEssentialsPlan(activePlan) : null;
   const getLean = activePlan?.type === "get_lean_shred" ? normalizeGetLeanPlan(activePlan) : null;
+  const learn = activePlan?.type === "learn_master_subject" ? normalizeLearnMasterPlan(activePlan) : null;
   const essentialsStats = essentials ? getEssentialsProgress(essentials) : null;
 
   return (
@@ -3557,6 +3688,8 @@ function ProgressFoundation({
 
       {getLean ? <GetLeanProgressPanel activePlan={getLean} setActivePlan={setActivePlan} /> : null}
 
+      {learn ? <LearnMasterProgressPanel activePlan={learn} setActivePlan={setActivePlan} /> : null}
+
       <EveningReview review={review} setReview={setReview} stats={stats} dayLevel={dayLevel} tasks={tasks} todayKey={todayKey} />
       <HistoryPage history={history} sevenDayTest={sevenDayTest} />
       <AnalyticsPage analytics={analytics} streaks={streaks} />
@@ -3564,9 +3697,38 @@ function ProgressFoundation({
   );
 }
 
-function ProfileScreen({ profile, setProfile }: { profile: ProfileState; setProfile: Dispatch<SetStateAction<ProfileState>> }) {
+function ProfileScreen({
+  profile,
+  setProfile,
+  settings,
+  setSettings,
+  resetToday,
+  clearAllLocalData,
+  exportAllData,
+  importAllData,
+  todayMode,
+  selectedTodayMode,
+  setSelectedTodayMode,
+  generateTodayByMode,
+  resetDefaultTemplate
+}: {
+  profile: ProfileState;
+  setProfile: Dispatch<SetStateAction<ProfileState>>;
+  settings: SettingsState;
+  setSettings: Dispatch<SetStateAction<SettingsState>>;
+  resetToday: () => void;
+  clearAllLocalData: () => void;
+  exportAllData: () => void;
+  importAllData: (rawJson: string) => string;
+  todayMode: DailyMode;
+  selectedTodayMode: DailyMode;
+  setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
+  generateTodayByMode: (mode?: DailyMode) => boolean;
+  resetDefaultTemplate: () => void;
+}) {
   const [draft, setDraft] = useState<ProfileState>(profile);
   const [editing, setEditing] = useState(!profile.name && !profile.dateOfBirth);
+  const [profileTab, setProfileTab] = useState<"Profile" | "Settings" | "Backup" | "Version">("Profile");
   const age = draft.dateOfBirth ? calculateAge(draft.dateOfBirth) : null;
   const fieldClass = "form-control";
 
@@ -3597,13 +3759,20 @@ function ProfileScreen({ profile, setProfile }: { profile: ProfileState; setProf
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Profile</p>
-            <h2 className="mt-2 text-3xl font-black text-white">What personal data should the app use?</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Saved locally only. This gives future plans a stable personal baseline.</p>
+            <h2 className="mt-2 text-3xl font-black text-white">Profile + Settings</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Your profile, app settings, storage backup, version notes, and danger actions live here.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setEditing(true)} className="secondary-button">Edit Profile</button>
-            <button type="button" onClick={saveProfile} className="primary-button">Save Profile</button>
-            <button type="button" onClick={resetProfile} className="danger-button">Reset Profile</button>
+            {(["Profile", "Settings", "Backup", "Version"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setProfileTab(tab)}
+                className={profileTab === tab ? "primary-button" : "secondary-button"}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
         </div>
         {!profile.name && !profile.dateOfBirth ? (
@@ -3614,52 +3783,329 @@ function ProfileScreen({ profile, setProfile }: { profile: ProfileState; setProf
         ) : null}
       </Panel>
 
-      <Panel>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Name / nickname">
-            <input disabled={!editing} value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} className={fieldClass} placeholder="Sunny" />
-          </Field>
-          <Field label="Date of birth">
-            <input disabled={!editing} type="date" value={draft.dateOfBirth} onChange={(event) => updateDraft({ dateOfBirth: event.target.value })} className={fieldClass} />
-          </Field>
-          <Field label="Calculated age">
-            <input readOnly value={age === null ? "Add date of birth" : `${age} years old`} className={fieldClass} />
-          </Field>
-          <SelectField label="Sex" value={draft.sex} options={["", "Female", "Male", "Intersex", "Prefer not to say"]} onChange={(sex) => updateDraft({ sex })} />
-          <Field label="Height in cm">
-            <input disabled={!editing} type="number" value={draft.heightCm || ""} onChange={(event) => updateDraft({ heightCm: Number(event.target.value) || 0 })} className={fieldClass} />
-          </Field>
-          <Field label="Current weight in kg">
-            <input disabled={!editing} type="number" value={draft.currentWeightKg || ""} onChange={(event) => updateDraft({ currentWeightKg: Number(event.target.value) || 0 })} className={fieldClass} />
-          </Field>
-          <Field label="Goal weight in kg">
-            <input disabled={!editing} type="number" value={draft.goalWeightKg || ""} onChange={(event) => updateDraft({ goalWeightKg: Number(event.target.value) || 0 })} className={fieldClass} />
-          </Field>
-          <SelectField label="Activity level" value={draft.activityLevel} options={["", "Low", "Light", "Moderate", "High", "Very High"]} onChange={(activityLevel) => updateDraft({ activityLevel })} />
-          <Field label="Normal wake-up time">
-            <input disabled={!editing} type="time" value={draft.normalWakeTime ? timeToInputValue(draft.normalWakeTime) : ""} onChange={(event) => updateDraft({ normalWakeTime: inputValueToTime(event.target.value) })} className={fieldClass} />
-          </Field>
-          <Field label="Sleep target hours">
-            <input disabled={!editing} type="number" min="1" max="14" value={draft.sleepTargetHours || 8} onChange={(event) => updateDraft({ sleepTargetHours: Number(event.target.value) || 8 })} className={fieldClass} />
-          </Field>
-          <SelectField label="Main life focus" value={draft.mainLifeFocus} options={["", ...mainLifeFocusOptions]} onChange={(mainLifeFocus) => updateDraft({ mainLifeFocus })} />
-          <Field label="Active plan">
-            <input disabled={!editing} value={draft.activePlan} onChange={(event) => updateDraft({ activePlan: event.target.value })} className={fieldClass} placeholder="Everyday Essentials" />
-          </Field>
-          <div className="md:col-span-2">
-            <Field label="Food restrictions / personal rules">
-              <textarea
-                disabled={!editing}
-                value={draft.foodRules.join("\n")}
-                onChange={(event) => updateDraft({ foodRules: event.target.value.split("\n").map((rule) => rule.trim()).filter(Boolean) })}
-                className="form-control min-h-28"
-                placeholder="One rule per line"
-              />
+      {profileTab === "Profile" ? (
+        <Panel>
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">My Profile</p>
+              <h3 className="mt-2 text-2xl font-black text-white">Personal baseline</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setEditing(true)} className="secondary-button">Edit Profile</button>
+              <button type="button" onClick={saveProfile} className="primary-button">Save Profile</button>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Name / nickname">
+              <input disabled={!editing} value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} className={fieldClass} placeholder="Sunny" />
             </Field>
+            <Field label="Date of birth">
+              <input disabled={!editing} type="date" value={draft.dateOfBirth} onChange={(event) => updateDraft({ dateOfBirth: event.target.value })} className={fieldClass} />
+            </Field>
+            <Field label="Calculated age">
+              <input readOnly value={age === null ? "Add date of birth" : `${age} years old`} className={fieldClass} />
+            </Field>
+            <SelectField label="Sex" value={draft.sex} options={["", "Female", "Male", "Intersex", "Prefer not to say"]} onChange={(sex) => updateDraft({ sex })} />
+            <Field label="Height in cm">
+              <input disabled={!editing} type="number" value={draft.heightCm || ""} onChange={(event) => updateDraft({ heightCm: Number(event.target.value) || 0 })} className={fieldClass} />
+            </Field>
+            <Field label="Current weight in kg">
+              <input disabled={!editing} type="number" value={draft.currentWeightKg || ""} onChange={(event) => updateDraft({ currentWeightKg: Number(event.target.value) || 0 })} className={fieldClass} />
+            </Field>
+            <Field label="Goal weight in kg">
+              <input disabled={!editing} type="number" value={draft.goalWeightKg || ""} onChange={(event) => updateDraft({ goalWeightKg: Number(event.target.value) || 0 })} className={fieldClass} />
+            </Field>
+            <SelectField label="Activity level" value={draft.activityLevel} options={["", "Low", "Light", "Moderate", "High", "Very High"]} onChange={(activityLevel) => updateDraft({ activityLevel })} />
+            <Field label="Normal wake-up time">
+              <input disabled={!editing} type="time" value={draft.normalWakeTime ? timeToInputValue(draft.normalWakeTime) : ""} onChange={(event) => updateDraft({ normalWakeTime: inputValueToTime(event.target.value) })} className={fieldClass} />
+            </Field>
+            <Field label="Sleep target hours">
+              <input disabled={!editing} type="number" min="1" max="14" value={draft.sleepTargetHours || 8} onChange={(event) => updateDraft({ sleepTargetHours: Number(event.target.value) || 8 })} className={fieldClass} />
+            </Field>
+            <SelectField label="Main life focus" value={draft.mainLifeFocus} options={["", ...mainLifeFocusOptions]} onChange={(mainLifeFocus) => updateDraft({ mainLifeFocus })} />
+            <Field label="Active plan">
+              <input disabled={!editing} value={draft.activePlan} onChange={(event) => updateDraft({ activePlan: event.target.value })} className={fieldClass} placeholder="Everyday Essentials" />
+            </Field>
+            <div className="md:col-span-2">
+              <Field label="Food restrictions / personal rules">
+                <textarea
+                  disabled={!editing}
+                  value={draft.foodRules.join("\n")}
+                  onChange={(event) => updateDraft({ foodRules: event.target.value.split("\n").map((rule) => rule.trim()).filter(Boolean) })}
+                  className="form-control min-h-28"
+                  placeholder="One rule per line"
+                />
+              </Field>
+            </div>
+          </div>
+        </Panel>
+      ) : null}
+
+      {profileTab === "Settings" ? (
+        <ProfileAppSettingsSection
+          settings={settings}
+          setSettings={setSettings}
+          todayMode={todayMode}
+          selectedTodayMode={selectedTodayMode}
+          setSelectedTodayMode={setSelectedTodayMode}
+          generateTodayByMode={generateTodayByMode}
+        />
+      ) : null}
+
+      {profileTab === "Backup" ? (
+        <>
+          <ProfileBackupSection exportAllData={exportAllData} importAllData={importAllData} clearAllLocalData={clearAllLocalData} />
+          <ProfileDangerZone resetToday={resetToday} resetProfile={resetProfile} resetDefaultTemplate={resetDefaultTemplate} clearAllLocalData={clearAllLocalData} />
+        </>
+      ) : null}
+
+      {profileTab === "Version" ? <ProfileVersionSection /> : null}
+    </section>
+  );
+}
+
+function ProfileAppSettingsSection({
+  settings,
+  setSettings,
+  todayMode,
+  selectedTodayMode,
+  setSelectedTodayMode,
+  generateTodayByMode
+}: {
+  settings: SettingsState;
+  setSettings: Dispatch<SetStateAction<SettingsState>>;
+  todayMode: DailyMode;
+  selectedTodayMode: DailyMode;
+  setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
+  generateTodayByMode: (mode?: DailyMode) => boolean;
+}) {
+  return (
+    <section className="grid gap-5">
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">App Settings</p>
+        <h3 className="mt-2 text-2xl font-black text-white">Daily defaults</h3>
+        <div className="mt-5 grid gap-5">
+          <div>
+            <h4 className="text-lg font-black text-white">Default wake time / schedule start</h4>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {[
+                { value: "5:30" as const, title: "5:30 AM", description: "Default Sunny schedule." },
+                { value: "5:00" as const, title: "5:00 AM", description: "Move all missions 30 minutes earlier." }
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setSettings({ ...settings, scheduleVersion: option.value })}
+                  className={`rounded-2xl border p-4 text-left transition ${
+                    settings.scheduleVersion === option.value
+                      ? "border-amber-300/60 bg-amber-300/[0.12] shadow-[0_0_30px_rgba(245,158,11,0.12)]"
+                      : "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]"
+                  }`}
+                >
+                  <p className="text-xl font-black text-white">{option.title}</p>
+                  <p className="mt-1 text-sm text-slate-400">{option.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-lg font-black text-white">Default daily mode</h4>
+            <p className="mt-1 text-sm text-slate-400">Used by Quick Start Today and future generated days when no special mode is selected.</p>
+            <div className="mt-3">
+              <ModeSelector value={settings.defaultDailyMode ?? "Full Day"} onChange={(defaultDailyMode) => setSettings({ ...settings, defaultDailyMode })} />
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4 className="text-lg font-black text-white">Generate today by mode</h4>
+                <p className="mt-1 text-sm text-slate-400">{modeProfiles[todayMode].note}</p>
+                {selectedTodayMode !== todayMode ? <p className="mt-1 text-sm font-bold text-amber-100">Selected to generate: {selectedTodayMode} Mode</p> : null}
+              </div>
+              <button onClick={() => generateTodayByMode()} className="primary-button justify-center">
+                <Sparkles size={18} />
+                Generate Today&apos;s Missions
+              </button>
+            </div>
+            <ModeSelector value={selectedTodayMode} onChange={setSelectedTodayMode} />
           </div>
         </div>
       </Panel>
+
+      <Panel>
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-orange-500 text-slate-950 shadow-[0_12px_28px_rgba(245,158,11,0.18)]">
+            <Download size={21} />
+          </div>
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Install App</p>
+            <h3 className="mt-1 text-2xl font-black text-white">PWA install instructions</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-300">Open KPM Sunny Daily OS like a normal app from your phone or computer.</p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3">
+          <InstallStep title="iPhone / Safari" body="Tap Share, then Add to Home Screen." />
+          <InstallStep title="Android / Chrome" body="Tap menu, then Install app or Add to Home screen." />
+          <InstallStep title="Desktop / Chrome" body="Click the install icon in the address bar if available." />
+        </div>
+      </Panel>
     </section>
+  );
+}
+
+function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData }: { exportAllData: () => void; importAllData: (rawJson: string) => string; clearAllLocalData: () => void }) {
+  const [importText, setImportText] = useState("");
+  const [importStatus, setImportStatus] = useState("");
+  const [storageInfo, setStorageInfo] = useState<StorageInfo>({ usedBytes: 0, limitBytes: LOCAL_STORAGE_LIMIT_BYTES, percent: 0 });
+
+  useEffect(() => {
+    setStorageInfo(calculateStorageInfo());
+  }, [importStatus]);
+
+  function handleImport() {
+    const result = importAllData(importText);
+    setImportStatus(result);
+    setStorageInfo(calculateStorageInfo());
+  }
+
+  function handleImportFile(file?: File) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = importAllData(typeof reader.result === "string" ? reader.result : "");
+      setImportStatus(result);
+      setStorageInfo(calculateStorageInfo());
+    };
+    reader.onerror = () => setImportStatus("Import failed: backup file could not be read.");
+    reader.readAsText(file);
+  }
+
+  const storageTone = storageInfo.percent >= 90 ? "border-red-300/35 bg-red-400/10 text-red-100" : storageInfo.percent >= 70 ? "border-orange-300/35 bg-orange-400/10 text-orange-100" : "border-emerald-300/25 bg-emerald-400/10 text-emerald-100";
+  const storageWarning = storageInfo.percent >= 90
+    ? "Danger: local storage is above 90%. Export a backup and clear old data soon."
+    : storageInfo.percent >= 70
+      ? "Warning: local storage is above 70%. Export a backup regularly."
+      : "Storage looks healthy.";
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Storage + Backup</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Local data safety</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Your data is saved only on this device until cloud sync is added. Export backup regularly.</p>
+        </div>
+        <button onClick={exportAllData} className="primary-button justify-center">
+          <Download size={18} />
+          Export Data
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <MiniMetric label="Storage Used" value={formatBytes(storageInfo.usedBytes)} />
+        <MiniMetric label="Storage Limit" value={formatBytes(storageInfo.limitBytes)} />
+        <MiniMetric label="Used" value={`${storageInfo.percent}%`} />
+      </div>
+
+      <div className={`mt-4 rounded-2xl border p-4 ${storageTone}`}>
+        <p className="text-sm font-black">{storageWarning}</p>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <Field label="Import backup JSON file">
+          <input
+            type="file"
+            accept="application/json,.json"
+            onChange={(event) => handleImportFile(event.target.files?.[0])}
+            className="form-control"
+          />
+        </Field>
+        <Field label="Or paste backup JSON">
+          <textarea
+            value={importText}
+            onChange={(event) => setImportText(event.target.value)}
+            className="form-control min-h-32"
+            placeholder="Paste a KPM Sunny Daily OS backup JSON file here"
+          />
+        </Field>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <button onClick={handleImport} className="secondary-button">
+            Import Data
+          </button>
+          <button onClick={clearAllLocalData} className="danger-button">
+            <Trash2 size={18} />
+            Clear All Data
+          </button>
+          {importStatus ? <p className="text-sm font-bold text-amber-100">{importStatus}</p> : null}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function ProfileDangerZone({ resetToday, resetProfile, resetDefaultTemplate, clearAllLocalData }: { resetToday: () => void; resetProfile: () => void; resetDefaultTemplate: () => void; clearAllLocalData: () => void }) {
+  return (
+    <Panel>
+      <p className="text-sm font-black uppercase tracking-[0.2em] text-red-200">Danger Zone</p>
+      <h3 className="mt-2 text-2xl font-black text-white">Confirmed reset actions</h3>
+      <p className="mt-1 text-sm leading-6 text-slate-400">These actions ask for confirmation before changing local data.</p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <button onClick={resetToday} className="danger-button justify-center">
+          <RotateCcw size={18} />
+          Reset Today
+        </button>
+        <button onClick={resetProfile} className="danger-button justify-center">
+          <RotateCcw size={18} />
+          Reset Profile
+        </button>
+        <button onClick={resetDefaultTemplate} className="danger-button justify-center">
+          <RotateCcw size={18} />
+          Reset Template
+        </button>
+        <button onClick={clearAllLocalData} className="danger-button justify-center">
+          <Trash2 size={18} />
+          Clear Local Data
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+function ProfileVersionSection() {
+  const environment = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname) ? "Local" : "Production";
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">App Version</p>
+          <h3 className="mt-2 text-2xl font-black text-white">KPM Sunny Daily OS · {APP_VERSION}</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Version, changelog, and deployment note.</p>
+        </div>
+        <Badge tone="gold">{environment}</Badge>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <MiniMetric label="Current version" value={APP_VERSION} />
+        <MiniMetric label="Last updated" value={APP_LAST_UPDATED} />
+        <MiniMetric label="Environment" value={environment} />
+      </div>
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+        <p className="font-black text-white">Changelog</p>
+        <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-300">
+          <li>V1.6 Stability + backup foundation</li>
+          <li>V1.7 Vercel deployment</li>
+          <li>V1.8 7-day real use test</li>
+          <li>V1.9 Smart Mission Scheduler</li>
+          <li>Storage + Backup Center</li>
+          <li>V2.0 Life OS foundation</li>
+          <li>V2.1 Everyday Essentials preset plan</li>
+          <li>V2.2 Get Lean / Shred preset plan</li>
+          <li>V2.3 Learn / Master Subject preset plan</li>
+        </ul>
+      </div>
+      <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
+    </Panel>
   );
 }
 
@@ -4095,6 +4541,277 @@ function GetLeanProgressPanel({ activePlan, setActivePlan }: { activePlan: GetLe
           <h4 className="font-black text-white">Rule-based feedback</h4>
           <p className="mt-3 text-sm leading-6 text-slate-300">{latestFeedback}</p>
           <p className="mt-3 text-sm leading-6 text-slate-400">General planning only. Adjust slowly. If you feel unwell, slow down and prioritize sleep, food quality, and recovery.</p>
+        </section>
+      </div>
+    </Panel>
+  );
+}
+
+function LearnMasterSetupPanel({
+  setup,
+  setSetup,
+  onSave,
+  onCancel
+}: {
+  setup: LearnMasterSetup;
+  setSetup: Dispatch<SetStateAction<LearnMasterSetup>>;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const dailyMinutes = getLearnDailyMinutes(setup);
+  const deadlineValue = getLearnDeadlineValue(setup);
+
+  function updateSetup(patch: Partial<LearnMasterSetup>) {
+    setSetup((current) => ({ ...current, ...patch }));
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Learn / Master Setup</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Create a study structure for any subject.</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">This app does not teach the subject. It gives you a Learn - Practice - Recall - Review - Apply structure and tracks consistency.</p>
+        </div>
+        <Badge tone="gold">{setup.speed}</Badge>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <Field label="Subject name">
+          <input value={setup.subjectName} onChange={(event) => updateSetup({ subjectName: event.target.value })} className="form-control" placeholder="Coding, English, math, design..." />
+        </Field>
+        <SelectField label="Current level" value={setup.currentLevel} options={learnCurrentLevels} onChange={(currentLevel) => updateSetup({ currentLevel })} />
+        <SelectField label="Goal type" value={setup.goalType} options={learnGoalTypes} onChange={(goalType) => updateSetup({ goalType })} />
+        <SelectField label="Daily study time" value={setup.dailyStudyTime} options={learnDailyStudyTimes} onChange={(dailyStudyTime) => updateSetup({ dailyStudyTime })} />
+        {setup.dailyStudyTime === "Custom" ? (
+          <Field label="Custom minutes">
+            <input type="number" min="5" value={setup.customDailyMinutes || ""} onChange={(event) => updateSetup({ customDailyMinutes: Number(event.target.value) || 0 })} className="form-control" />
+          </Field>
+        ) : null}
+        <SelectField label="Speed" value={setup.speed} options={learnSpeeds} onChange={(speed) => updateSetup({ speed })} />
+        <SelectField label="Deadline" value={setup.deadline} options={learnDeadlines} onChange={(deadline) => updateSetup({ deadline })} />
+        {setup.deadline === "Custom date" ? (
+          <Field label="Custom deadline">
+            <input type="date" value={setup.customDeadline} onChange={(event) => updateSetup({ customDeadline: event.target.value })} className="form-control" />
+          </Field>
+        ) : null}
+        <SelectField label="Study style" value={setup.studyStyle} options={learnStudyStyles} onChange={(studyStyle) => updateSetup({ studyStyle })} />
+        <SelectField label="Main resource" value={setup.mainResource} options={learnMainResources} onChange={(mainResource) => updateSetup({ mainResource })} />
+        {setup.mainResource === "Custom" ? (
+          <Field label="Custom resource">
+            <input value={setup.customResource} onChange={(event) => updateSetup({ customResource: event.target.value })} className="form-control" placeholder="Your resource" />
+          </Field>
+        ) : null}
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <MiniMetric label="Daily Study Time" value={`${dailyMinutes} min`} />
+        <MiniMetric label="Study Loop" value="Learn -> Practice -> Recall" />
+        <MiniMetric label="Deadline" value={deadlineValue || "No deadline"} />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-teal-300/20 bg-teal-300/[0.06] p-4 text-sm leading-6 text-slate-300">
+        <p className="font-black text-white">{setup.speed} Study Template</p>
+        <ul className="mt-2 grid gap-1">
+          {getLearnSpeedTemplate(setup.speed).map((item) => <li key={item}>{item}</li>)}
+        </ul>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={onSave} className="primary-button justify-center">Save Learn / Master Plan</button>
+        <button type="button" onClick={onCancel} className="secondary-button justify-center">Cancel</button>
+      </div>
+    </Panel>
+  );
+}
+
+function LearnMasterTodayCard({ activePlan, setActivePlan }: { activePlan: LearnMasterPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>> }) {
+  const visibleItems = activePlan.dailyTasks.filter((item) => !item.disabled).slice(0, 5);
+  const nextTask = visibleItems.find((item) => !item.completed);
+  const completed = activePlan.dailyTasks.filter((item) => !item.disabled && item.completed).length;
+  const total = activePlan.dailyTasks.filter((item) => !item.disabled).length;
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Panel compact>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Learn / Master Subject</p>
+          <h3 className="mt-1 text-2xl font-black text-white">{activePlan.subjectName || "Study subject"}</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{activePlan.dailyMinutes} min · {activePlan.speed} · Next: {nextTask?.title ?? "Study complete"}</p>
+        </div>
+        <button type="button" onClick={() => setExpanded((current) => !current)} className="secondary-button justify-center">
+          {expanded ? "Hide Study Plan" : "View Full Study Plan"}
+        </button>
+      </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-teal-300" style={{ width: `${total ? Math.round((completed / total) * 100) : 0}%` }} />
+      </div>
+      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {(expanded ? activePlan.dailyTasks.filter((item) => !item.disabled) : visibleItems).map((item) => (
+          <LearnStudyTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} compact />
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function LearnMasterPlanDetails({ activePlan, setActivePlan }: { activePlan: LearnMasterPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>> }) {
+  const completed = activePlan.dailyTasks.filter((item) => !item.disabled && item.completed).length;
+  const total = activePlan.dailyTasks.filter((item) => !item.disabled).length;
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Details</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Learn / Master Subject</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Started {activePlan.startDate}. Weekly review day: {activePlan.weeklyReviewDay}.</p>
+        </div>
+        <Badge tone="green">Active</Badge>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniMetric label="Subject" value={activePlan.subjectName || "Untitled"} />
+        <MiniMetric label="Level" value={activePlan.currentLevel} />
+        <MiniMetric label="Goal" value={activePlan.goalType} />
+        <MiniMetric label="Daily Time" value={`${activePlan.dailyMinutes} min`} />
+        <MiniMetric label="Speed" value={activePlan.speed} />
+        <MiniMetric label="Style" value={activePlan.studyStyle} />
+        <MiniMetric label="Resource" value={activePlan.mainResource} />
+        <MiniMetric label="Daily Study" value={`${completed}/${total}`} />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-200">Core Loop</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {activePlan.studyLoop.map((step) => <Badge key={step} tone="dark">{step}</Badge>)}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {activePlan.dailyTasks.map((item) => (
+          <LearnStudyTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} />
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function LearnStudyTaskRow({
+  item,
+  activePlan,
+  setActivePlan,
+  compact = false
+}: {
+  item: StudyTask;
+  activePlan: LearnMasterPlan;
+  setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>;
+  compact?: boolean;
+}) {
+  if (item.disabled && compact) return null;
+  return (
+    <div className={`rounded-2xl border p-3 ${item.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : item.disabled ? "border-orange-300/25 bg-orange-400/[0.06] opacity-70" : "border-white/10 bg-white/[0.04]"}`}>
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => updateLearnTask(activePlan, setActivePlan, item.id, { completed: !item.completed })}
+          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${item.completed ? "border-emerald-300 bg-emerald-400 text-slate-950" : "border-white/15 bg-black/20 text-slate-400"}`}
+        >
+          {item.completed ? <Check size={16} /> : null}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-black text-white">{item.title}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge tone="dark">Study</Badge>
+            {item.disabled ? <Badge tone="orange">Disabled</Badge> : null}
+          </div>
+        </div>
+        {!compact ? (
+          <button type="button" onClick={() => updateLearnTask(activePlan, setActivePlan, item.id, { disabled: !item.disabled })} className="secondary-button min-h-9 px-3 py-2 text-xs">
+            {item.disabled ? "Enable" : "Disable"}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function LearnMasterProgressPanel({ activePlan, setActivePlan }: { activePlan: LearnMasterPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>> }) {
+  const todayKey = getDateKey(new Date());
+  const todayLog = activePlan.logs.find((log) => log.date === todayKey);
+  const [draft, setDraft] = useState<StudyLog>(todayLog ?? createDefaultStudyLog(todayKey, activePlan.dailyMinutes));
+  const feedback = getLearnFeedback(activePlan);
+
+  useEffect(() => {
+    setDraft(todayLog ?? createDefaultStudyLog(todayKey, activePlan.dailyMinutes));
+  }, [activePlan.dailyMinutes, todayKey, todayLog]);
+
+  function updateDraft(patch: Partial<StudyLog>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function saveLog() {
+    setActivePlan({
+      ...activePlan,
+      logs: [...activePlan.logs.filter((log) => log.date !== draft.date), draft].sort((a, b) => a.date.localeCompare(b.date))
+    });
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Learn / Master Progress</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Study log</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Track consistency for {activePlan.subjectName || "your subject"}.</p>
+        </div>
+        <Badge tone="dark">{activePlan.logs.length} logs</Badge>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white">
+          <input type="checkbox" checked={draft.studyCompleted} onChange={(event) => updateDraft({ studyCompleted: event.target.checked })} className="h-5 w-5 accent-emerald-400" />
+          Study completed
+        </label>
+        <Field label="Minutes studied">
+          <input type="number" min="0" value={draft.minutesStudied || ""} onChange={(event) => updateDraft({ minutesStudied: Number(event.target.value) || 0 })} className="form-control" />
+        </Field>
+        <Field label="Focus level 1-10">
+          <input type="number" min="1" max="10" value={draft.focusLevel} onChange={(event) => updateDraft({ focusLevel: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" />
+        </Field>
+        <SelectField label="Difficulty" value={draft.difficulty} options={["Easy", "Medium", "Hard"]} onChange={(difficulty) => updateDraft({ difficulty: difficulty as StudyLog["difficulty"] })} />
+        <Field label="Topic studied">
+          <input value={draft.topicStudied} onChange={(event) => updateDraft({ topicStudied: event.target.value })} className="form-control" placeholder="Topic, lesson, chapter, bug, drill..." />
+        </Field>
+        <div className="md:col-span-2 xl:col-span-3">
+          <Field label="Notes">
+            <textarea value={draft.notes} onChange={(event) => updateDraft({ notes: event.target.value })} className="form-control min-h-24" placeholder="What did you learn, practice, recall, or apply?" />
+          </Field>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={saveLog} className="primary-button justify-center">Save Study Log</button>
+        <button type="button" onClick={() => setDraft(createDefaultStudyLog(todayKey, activePlan.dailyMinutes))} className="secondary-button justify-center">Reset Today Log</button>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <h4 className="font-black text-white">Weekly review questions</h4>
+          <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-300">
+            <li>How many study days completed?</li>
+            <li>Average focus level?</li>
+            <li>What topic was hardest?</li>
+            <li>Did I practice or only watch/read?</li>
+            <li>Can I explain what I learned without notes?</li>
+            <li>Continue, slow down, or increase?</li>
+          </ul>
+        </section>
+        <section className="rounded-2xl border border-teal-300/20 bg-teal-300/[0.06] p-4">
+          <h4 className="font-black text-white">Rule-based feedback</h4>
+          <p className="mt-3 text-sm leading-6 text-slate-300">{feedback}</p>
+          <p className="mt-3 text-sm leading-6 text-slate-400">The app creates structure and tracks consistency. It does not teach the subject.</p>
         </section>
       </div>
     </Panel>
@@ -5800,6 +6517,85 @@ function getLeanSpeedDescription(speed: string): string {
   return "Recommended default. Realistic and visible progress.";
 }
 
+function createLearnMasterPlan(setup: LearnMasterSetup): LearnMasterPlan {
+  const dailyMinutes = getLearnDailyMinutes(setup);
+  return {
+    type: "learn_master_subject",
+    name: "Learn / Master Subject",
+    status: "active",
+    subjectName: setup.subjectName.trim(),
+    currentLevel: learnCurrentLevels.includes(setup.currentLevel) ? setup.currentLevel : "Beginner",
+    goalType: learnGoalTypes.includes(setup.goalType) ? setup.goalType : "Become useful",
+    dailyMinutes,
+    speed: learnSpeeds.includes(setup.speed) ? setup.speed : "Moderate",
+    startDate: getDateKey(new Date()),
+    deadline: getLearnDeadlineValue(setup),
+    studyStyle: learnStudyStyles.includes(setup.studyStyle) ? setup.studyStyle : "Mixed",
+    mainResource: setup.mainResource === "Custom" ? setup.customResource.trim() || "Custom" : setup.mainResource,
+    studyLoop: learnStudyLoop,
+    dailyTasks: createStudyTasks(learnDailyTaskTemplates),
+    weeklyReviewDay: "Sunday",
+    logs: []
+  };
+}
+
+function normalizeLearnMasterPlan(plan: LearnMasterPlan): LearnMasterPlan {
+  return {
+    type: "learn_master_subject",
+    name: "Learn / Master Subject",
+    status: "active",
+    subjectName: plan.subjectName ?? "",
+    currentLevel: learnCurrentLevels.includes(plan.currentLevel) ? plan.currentLevel : "Beginner",
+    goalType: learnGoalTypes.includes(plan.goalType) ? plan.goalType : "Become useful",
+    dailyMinutes: Number(plan.dailyMinutes) || 60,
+    speed: learnSpeeds.includes(plan.speed) ? plan.speed : "Moderate",
+    startDate: plan.startDate || getDateKey(new Date()),
+    deadline: plan.deadline ?? "",
+    studyStyle: learnStudyStyles.includes(plan.studyStyle) ? plan.studyStyle : "Mixed",
+    mainResource: plan.mainResource || "Course",
+    studyLoop: Array.isArray(plan.studyLoop) && plan.studyLoop.length ? plan.studyLoop : learnStudyLoop,
+    dailyTasks: normalizeStudyTasks(plan.dailyTasks),
+    weeklyReviewDay: "Sunday",
+    logs: Array.isArray(plan.logs) ? plan.logs.map(normalizeStudyLog) : []
+  };
+}
+
+function createStudyTasks(items: Array<[string, string]>): StudyTask[] {
+  return items.map(([id, title]) => ({
+    id,
+    title,
+    completed: false,
+    disabled: false
+  }));
+}
+
+function normalizeStudyTasks(savedItems: StudyTask[] = []): StudyTask[] {
+  const savedById = new Map(savedItems.map((item) => [item.id, item]));
+  return createStudyTasks(learnDailyTaskTemplates).map((item) => ({ ...item, ...savedById.get(item.id), id: item.id, title: savedById.get(item.id)?.title ?? item.title }));
+}
+
+function getLearnDailyMinutes(setup: LearnMasterSetup): number {
+  if (setup.dailyStudyTime === "Custom") return Math.max(5, Number(setup.customDailyMinutes) || 60);
+  const parsed = Number(setup.dailyStudyTime.match(/\d+/)?.[0]);
+  return parsed || 60;
+}
+
+function getLearnDeadlineValue(setup: LearnMasterSetup): string {
+  if (setup.deadline === "Custom date") return setup.customDeadline;
+  if (setup.deadline === "No deadline") return "";
+  const days = setup.deadline === "30 days" ? 30 : setup.deadline === "90 days" ? 90 : setup.deadline === "1 year" ? 365 : 0;
+  if (!days) return "";
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return getDateKey(date);
+}
+
+function getLearnSpeedTemplate(speed: string): string[] {
+  if (speed === "Slow") return ["10 min review", "20 min new lesson", "20 min practice", "10 min notes"];
+  if (speed === "Intensive") return ["20 min review", "90 min deep study", "30 min break", "90 min practice", "30 min recall/test", "20 min notes"];
+  return ["10 min review", "40 min learn", "40 min practice", "20 min recall", "10 min notes"];
+}
+
 function createEverydayEssentialsPlan(setup: EssentialsSetup): EverydayEssentialsPlan {
   return {
     type: "everyday_essentials",
@@ -5881,6 +6677,18 @@ function updateGetLeanTask(
   });
 }
 
+function updateLearnTask(
+  activePlan: LearnMasterPlan,
+  setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>,
+  id: string,
+  patch: Partial<StudyTask>
+) {
+  setActivePlan({
+    ...activePlan,
+    dailyTasks: activePlan.dailyTasks.map((item) => (item.id === id ? { ...item, ...patch } : item))
+  });
+}
+
 function createDefaultFitnessLog(date: string): FitnessLog {
   return {
     date,
@@ -5894,6 +6702,18 @@ function createDefaultFitnessLog(date: string): FitnessLog {
   };
 }
 
+function createDefaultStudyLog(date: string, plannedMinutes: number): StudyLog {
+  return {
+    date,
+    studyCompleted: false,
+    minutesStudied: plannedMinutes,
+    focusLevel: 5,
+    difficulty: "Medium",
+    topicStudied: "",
+    notes: ""
+  };
+}
+
 function normalizeFitnessLog(log: Partial<FitnessLog>): FitnessLog {
   return {
     date: log.date || getDateKey(new Date()),
@@ -5903,6 +6723,19 @@ function normalizeFitnessLog(log: Partial<FitnessLog>): FitnessLog {
     hunger: clampNumber(Number(log.hunger) || 5, 1, 10),
     steps: Number(log.steps) || null,
     workoutCompleted: Boolean(log.workoutCompleted),
+    notes: log.notes ?? ""
+  };
+}
+
+function normalizeStudyLog(log: Partial<StudyLog>): StudyLog {
+  const difficulty = log.difficulty === "Easy" || log.difficulty === "Hard" ? log.difficulty : "Medium";
+  return {
+    date: log.date || getDateKey(new Date()),
+    studyCompleted: Boolean(log.studyCompleted),
+    minutesStudied: Number(log.minutesStudied) || 0,
+    focusLevel: clampNumber(Number(log.focusLevel) || 5, 1, 10),
+    difficulty,
+    topicStudied: log.topicStudied ?? "",
     notes: log.notes ?? ""
   };
 }
@@ -5925,6 +6758,23 @@ function getLeanFeedback(activePlan: GetLeanPlan): string {
     if (logsWithWeight.length >= 14 && Math.abs(weeklyChange) < 0.1) return "If weight has not changed for about 2 weeks, reduce calories by 100-150 or increase steps.";
   }
   return "Stay consistent this week: protein, steps, water, sleep, and one realistic workout or recovery choice.";
+}
+
+function getLearnFeedback(activePlan: LearnMasterPlan): string {
+  const recentLogs = activePlan.logs.slice(-7);
+  if (!recentLogs.length) return "Log a few study days first. For now, keep the loop simple: learn, practice, recall, review, apply.";
+  const completed = recentLogs.filter((log) => log.studyCompleted).length;
+  const completionRate = completed / recentLogs.length;
+  const averageFocus = recentLogs.reduce((total, log) => total + log.focusLevel, 0) / recentLogs.length;
+  const easyCount = recentLogs.filter((log) => log.difficulty === "Easy").length;
+  const practiceTasksDone = activePlan.dailyTasks.some((task) => task.id === "practice" && task.completed);
+  const passiveStyle = activePlan.studyStyle === "Reading" || activePlan.studyStyle === "Watching videos";
+
+  if (completionRate < 0.5) return "Completed less than 50% recently. Reduce the plan difficulty or daily minutes until it feels repeatable.";
+  if (completionRate >= 0.9 && easyCount >= Math.ceil(recentLogs.length / 2)) return "Completion is 90%+ and difficulty feels easy. Consider increasing difficulty or adding a stronger practice task.";
+  if (passiveStyle && !practiceTasksDone) return "Watching or reading is useful, but practice is low. Add more practice tasks so the knowledge becomes usable.";
+  if (completionRate >= 0.7) return `You completed ${Math.round(completionRate * 100)}% recently. Continue the current plan. Average focus: ${averageFocus.toFixed(1)}/10.`;
+  return "Keep going, but make the next study block smaller and easier to start.";
 }
 
 function daysBetween(startDate: string, endDate: string): number {
