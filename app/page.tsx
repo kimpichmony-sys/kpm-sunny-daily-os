@@ -38,7 +38,7 @@ type Energy = "Low" | "Medium" | "High";
 type TimeNeeded = "15 min" | "30 min" | "1 hour" | "2 hours" | "3 hours";
 type DailyMode = "Full Day" | "Low Energy" | "Recovery" | "Money" | "Skill" | "CEO";
 type MainLifeFocus = "Money" | "Health" | "Skill" | "Cleaning" | "Stability" | "Personal Growth";
-type SectionId = "Dashboard" | "Today Task List" | "Plan Tomorrow" | "Evening Review" | "More" | "Command Center" | "History" | "Analytics" | "Template Editor" | "Settings";
+type SectionId = "Dashboard" | "Plan" | "Progress" | "Profile" | "Today Task List" | "Plan Tomorrow" | "Evening Review" | "More" | "Command Center" | "History" | "Analytics" | "Template Editor" | "Settings";
 type BuildDayType = "Normal Day" | "Late Wake Day" | "Night Shift Day" | "Recovery Day" | "Appointment / Busy Day" | "Custom Day";
 type BuildEnergy = Energy | "Very Low";
 
@@ -113,6 +113,40 @@ type SettingsState = {
   defaultDailyMode?: DailyMode;
   mainLifeFocus?: MainLifeFocus;
   sevenDayTestStartDate?: string;
+};
+
+type ProfileState = {
+  name: string;
+  dateOfBirth: string;
+  sex: string;
+  heightCm: number;
+  currentWeightKg: number;
+  goalWeightKg: number;
+  activityLevel: string;
+  normalWakeTime: string;
+  sleepTargetHours: number;
+  mainLifeFocus: string;
+  foodRules: string[];
+  activePlan: string;
+};
+
+type ActivePlanFoundation = {
+  type: string;
+  speed: string;
+  startDate: string;
+  targetDate: string;
+  dailyTasks: string[];
+  weeklyReviewDay: string;
+};
+
+type DailyLogFoundation = {
+  date: string;
+  weightKg: number | null;
+  sleepHours: number | null;
+  energy: string;
+  steps: number | null;
+  completedTasks: string[];
+  notes: string;
 };
 
 type DayMeta = {
@@ -287,6 +321,7 @@ type BuildTodayPreview = {
 const TASKS_KEY_PREFIX = "kpm-sunny-tasks";
 const TOMORROW_KEY_PREFIX = "kpm-sunny-tomorrow-tasks";
 const SETTINGS_KEY = "kpm-sunny-settings";
+const PROFILE_KEY = "kpm-sunny-profile";
 const PLAN_KEY = "kpm-sunny-plan";
 const REVIEW_KEY = "kpm-sunny-review";
 const DAILY_NOTES_KEY_PREFIX = "kpm-sunny-daily-notes";
@@ -318,6 +353,40 @@ const defaultSettings: SettingsState = {
   onboardingComplete: false,
   defaultDailyMode: "Full Day",
   mainLifeFocus: "Stability"
+};
+
+const defaultProfile: ProfileState = {
+  name: "",
+  dateOfBirth: "",
+  sex: "",
+  heightCm: 0,
+  currentWeightKg: 0,
+  goalWeightKg: 0,
+  activityLevel: "",
+  normalWakeTime: "",
+  sleepTargetHours: 8,
+  mainLifeFocus: "",
+  foodRules: [],
+  activePlan: ""
+};
+
+const activePlanFoundation: ActivePlanFoundation = {
+  type: "",
+  speed: "",
+  startDate: "",
+  targetDate: "",
+  dailyTasks: [],
+  weeklyReviewDay: ""
+};
+
+const dailyLogFoundation: DailyLogFoundation = {
+  date: "",
+  weightKg: null,
+  sleepHours: null,
+  energy: "",
+  steps: null,
+  completedTasks: [],
+  notes: ""
 };
 
 const modeProfiles: Record<DailyMode, { description: string; bestFor: string; difficulty: string; note: string }> = {
@@ -360,18 +429,12 @@ const modeProfiles: Record<DailyMode, { description: string; bestFor: string; di
 };
 
 const navItems: NavItem[] = [
-  { id: "Dashboard", label: "Today Command", mobile: "Home", icon: LayoutDashboard },
-  { id: "Today Task List", label: "Today's Missions", mobile: "Today", icon: ListChecks },
-  { id: "Plan Tomorrow", label: "Plan Tomorrow", mobile: "Tomorrow", icon: Target },
-  { id: "Evening Review", label: "Evening Review", mobile: "Review", icon: Moon },
-  { id: "More", label: "More", mobile: "More", icon: Settings },
-  { id: "Command Center", label: "Command Center", mobile: "Command", icon: BarChart3 },
-  { id: "History", label: "History", mobile: "History", icon: History },
-  { id: "Analytics", label: "Analytics", mobile: "Stats", icon: BarChart3 },
-  { id: "Template Editor", label: "Default Schedule Template", mobile: "Template", icon: Pencil },
-  { id: "Settings", label: "Settings", mobile: "Settings", icon: Settings }
+  { id: "Dashboard", label: "Today", mobile: "Today", icon: LayoutDashboard },
+  { id: "Plan", label: "Plan", mobile: "Plan", icon: Target },
+  { id: "Progress", label: "Progress", mobile: "Progress", icon: BarChart3 },
+  { id: "Profile", label: "Profile", mobile: "Profile", icon: Settings }
 ];
-const mobileNavItems = navItems.filter((item) => ["Dashboard", "Today Task List", "Plan Tomorrow", "Evening Review", "More"].includes(item.id));
+const mobileNavItems = navItems;
 
 const baseSchedule: Array<[string, string, Category, Priority, number]> = [
   ["5:30 AM", "Wake up", "Sunny", "A", 10],
@@ -513,6 +576,7 @@ export default function Home() {
 function HomeApp() {
   const [activeSection, setActiveSection] = useState<SectionId>("Dashboard");
   const [settings, setSettings] = useLocalStorage<SettingsState>(SETTINGS_KEY, defaultSettings);
+  const [profile, setProfile] = useLocalStorage<ProfileState>(PROFILE_KEY, defaultProfile);
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
   const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
   const tomorrowKey = getNextDateKey(todayKey);
@@ -1154,6 +1218,38 @@ function HomeApp() {
                 setActiveSection={setActiveSection}
               />
             )}
+            {activeSection === "Plan" && (
+              <PlanFoundation
+                plan={plan}
+                setPlan={setPlan}
+                tomorrowMode={tomorrowMode}
+                selectTomorrowMode={selectTomorrowMode}
+                findBestTimeSlot={findBestTimeSlot}
+                missionPreview={missionPreview}
+                updateMissionPreviewAction={updateMissionPreviewAction}
+                applyMissionPreview={applyMissionPreview}
+                cancelMissionPreview={cancelMissionPreview}
+                tomorrowTasks={tomorrowTasks}
+                activePlanName={profile.activePlan}
+              />
+            )}
+            {activeSection === "Progress" && (
+              <ProgressFoundation
+                review={review}
+                setReview={setReview}
+                stats={stats}
+                dayLevel={dayLevel}
+                tasks={tasks}
+                todayKey={todayKey}
+                history={history}
+                sevenDayTest={sevenDayTest}
+                analytics={analytics}
+                streaks={streaks}
+              />
+            )}
+            {activeSection === "Profile" && (
+              <ProfileScreen profile={normalizeProfile(profile)} setProfile={setProfile} />
+            )}
             {activeSection === "Today Task List" && (
               <TaskList tasks={tasks} todayMode={todayMode} updateTask={updateTask} resetToday={resetToday} addTask={addTask} editTask={editTask} deleteTask={deleteTask} />
             )}
@@ -1393,7 +1489,7 @@ function BottomNav({
       <div className="grid grid-cols-5 gap-1">
         {mobileNavItems.map((item) => {
           const Icon = item.icon;
-          const active = activeSection === item.id || (item.id === "More" && ["Command Center", "History", "Analytics", "Template Editor", "Settings"].includes(activeSection));
+          const active = activeSection === item.id;
           return (
             <button
               key={item.id}
@@ -1949,7 +2045,7 @@ function TodayCommand({
             </div>
           ) : (
             <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:w-[360px] xl:grid-cols-1">
-              <button type="button" onClick={() => setActiveSection("Evening Review")} className="primary-button">
+              <button type="button" onClick={() => setActiveSection("Progress")} className="primary-button">
                 Evening Review
                 <ChevronRight size={18} />
               </button>
@@ -2029,10 +2125,10 @@ function TodayCommand({
         <button type="button" onClick={() => setActiveSection("Today Task List")} className="secondary-button">
           View Full Mission List
         </button>
-        <button type="button" onClick={() => setActiveSection("Plan Tomorrow")} className="secondary-button">
+        <button type="button" onClick={() => setActiveSection("Plan")} className="secondary-button">
           Plan Tomorrow
         </button>
-        <button type="button" onClick={() => setActiveSection("Evening Review")} className="secondary-button">
+        <button type="button" onClick={() => setActiveSection("Progress")} className="secondary-button">
           Evening Review
         </button>
       </div>
@@ -3049,6 +3145,251 @@ function TaskCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function PlanFoundation({
+  plan,
+  setPlan,
+  tomorrowMode,
+  selectTomorrowMode,
+  findBestTimeSlot,
+  missionPreview,
+  updateMissionPreviewAction,
+  applyMissionPreview,
+  cancelMissionPreview,
+  tomorrowTasks,
+  activePlanName
+}: {
+  plan: Plan;
+  setPlan: Dispatch<SetStateAction<Plan>>;
+  tomorrowMode: DailyMode;
+  selectTomorrowMode: (mode: DailyMode) => void;
+  findBestTimeSlot: () => void;
+  missionPreview: MissionPlanPreviewItem[];
+  updateMissionPreviewAction: (id: string, action: ConflictAction) => void;
+  applyMissionPreview: () => void;
+  cancelMissionPreview: () => void;
+  tomorrowTasks: Task[];
+  activePlanName: string;
+}) {
+  const presetPlans = [
+    { name: "Everyday Essentials", purpose: "Protect food, hygiene, room, money checks, sleep, and one useful task." },
+    { name: "Get Lean / Shred", purpose: "Build a simple nutrition, walking, training, and sleep foundation." },
+    { name: "Learn / Master Subject", purpose: "Turn one subject into daily practice, review, and weekly proof." },
+    { name: "Fix Sleep & Energy", purpose: "Stabilize wake time, sunlight, meals, wind-down, and recovery." },
+    { name: "Build a Project", purpose: "Ship one project through small daily build, test, and review blocks." },
+    { name: "Increase Income", purpose: "Prioritize job search, opportunities, business tasks, and money review." },
+    { name: "Life Reset", purpose: "Clean the baseline: body, room, money, admin, relationships, and rhythm." }
+  ];
+
+  return (
+    <section className="grid gap-5">
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Plan</p>
+        <h2 className="mt-2 text-3xl font-black text-white">What is my long-term plan?</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">V2.0 starts with the planning structure. Preset plan setup will become active in a later version.</p>
+      </Panel>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {[
+          ["Active Plan", activePlanName || "No active plan selected"],
+          ["Big Goals", "Coming soon"],
+          ["90-Day Plan", "Coming soon"],
+          ["Monthly Focus", "Coming soon"],
+          ["Weekly Missions", "Coming soon"],
+          ["Active Plan Details", activePlanFoundation.type || "Foundation ready"]
+        ].map(([label, value]) => (
+          <Panel key={label} compact>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-200">{label}</p>
+            <p className="mt-2 break-words text-xl font-black text-white">{value}</p>
+          </Panel>
+        ))}
+      </div>
+
+      <Panel>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Preset Plans</p>
+            <h3 className="mt-2 text-2xl font-black text-white">Choose the direction later</h3>
+          </div>
+          <Badge tone="dark">Foundation only</Badge>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {presetPlans.map((preset) => (
+            <article key={preset.name} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <h4 className="break-words text-lg font-black text-white">{preset.name}</h4>
+                <Badge tone="dark">Coming soon</Badge>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-slate-400">{preset.purpose}</p>
+              <button type="button" className="secondary-button mt-4 w-full justify-center" disabled>
+                Set Up Plan
+              </button>
+            </article>
+          ))}
+        </div>
+      </Panel>
+
+      <PlanTomorrow
+        plan={plan}
+        setPlan={setPlan}
+        tomorrowMode={tomorrowMode}
+        selectTomorrowMode={selectTomorrowMode}
+        findBestTimeSlot={findBestTimeSlot}
+        missionPreview={missionPreview}
+        updateMissionPreviewAction={updateMissionPreviewAction}
+        applyMissionPreview={applyMissionPreview}
+        cancelMissionPreview={cancelMissionPreview}
+        tomorrowTasks={tomorrowTasks}
+      />
+    </section>
+  );
+}
+
+function ProgressFoundation({
+  review,
+  setReview,
+  stats,
+  dayLevel,
+  tasks,
+  todayKey,
+  history,
+  sevenDayTest,
+  analytics,
+  streaks
+}: {
+  review: Review;
+  setReview: Dispatch<SetStateAction<Review>>;
+  stats: Stats;
+  dayLevel: string;
+  tasks: Task[];
+  todayKey: string;
+  history: HistoryEntry[];
+  sevenDayTest: SevenDayTestSummary;
+  analytics: AnalyticsSummary;
+  streaks: Streaks;
+}) {
+  return (
+    <section className="grid gap-6">
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Progress</p>
+        <h2 className="mt-2 text-3xl font-black text-white">What progress am I making?</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Evening review, history, streaks, analytics, and daily logs live here.</p>
+      </Panel>
+
+      <Panel compact>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MiniMetric label="Current Streak" value={streaks.current} />
+          <MiniMetric label="Best Streak" value={streaks.best} />
+          <MiniMetric label="Productive" value={streaks.productive} />
+          <MiniMetric label="Daily Log Model" value={dailyLogFoundation.date || "Ready"} />
+        </div>
+      </Panel>
+
+      <EveningReview review={review} setReview={setReview} stats={stats} dayLevel={dayLevel} tasks={tasks} todayKey={todayKey} />
+      <HistoryPage history={history} sevenDayTest={sevenDayTest} />
+      <AnalyticsPage analytics={analytics} streaks={streaks} />
+    </section>
+  );
+}
+
+function ProfileScreen({ profile, setProfile }: { profile: ProfileState; setProfile: Dispatch<SetStateAction<ProfileState>> }) {
+  const [draft, setDraft] = useState<ProfileState>(profile);
+  const [editing, setEditing] = useState(!profile.name && !profile.dateOfBirth);
+  const age = draft.dateOfBirth ? calculateAge(draft.dateOfBirth) : null;
+  const fieldClass = "form-control";
+
+  useEffect(() => {
+    setDraft(profile);
+    if (!profile.name && !profile.dateOfBirth) setEditing(true);
+  }, [profile]);
+
+  function updateDraft(patch: Partial<ProfileState>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function saveProfile() {
+    setProfile(normalizeProfile(draft));
+    setEditing(false);
+  }
+
+  function resetProfile() {
+    if (!window.confirm("Reset local profile data on this device? Existing tasks and history will stay safe.")) return;
+    setProfile(defaultProfile);
+    setDraft(defaultProfile);
+    setEditing(true);
+  }
+
+  return (
+    <section className="grid gap-5">
+      <Panel>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Profile</p>
+            <h2 className="mt-2 text-3xl font-black text-white">What personal data should the app use?</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Saved locally only. This gives future plans a stable personal baseline.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setEditing(true)} className="secondary-button">Edit Profile</button>
+            <button type="button" onClick={saveProfile} className="primary-button">Save Profile</button>
+            <button type="button" onClick={resetProfile} className="danger-button">Reset Profile</button>
+          </div>
+        </div>
+        {!profile.name && !profile.dateOfBirth ? (
+          <div className="mt-5 rounded-2xl border border-amber-300/25 bg-amber-300/[0.08] p-4">
+            <p className="font-black text-white">Set up your local profile.</p>
+            <p className="mt-1 text-sm leading-6 text-slate-300">No profile exists yet. Add the basics, then save.</p>
+          </div>
+        ) : null}
+      </Panel>
+
+      <Panel>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Name / nickname">
+            <input disabled={!editing} value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} className={fieldClass} placeholder="Sunny" />
+          </Field>
+          <Field label="Date of birth">
+            <input disabled={!editing} type="date" value={draft.dateOfBirth} onChange={(event) => updateDraft({ dateOfBirth: event.target.value })} className={fieldClass} />
+          </Field>
+          <Field label="Calculated age">
+            <input readOnly value={age === null ? "Add date of birth" : `${age} years old`} className={fieldClass} />
+          </Field>
+          <SelectField label="Sex" value={draft.sex} options={["", "Female", "Male", "Intersex", "Prefer not to say"]} onChange={(sex) => updateDraft({ sex })} />
+          <Field label="Height in cm">
+            <input disabled={!editing} type="number" value={draft.heightCm || ""} onChange={(event) => updateDraft({ heightCm: Number(event.target.value) || 0 })} className={fieldClass} />
+          </Field>
+          <Field label="Current weight in kg">
+            <input disabled={!editing} type="number" value={draft.currentWeightKg || ""} onChange={(event) => updateDraft({ currentWeightKg: Number(event.target.value) || 0 })} className={fieldClass} />
+          </Field>
+          <Field label="Goal weight in kg">
+            <input disabled={!editing} type="number" value={draft.goalWeightKg || ""} onChange={(event) => updateDraft({ goalWeightKg: Number(event.target.value) || 0 })} className={fieldClass} />
+          </Field>
+          <SelectField label="Activity level" value={draft.activityLevel} options={["", "Low", "Light", "Moderate", "High", "Very High"]} onChange={(activityLevel) => updateDraft({ activityLevel })} />
+          <Field label="Normal wake-up time">
+            <input disabled={!editing} type="time" value={draft.normalWakeTime ? timeToInputValue(draft.normalWakeTime) : ""} onChange={(event) => updateDraft({ normalWakeTime: inputValueToTime(event.target.value) })} className={fieldClass} />
+          </Field>
+          <Field label="Sleep target hours">
+            <input disabled={!editing} type="number" min="1" max="14" value={draft.sleepTargetHours || 8} onChange={(event) => updateDraft({ sleepTargetHours: Number(event.target.value) || 8 })} className={fieldClass} />
+          </Field>
+          <SelectField label="Main life focus" value={draft.mainLifeFocus} options={["", ...mainLifeFocusOptions]} onChange={(mainLifeFocus) => updateDraft({ mainLifeFocus })} />
+          <Field label="Active plan">
+            <input disabled={!editing} value={draft.activePlan} onChange={(event) => updateDraft({ activePlan: event.target.value })} className={fieldClass} placeholder="Everyday Essentials" />
+          </Field>
+          <div className="md:col-span-2">
+            <Field label="Food restrictions / personal rules">
+              <textarea
+                disabled={!editing}
+                value={draft.foodRules.join("\n")}
+                onChange={(event) => updateDraft({ foodRules: event.target.value.split("\n").map((rule) => rule.trim()).filter(Boolean) })}
+                className="form-control min-h-28"
+                placeholder="One rule per line"
+              />
+            </Field>
+          </div>
+        </div>
+      </Panel>
+    </section>
   );
 }
 
@@ -4585,6 +4926,37 @@ function normalizeSettings(settings: Partial<SettingsState>): SettingsState {
     mainLifeFocus,
     sevenDayTestStartDate
   };
+}
+
+function normalizeProfile(profile: Partial<ProfileState>): ProfileState {
+  return {
+    name: profile.name ?? "",
+    dateOfBirth: profile.dateOfBirth ?? "",
+    sex: profile.sex ?? "",
+    heightCm: Number(profile.heightCm) || 0,
+    currentWeightKg: Number(profile.currentWeightKg) || 0,
+    goalWeightKg: Number(profile.goalWeightKg) || 0,
+    activityLevel: profile.activityLevel ?? "",
+    normalWakeTime: profile.normalWakeTime ?? "",
+    sleepTargetHours: Number(profile.sleepTargetHours) || 8,
+    mainLifeFocus: profile.mainLifeFocus ?? "",
+    foodRules: Array.isArray(profile.foodRules) ? profile.foodRules.filter(Boolean) : [],
+    activePlan: profile.activePlan ?? ""
+  };
+}
+
+function calculateAge(dateOfBirth: string): number {
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDifference = today.getMonth() - birthDate.getMonth();
+  if (
+    monthDifference < 0 ||
+    (monthDifference === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age--;
+  }
+  return Number.isFinite(age) ? age : 0;
 }
 
 function normalizeDayMeta(meta: Partial<DayMeta>): DayMeta {
