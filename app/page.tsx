@@ -4434,6 +4434,7 @@ function GetLeanTaskRow({
   compact?: boolean;
 }) {
   if (item.disabled && compact) return null;
+  const targetDetail = getLeanTaskTargetDetail(item.id, activePlan);
   return (
     <div className={`rounded-2xl border p-3 ${item.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : item.disabled ? "border-orange-300/25 bg-orange-400/[0.06] opacity-70" : "border-white/10 bg-white/[0.04]"}`}>
       <div className="flex items-start gap-3">
@@ -4446,6 +4447,7 @@ function GetLeanTaskRow({
         </button>
         <div className="min-w-0 flex-1">
           <p className="break-words text-sm font-black text-white">{item.title}</p>
+          {targetDetail ? <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{targetDetail}</p> : null}
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge tone="dark">{item.category}</Badge>
             {item.disabled ? <Badge tone="orange">Disabled</Badge> : null}
@@ -6515,6 +6517,50 @@ function getLeanSpeedDescription(speed: string): string {
   if (speed === "Lean Slow") return "Low stress, easier to maintain.";
   if (speed === "Shred Fast") return "More aggressive. Use short-term only. If energy or sleep gets bad, slow down.";
   return "Recommended default. Realistic and visible progress.";
+}
+
+function getLeanTaskTargetDetail(taskId: string, activePlan: GetLeanPlan): string {
+  const calculations = activePlan.calculations ?? calculateGetLean(activePlan.setup);
+  const setup = normalizeGetLeanSetup(activePlan.setup);
+
+  if (taskId === "protein") {
+    return calculations.proteinTarget ? `Target: ${Math.round(calculations.proteinTarget)}g protein today` : "Target protein not set";
+  }
+
+  if (taskId === "steps") {
+    return calculations.stepTarget ? `Target: ${Math.round(calculations.stepTarget).toLocaleString()} steps today` : "Step target not set";
+  }
+
+  if (taskId === "water") {
+    const waterTarget = formatWaterTarget(calculations.waterTarget, setup.currentWeightKg);
+    return waterTarget ? `Target: ${waterTarget} water today` : "Water target not set";
+  }
+
+  if (taskId === "calories") {
+    return calculations.targetCalories ? `Target: ${Math.round(calculations.targetCalories)} kcal today` : "Calorie target not set";
+  }
+
+  if (taskId === "workout-recovery") {
+    if (setup.exerciseAccess === "Walking only") return "Walk 30-45 minutes or hit step target";
+    if (setup.exerciseAccess === "Gym") return "Complete gym workout or recovery walk";
+    return "Complete home workout or recovery walk";
+  }
+
+  if (taskId === "sleep-routine") {
+    return `Target: ${calculations.sleepTarget || 8} hours sleep`;
+  }
+
+  return "";
+}
+
+function formatWaterTarget(waterTarget: string | undefined, currentWeightKg: number): string {
+  const cleanTarget = waterTarget?.trim();
+  if (cleanTarget) {
+    const numeric = Number(cleanTarget.replace(/[^0-9.]/g, ""));
+    if (Number.isFinite(numeric) && numeric > 0) return `${numeric}L`;
+  }
+  if (!currentWeightKg) return "";
+  return `${Math.round(currentWeightKg * 0.035 * 10) / 10}L`;
 }
 
 function createLearnMasterPlan(setup: LearnMasterSetup): LearnMasterPlan {
