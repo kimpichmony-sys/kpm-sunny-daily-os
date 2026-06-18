@@ -533,6 +533,7 @@ function HomeApp() {
   const [selectedTodayMode, setSelectedTodayMode] = useState<DailyMode>("Full Day");
   const [tomorrowMode, setTomorrowMode] = useState<DailyMode>("Full Day");
   const [dayMeta, setDayMeta] = useState<DayMeta>(defaultDayMeta);
+  const [showBuildTodayFlow, setShowBuildTodayFlow] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false);
@@ -571,7 +572,7 @@ function HomeApp() {
         ? mergeSchedule(storedTodayTasks, loadedDefaultTasks)
         : carriedTasks.length > 0
           ? resetTaskStatuses(mergeSchedule(carriedTasks, loadedDefaultTasks))
-          : buildModeSchedule(loadedDefaultTasks, carriedMode);
+          : [];
 
       const nextTomorrowKey = getNextDateKey(currentDate);
       const loadedPlan = normalizePlan(readStorage<Partial<Plan>>(`${PLAN_KEY}:${nextTomorrowKey}`, defaultPlan));
@@ -592,6 +593,7 @@ function HomeApp() {
       setTomorrowMode(loadedTomorrowMode);
       setDayMeta({ ...loadedDayMeta, todayMode: carriedMode });
       setBuildTodayDraft({ ...defaultBuildTodayDraft, todayMode: carriedMode, wakeTime: loadedDayMeta.wakeTime ?? "5:30 AM", startTime: loadedDayMeta.startTime ?? "5:30 AM" });
+      setShowBuildTodayFlow(nextTodayTasks.length === 0);
       writeStorage(`${MODE_KEY_PREFIX}:${currentDate}`, carriedMode);
       safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
       setIsReady(true);
@@ -635,7 +637,7 @@ function HomeApp() {
       const carriedMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${currentDate}`, "Full Day");
       const nextTodayTasks = carriedTasks.length > 0
         ? resetTaskStatuses(mergeSchedule(carriedTasks, nextDefaultTasks))
-        : buildModeSchedule(nextDefaultTasks, carriedMode);
+        : [];
       const nextTomorrowKey = getNextDateKey(currentDate);
       const nextPlan = normalizePlan(readStorage<Partial<Plan>>(`${PLAN_KEY}:${nextTomorrowKey}`, defaultPlan));
       const nextTomorrowMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${nextTomorrowKey}`, nextPlan.tomorrowMode);
@@ -656,6 +658,7 @@ function HomeApp() {
       setTomorrowMode(nextTomorrowMode);
       setDayMeta({ ...defaultDayMeta, todayMode: carriedMode });
       setBuildTodayPreview(null);
+      setShowBuildTodayFlow(nextTodayTasks.length === 0);
     }, 60000);
 
     return () => window.clearInterval(interval);
@@ -744,6 +747,7 @@ function HomeApp() {
     setSelectedTodayMode(nextSettings.defaultDailyMode);
     setTomorrowMode(nextSettings.defaultDailyMode);
     setDayMeta({ ...defaultDayMeta, todayMode: nextSettings.defaultDailyMode, wakeTime: nextSettings.scheduleVersion === "5:00" ? "5:00 AM" : "5:30 AM", startTime: nextSettings.scheduleVersion === "5:00" ? "5:00 AM" : "5:30 AM" });
+    setShowBuildTodayFlow(false);
     setTasks(nextTasks);
     setTomorrowTasks(buildModeSchedule(nextDefaultTasks, nextSettings.defaultDailyMode));
     setPlan({ ...defaultPlan, tomorrowMode: nextSettings.defaultDailyMode });
@@ -776,6 +780,7 @@ function HomeApp() {
     setTasks(buildModeSchedule(defaultTasks, todayMode));
     setReview(defaultReview);
     setBuildTodayPreview(null);
+    setShowBuildTodayFlow(false);
   }
 
   function clearAllLocalData() {
@@ -788,6 +793,7 @@ function HomeApp() {
     setSelectedTodayMode("Full Day");
     setTomorrowMode("Full Day");
     setDayMeta(defaultDayMeta);
+    setShowBuildTodayFlow(false);
     setTasks(buildModeSchedule(buildSchedule(originalTemplate, false), "Full Day"));
     setTomorrowTasks(buildModeSchedule(buildSchedule(originalTemplate, false), "Full Day"));
     setPlan(defaultPlan);
@@ -822,6 +828,7 @@ function HomeApp() {
     setSelectedTodayMode(nextSettings.defaultDailyMode ?? "Full Day");
     setTomorrowMode(nextSettings.defaultDailyMode ?? "Full Day");
     setDayMeta({ ...defaultDayMeta, todayMode: nextSettings.defaultDailyMode ?? "Full Day" });
+    setShowBuildTodayFlow(false);
     setActiveFocusTaskId(null);
     safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
     setShowLoadingRecovery(false);
@@ -956,6 +963,7 @@ function HomeApp() {
     setTodayMode(resolvedMode);
     setSelectedTodayMode(resolvedMode);
     setDayMeta({ ...defaultDayMeta, dayType: "Normal Day", wakeTime: settings.scheduleVersion === "5:00" ? "5:00 AM" : "5:30 AM", startTime: settings.scheduleVersion === "5:00" ? "5:00 AM" : "5:30 AM", todayMode: resolvedMode, mainMission: mainMissionTitle });
+    setShowBuildTodayFlow(false);
     setTasks(nextTasks);
     setReview(defaultReview);
     return true;
@@ -975,6 +983,7 @@ function HomeApp() {
     setTodayMode(mode);
     setSelectedTodayMode(mode);
     setDayMeta({ ...defaultDayMeta, todayMode: mode });
+    setShowBuildTodayFlow(false);
     setTasks(buildModeSchedule(defaultTasks, mode));
     setReview(defaultReview);
     setQuickStartMessage("Today's missions are ready.");
@@ -1002,7 +1011,18 @@ function HomeApp() {
     });
     setReview(defaultReview);
     setBuildTodayPreview(null);
+    setShowBuildTodayFlow(false);
     setQuickStartMessage("Today's missions are ready.");
+  }
+
+  function openBuildTodayFlow() {
+    setBuildTodayPreview(null);
+    setShowBuildTodayFlow(true);
+  }
+
+  function cancelBuildTodayFlow() {
+    setBuildTodayPreview(null);
+    if (tasks.length > 0) setShowBuildTodayFlow(false);
   }
 
   function selectTomorrowMode(mode: DailyMode) {
@@ -1084,26 +1104,31 @@ function HomeApp() {
           <div className="mt-6">
             {activeSection === "Dashboard" && (
               <div className="grid gap-5">
-                <BuildToday
-                  draft={buildTodayDraft}
-                  setDraft={setBuildTodayDraft}
-                  preview={buildTodayPreview}
-                  createPreview={createBuildTodayPreview}
-                  applyPreview={applyBuildTodayPreview}
-                  cancelPreview={() => setBuildTodayPreview(null)}
-                />
-                <TodayCommand
-                  stats={stats}
-                  currentMission={nextTask}
-                  mainMission={mainMission}
-                  todayMode={todayMode}
-                  dayMeta={dayMeta}
-                  tasks={tasks}
-                  updateTask={updateTask}
-                  snoozeTask={snoozeTask}
-                  startMission={(id) => setActiveFocusTaskId(id)}
-                  setActiveSection={setActiveSection}
-                />
+                {showBuildTodayFlow || tasks.length === 0 ? (
+                  <BuildToday
+                    draft={buildTodayDraft}
+                    setDraft={setBuildTodayDraft}
+                    preview={buildTodayPreview}
+                    createPreview={createBuildTodayPreview}
+                    applyPreview={applyBuildTodayPreview}
+                    editPreview={() => setBuildTodayPreview(null)}
+                    cancelFlow={cancelBuildTodayFlow}
+                  />
+                ) : (
+                  <TodayCommand
+                    stats={stats}
+                    currentMission={nextTask}
+                    mainMission={mainMission}
+                    todayMode={todayMode}
+                    dayMeta={dayMeta}
+                    tasks={tasks}
+                    updateTask={updateTask}
+                    snoozeTask={snoozeTask}
+                    startMission={(id) => setActiveFocusTaskId(id)}
+                    rebuildToday={openBuildTodayFlow}
+                    setActiveSection={setActiveSection}
+                  />
+                )}
               </div>
             )}
             {activeSection === "Command Center" && (
@@ -1622,17 +1647,20 @@ function BuildToday({
   preview,
   createPreview,
   applyPreview,
-  cancelPreview
+  editPreview,
+  cancelFlow
 }: {
   draft: BuildTodayDraft;
   setDraft: Dispatch<SetStateAction<BuildTodayDraft>>;
   preview: BuildTodayPreview | null;
   createPreview: (draft: BuildTodayDraft) => void;
   applyPreview: () => void;
-  cancelPreview: () => void;
+  editPreview: () => void;
+  cancelFlow: () => void;
 }) {
-  const [flow, setFlow] = useState<"Normal" | "Special">(draft.dayType === "Normal Day" ? "Normal" : "Special");
+  const [flow, setFlow] = useState<"None" | "Normal" | "Special">("None");
   const fieldClass = "min-h-12 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-slate-100 outline-none focus:border-amber-300/60";
+  const activeFlow = flow === "None" ? null : flow;
 
   function updateDraft(patch: Partial<BuildTodayDraft>) {
     setDraft((current) => ({ ...current, ...patch }));
@@ -1657,7 +1685,7 @@ function BuildToday({
               setFlow("Normal");
               updateDraft({ dayType: "Normal Day" });
             }}
-            className={`rounded-[1.35rem] border p-4 text-left transition ${flow === "Normal" ? "border-amber-300/70 bg-amber-300/[0.14]" : "border-white/10 bg-white/[0.04] hover:border-amber-300/30"}`}
+            className={`rounded-[1.35rem] border p-4 text-left transition ${activeFlow === "Normal" ? "border-amber-300/70 bg-amber-300/[0.14]" : "border-white/10 bg-white/[0.04] hover:border-amber-300/30"}`}
           >
             <p className="text-xl font-black text-white">Normal Day</p>
             <p className="mt-2 text-sm leading-6 text-slate-300">I woke up normally or just need to shift today&apos;s schedule.</p>
@@ -1668,15 +1696,16 @@ function BuildToday({
               setFlow("Special");
               updateDraft({ dayType: draft.dayType === "Normal Day" ? "Late Wake Day" : draft.dayType });
             }}
-            className={`rounded-[1.35rem] border p-4 text-left transition ${flow === "Special" ? "border-teal-300/60 bg-teal-300/[0.10]" : "border-white/10 bg-white/[0.04] hover:border-teal-300/30"}`}
+            className={`rounded-[1.35rem] border p-4 text-left transition ${activeFlow === "Special" ? "border-teal-300/60 bg-teal-300/[0.10]" : "border-white/10 bg-white/[0.04] hover:border-teal-300/30"}`}
           >
             <p className="text-xl font-black text-white">Special Day</p>
             <p className="mt-2 text-sm leading-6 text-slate-300">Late wake, night shift, recovery, appointment, or custom day.</p>
           </button>
         </div>
 
+        {activeFlow ? (
         <div className="mt-5 grid gap-4 rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
-          {flow === "Normal" ? (
+          {activeFlow === "Normal" ? (
             <div className="grid gap-4 md:grid-cols-3">
               <label className="grid gap-2 text-sm font-bold text-slate-300">
                 What time did you wake up today?
@@ -1765,11 +1794,12 @@ function BuildToday({
             </div>
           )}
 
-          <button type="button" onClick={() => createPreview({ ...draft, dayType: flow === "Normal" ? "Normal Day" : draft.dayType })} className="primary-button justify-center">
+          <button type="button" onClick={() => createPreview({ ...draft, dayType: activeFlow === "Normal" ? "Normal Day" : draft.dayType })} className="primary-button justify-center">
             Build Today Preview
             <ChevronRight size={18} />
           </button>
         </div>
+        ) : null}
       </Panel>
 
       {preview ? (
@@ -1793,8 +1823,8 @@ function BuildToday({
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <button type="button" onClick={applyPreview} className="primary-button justify-center">Generate Today</button>
-            <button type="button" onClick={cancelPreview} className="secondary-button justify-center">Edit</button>
-            <button type="button" onClick={cancelPreview} className="secondary-button justify-center">Cancel</button>
+            <button type="button" onClick={editPreview} className="secondary-button justify-center">Edit</button>
+            <button type="button" onClick={cancelFlow} className="secondary-button justify-center">Cancel</button>
           </div>
         </Panel>
       ) : null}
@@ -1841,6 +1871,7 @@ function TodayCommand({
   updateTask,
   snoozeTask,
   startMission,
+  rebuildToday,
   setActiveSection
 }: {
   stats: Stats;
@@ -1852,6 +1883,7 @@ function TodayCommand({
   updateTask: (id: string, patch: Partial<Task>) => void;
   snoozeTask: (id: string) => void;
   startMission: (id: string) => void;
+  rebuildToday: () => void;
   setActiveSection: Dispatch<SetStateAction<SectionId>>;
 }) {
   const nextMissions = tasks
@@ -1910,12 +1942,22 @@ function TodayCommand({
                 <Clock3 size={18} />
                 Snooze 15 min
               </button>
+              <button type="button" onClick={rebuildToday} className="secondary-button">
+                <RotateCcw size={18} />
+                Rebuild Today
+              </button>
             </div>
           ) : (
-            <button type="button" onClick={() => setActiveSection("Evening Review")} className="primary-button xl:min-w-64">
-              Evening Review
-              <ChevronRight size={18} />
-            </button>
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:w-[360px] xl:grid-cols-1">
+              <button type="button" onClick={() => setActiveSection("Evening Review")} className="primary-button">
+                Evening Review
+                <ChevronRight size={18} />
+              </button>
+              <button type="button" onClick={rebuildToday} className="secondary-button">
+                <RotateCcw size={18} />
+                Rebuild Today
+              </button>
+            </div>
           )}
         </div>
       </Panel>
