@@ -169,11 +169,13 @@ type EssentialsItem = {
 };
 
 type EssentialsCategory = "Hygiene" | "Clothing" | "Food & Water" | "Health" | "Room & Cleaning" | "Sleep" | "Tech" | "Emergency";
+type PlanStatus = "active" | "paused" | "completed" | "archived";
 
 type EverydayEssentialsPlan = {
+  id: string;
   type: "everyday_essentials";
   name: "Everyday Essentials";
-  status: "active";
+  status: PlanStatus;
   startDate: string;
   setup: EssentialsSetup;
   dailyTasks: EssentialsItem[];
@@ -217,9 +219,10 @@ type FitnessLog = {
 };
 
 type GetLeanPlan = {
+  id: string;
   type: "get_lean_shred";
   name: "Get Lean / Shred";
-  status: "active";
+  status: PlanStatus;
   speed: string;
   startDate: string;
   targetDate: string;
@@ -249,9 +252,10 @@ type StudyLog = {
 };
 
 type LearnMasterPlan = {
+  id: string;
   type: "learn_master_subject";
   name: "Learn / Master Subject";
-  status: "active";
+  status: PlanStatus;
   subjectName: string;
   currentLevel: string;
   goalType: string;
@@ -282,6 +286,14 @@ type LearnMasterSetup = {
 };
 
 type ActivePlan = EverydayEssentialsPlan | GetLeanPlan | LearnMasterPlan;
+
+type PlanTaskRow = {
+  id: string;
+  title: string;
+  detail: string;
+  badge: string;
+  completed: boolean;
+};
 
 type DayMeta = {
   dayType: BuildDayType | "Default Day";
@@ -457,6 +469,7 @@ const TOMORROW_KEY_PREFIX = "kpm-sunny-tomorrow-tasks";
 const SETTINGS_KEY = "kpm-sunny-settings";
 const PROFILE_KEY = "kpm-sunny-profile";
 const ACTIVE_PLAN_KEY = "kpm-sunny-active-plan";
+const ACTIVE_PLANS_KEY = "kpm-sunny-active-plans";
 const PLAN_KEY = "kpm-sunny-plan";
 const REVIEW_KEY = "kpm-sunny-review";
 const DAILY_NOTES_KEY_PREFIX = "kpm-sunny-daily-notes";
@@ -803,6 +816,7 @@ function HomeApp() {
   const [settings, setSettings] = useLocalStorage<SettingsState>(SETTINGS_KEY, defaultSettings);
   const [profile, setProfile] = useLocalStorage<ProfileState>(PROFILE_KEY, defaultProfile);
   const [activePlan, setActivePlan] = useLocalStorage<ActivePlan | null>(ACTIVE_PLAN_KEY, null);
+  const [activePlans, setActivePlans] = useLocalStorage<ActivePlan[]>(ACTIVE_PLANS_KEY, []);
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
   const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
   const tomorrowKey = getNextDateKey(todayKey);
@@ -1007,6 +1021,15 @@ function HomeApp() {
     writeStorage(HISTORY_KEY, history);
   }, [history, isReady]);
 
+  useEffect(() => {
+    const normalizedPlans = normalizeActivePlans(activePlans);
+    if (activePlans.length === 0 && activePlan) {
+      setActivePlans([normalizeActivePlan(activePlan)]);
+      return;
+    }
+    if (JSON.stringify(normalizedPlans) !== JSON.stringify(activePlans)) setActivePlans(normalizedPlans);
+  }, [activePlan, activePlans, setActivePlans]);
+
   const stats = useMemo(() => getStats(tasks), [tasks]);
   const dayLevel = getDayLevel(stats.points);
   const nextTask = useMemo(() => getCurrentMission(tasks), [tasks]);
@@ -1022,6 +1045,36 @@ function HomeApp() {
     () => createSevenDayTest(settings.sevenDayTestStartDate ?? todayKey, todayKey, combinedDays),
     [combinedDays, settings.sevenDayTestStartDate, todayKey]
   );
+  const normalizedActivePlans = useMemo(() => normalizeActivePlans(activePlans), [activePlans]);
+  const activeTodayPlans = useMemo(() => normalizedActivePlans.filter((plan) => plan.status === "active"), [normalizedActivePlans]);
+
+  function addActivePlan(nextPlan: ActivePlan) {
+    const normalizedPlan = normalizeActivePlan({ ...nextPlan, id: nextPlan.id || createPlanId(nextPlan.type) });
+    setActivePlans((current) => [...normalizeActivePlans(current), normalizedPlan]);
+    setActivePlan(normalizedPlan);
+  }
+
+  function updateActivePlan(planId: string, updater: SetStateAction<ActivePlan | null>) {
+    setActivePlans((current) => {
+      const normalizedPlans = normalizeActivePlans(current);
+      const currentPlan = normalizedPlans.find((plan) => plan.id === planId) ?? null;
+      const nextPlan = typeof updater === "function" ? updater(currentPlan) : updater;
+      if (!nextPlan) return normalizedPlans.filter((plan) => plan.id !== planId);
+      return normalizedPlans.map((plan) => (plan.id === planId ? normalizeActivePlan({ ...nextPlan, id: planId }) : plan));
+    });
+  }
+
+  function updatePlanStatus(planId: string, status: PlanStatus) {
+    const prompt = status === "paused"
+      ? "Pause this plan? It will stop sending tasks to Today."
+      : status === "active"
+        ? "Resume this plan and show its tasks in Today?"
+        : status === "archived"
+          ? "Archive this plan? It will stop sending tasks to Today."
+          : "Mark this plan completed? It will stop sending tasks to Today.";
+    if (!window.confirm(prompt)) return;
+    setActivePlans((current) => normalizeActivePlans(current).map((plan) => (plan.id === planId ? { ...plan, status } : plan)));
+  }
 
   function completeOnboarding(nextSettings: Required<Pick<SettingsState, "scheduleVersion" | "defaultDailyMode" | "mainLifeFocus">>) {
     const nextTemplate = normalizeTemplate(templateTasks);
@@ -1419,14 +1472,8 @@ function HomeApp() {
                     setActiveSection={setActiveSection}
                   />
                 )}
-                {!showBuildTodayFlow && tasks.length > 0 && activePlan?.type === "everyday_essentials" ? (
-                  <EverydayEssentialsTodayCard activePlan={normalizeEverydayEssentialsPlan(activePlan)} setActivePlan={setActivePlan} />
-                ) : null}
-                {!showBuildTodayFlow && tasks.length > 0 && activePlan?.type === "get_lean_shred" ? (
-                  <GetLeanTodayCard activePlan={normalizeGetLeanPlan(activePlan)} setActivePlan={setActivePlan} />
-                ) : null}
-                {!showBuildTodayFlow && tasks.length > 0 && activePlan?.type === "learn_master_subject" ? (
-                  <LearnMasterTodayCard activePlan={normalizeLearnMasterPlan(activePlan)} setActivePlan={setActivePlan} />
+                {!showBuildTodayFlow && tasks.length > 0 && activeTodayPlans.length > 0 ? (
+                  <ActivePlanTasksSection activePlans={activeTodayPlans} updateActivePlan={updateActivePlan} />
                 ) : null}
               </div>
             )}
@@ -1465,8 +1512,10 @@ function HomeApp() {
                 applyMissionPreview={applyMissionPreview}
                 cancelMissionPreview={cancelMissionPreview}
                 tomorrowTasks={tomorrowTasks}
-                activePlan={activePlan}
-                setActivePlan={setActivePlan}
+                activePlans={normalizedActivePlans}
+                addActivePlan={addActivePlan}
+                updateActivePlan={updateActivePlan}
+                updatePlanStatus={updatePlanStatus}
                 profile={normalizeProfile(profile)}
                 setProfile={setProfile}
               />
@@ -1483,13 +1532,14 @@ function HomeApp() {
                 sevenDayTest={sevenDayTest}
                 analytics={analytics}
                 streaks={streaks}
-                activePlan={activePlan}
-                setActivePlan={setActivePlan}
+                activePlans={normalizedActivePlans}
+                updateActivePlan={updateActivePlan}
               />
             )}
             {activeSection === "Profile" && (
               <ProfileScreen
                 profile={normalizeProfile(profile)}
+                activePlans={normalizedActivePlans}
                 setProfile={setProfile}
                 settings={settings}
                 setSettings={setSettings}
@@ -3413,8 +3463,10 @@ function PlanFoundation({
   applyMissionPreview,
   cancelMissionPreview,
   tomorrowTasks,
-  activePlan,
-  setActivePlan,
+  activePlans,
+  addActivePlan,
+  updateActivePlan,
+  updatePlanStatus,
   profile,
   setProfile
 }: {
@@ -3428,26 +3480,22 @@ function PlanFoundation({
   applyMissionPreview: () => void;
   cancelMissionPreview: () => void;
   tomorrowTasks: Task[];
-  activePlan: ActivePlan | null;
-  setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>;
+  activePlans: ActivePlan[];
+  addActivePlan: (plan: ActivePlan) => void;
+  updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
+  updatePlanStatus: (planId: string, status: PlanStatus) => void;
   profile: ProfileState;
   setProfile: Dispatch<SetStateAction<ProfileState>>;
 }) {
-  const normalizedEssentialsPlan = activePlan?.type === "everyday_essentials" ? normalizeEverydayEssentialsPlan(activePlan) : null;
-  const normalizedGetLeanPlan = activePlan?.type === "get_lean_shred" ? normalizeGetLeanPlan(activePlan) : null;
-  const normalizedLearnPlan = activePlan?.type === "learn_master_subject" ? normalizeLearnMasterPlan(activePlan) : null;
-  const activePlanName = normalizedEssentialsPlan?.name ?? normalizedGetLeanPlan?.name ?? normalizedLearnPlan?.name ?? "No active plan selected";
-  const activePlanDetails = normalizedEssentialsPlan
-    ? `${normalizedEssentialsPlan.setup.restockReminder} restock rhythm`
-    : normalizedGetLeanPlan
-      ? `${Math.round(normalizedGetLeanPlan.calculations.targetCalories)} kcal target · ${Math.round(normalizedGetLeanPlan.calculations.proteinTarget)}g protein`
-      : normalizedLearnPlan
-        ? `${normalizedLearnPlan.subjectName || "Subject"} · ${normalizedLearnPlan.dailyMinutes} min/day`
-        : activePlanFoundation.type || "Foundation ready";
+  const activeCount = activePlans.filter((item) => item.status === "active").length;
+  const pausedCount = activePlans.filter((item) => item.status === "paused").length;
+  const activePlanDetails = activePlans.length
+    ? `${activeCount} active · ${pausedCount} paused`
+    : activePlanFoundation.type || "Foundation ready";
   const [showEssentialsSetup, setShowEssentialsSetup] = useState(false);
   const [showGetLeanSetup, setShowGetLeanSetup] = useState(false);
   const [showLearnSetup, setShowLearnSetup] = useState(false);
-  const [essentialsSetup, setEssentialsSetup] = useState<EssentialsSetup>(normalizedEssentialsPlan?.setup ?? defaultEssentialsSetup);
+  const [essentialsSetup, setEssentialsSetup] = useState<EssentialsSetup>(defaultEssentialsSetup);
   const [getLeanSetup, setGetLeanSetup] = useState<GetLeanSetup>(() => createGetLeanSetupFromProfile(profile));
   const [learnSetup, setLearnSetup] = useState<LearnMasterSetup>(defaultLearnMasterSetup);
   const presetPlans = [
@@ -3462,21 +3510,21 @@ function PlanFoundation({
 
   function setupEverydayEssentials() {
     const nextPlan = createEverydayEssentialsPlan(essentialsSetup);
-    setActivePlan(nextPlan);
+    addActivePlan(nextPlan);
     setProfile((current) => ({ ...normalizeProfile(current), activePlan: nextPlan.name }));
     setShowEssentialsSetup(false);
   }
 
   function setupGetLeanPlan() {
     const nextPlan = createGetLeanPlan(getLeanSetup, profile.sleepTargetHours);
-    setActivePlan(nextPlan);
+    addActivePlan(nextPlan);
     setProfile((current) => ({ ...normalizeProfile(current), activePlan: nextPlan.name }));
     setShowGetLeanSetup(false);
   }
 
   function setupLearnMasterPlan() {
     const nextPlan = createLearnMasterPlan(learnSetup);
-    setActivePlan(nextPlan);
+    addActivePlan(nextPlan);
     setProfile((current) => ({ ...normalizeProfile(current), activePlan: nextPlan.name }));
     setShowLearnSetup(false);
   }
@@ -3512,7 +3560,7 @@ function PlanFoundation({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {[
-          ["Active Plan", activePlanName],
+          ["Active Plans", activePlans.length ? `${activePlans.length} total` : "No active plans selected"],
           ["Big Goals", "Coming soon"],
           ["90-Day Plan", "Coming soon"],
           ["Monthly Focus", "Coming soon"],
@@ -3526,6 +3574,8 @@ function PlanFoundation({
         ))}
       </div>
 
+      <ActivePlansManager activePlans={activePlans} updateActivePlan={updateActivePlan} updatePlanStatus={updatePlanStatus} />
+
       <Panel>
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -3537,7 +3587,7 @@ function PlanFoundation({
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {presetPlans.map((preset) => {
             const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred" || preset.name === "Learn / Master Subject";
-            const isActive = activePlanName === preset.name;
+            const isActive = activePlans.some((plan) => plan.name === preset.name && plan.status === "active");
             return (
               <article key={preset.name} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -3551,7 +3601,7 @@ function PlanFoundation({
                   className="secondary-button mt-4 w-full justify-center disabled:opacity-50"
                   disabled={!isAvailable}
                 >
-                  Set Up Plan
+                  {isActive ? "Add Another Active Plan" : "Set Up Plan"}
                 </button>
               </article>
             );
@@ -3598,17 +3648,13 @@ function PlanFoundation({
         />
       ) : null}
 
-      {normalizedEssentialsPlan ? (
-        <EssentialsChecklistManager activePlan={normalizedEssentialsPlan} setActivePlan={setActivePlan} />
-      ) : null}
-
-      {normalizedGetLeanPlan ? (
-        <GetLeanPlanDetails activePlan={normalizedGetLeanPlan} setActivePlan={setActivePlan} />
-      ) : null}
-
-      {normalizedLearnPlan ? (
-        <LearnMasterPlanDetails activePlan={normalizedLearnPlan} setActivePlan={setActivePlan} />
-      ) : null}
+      {activePlans.map((item) => {
+        const planSetter: Dispatch<SetStateAction<ActivePlan | null>> = (updater) => updateActivePlan(item.id, updater);
+        if (item.type === "everyday_essentials") return <div key={item.id} id={`plan-details-${item.id}`}><EssentialsChecklistManager activePlan={normalizeEverydayEssentialsPlan(item)} setActivePlan={planSetter} /></div>;
+        if (item.type === "get_lean_shred") return <div key={item.id} id={`plan-details-${item.id}`}><GetLeanPlanDetails activePlan={normalizeGetLeanPlan(item)} setActivePlan={planSetter} /></div>;
+        if (item.type === "learn_master_subject") return <div key={item.id} id={`plan-details-${item.id}`}><LearnMasterPlanDetails activePlan={normalizeLearnMasterPlan(item)} setActivePlan={planSetter} /></div>;
+        return null;
+      })}
 
       <PlanTomorrow
         plan={plan}
@@ -3626,6 +3672,80 @@ function PlanFoundation({
   );
 }
 
+function ActivePlansManager({
+  activePlans,
+  updateActivePlan,
+  updatePlanStatus
+}: {
+  activePlans: ActivePlan[];
+  updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
+  updatePlanStatus: (planId: string, status: PlanStatus) => void;
+}) {
+  return (
+    <Panel>
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plans</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Systems running together</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Paused, completed, and archived plans stay here but stop sending tasks to Today.</p>
+        </div>
+        <Badge tone="dark">{activePlans.length} plans</Badge>
+      </div>
+      {activePlans.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-300">
+          No active plans yet. Set up a preset plan below to start.
+        </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {activePlans.map((plan) => (
+            <article key={plan.id} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h4 className="break-words text-lg font-black text-white">{getPlanDisplayName(plan)}</h4>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{formatPlanType(plan.type)}</p>
+                </div>
+                <Badge tone={plan.status === "active" ? "green" : plan.status === "paused" ? "orange" : "dark"}>{plan.status}</Badge>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-400">Started {plan.startDate || "Unknown"}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" onClick={() => document.getElementById(`plan-details-${plan.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="secondary-button min-h-9 px-3 py-2 text-xs">View details</button>
+                {plan.status === "active" ? (
+                  <button type="button" onClick={() => updatePlanStatus(plan.id, "paused")} className="secondary-button min-h-9 px-3 py-2 text-xs">Pause</button>
+                ) : (
+                  <button type="button" onClick={() => updatePlanStatus(plan.id, "active")} className="secondary-button min-h-9 px-3 py-2 text-xs">Resume</button>
+                )}
+                <button type="button" onClick={() => updatePlanStatus(plan.id, "completed")} className="secondary-button min-h-9 px-3 py-2 text-xs">End plan</button>
+                <button type="button" onClick={() => updatePlanStatus(plan.id, "archived")} className="danger-button min-h-9 px-3 py-2 text-xs">Archive</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function PlanProgressSummaryCard({ activePlan }: { activePlan: ActivePlan }) {
+  const progress = getPlanCompletion(activePlan);
+  const lastLog = getPlanLastLogText(activePlan);
+  return (
+    <article className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="break-words text-lg font-black text-white">{getPlanDisplayName(activePlan)}</h4>
+          <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{formatPlanType(activePlan.type)}</p>
+        </div>
+        <Badge tone={activePlan.status === "active" ? "green" : activePlan.status === "paused" ? "orange" : "dark"}>{activePlan.status}</Badge>
+      </div>
+      <div className="mt-4 grid gap-3">
+        <MiniMetric label="Today Completion" value={`${progress.completed}/${progress.total}`} />
+        <MiniMetric label="Weekly Completion" value={getPlanWeeklyCompletionText(activePlan)} />
+        <MiniMetric label="Last Log" value={lastLog} />
+      </div>
+    </article>
+  );
+}
+
 function ProgressFoundation({
   review,
   setReview,
@@ -3637,8 +3757,8 @@ function ProgressFoundation({
   sevenDayTest,
   analytics,
   streaks,
-  activePlan,
-  setActivePlan
+  activePlans,
+  updateActivePlan
 }: {
   review: Review;
   setReview: Dispatch<SetStateAction<Review>>;
@@ -3650,13 +3770,10 @@ function ProgressFoundation({
   sevenDayTest: SevenDayTestSummary;
   analytics: AnalyticsSummary;
   streaks: Streaks;
-  activePlan: ActivePlan | null;
-  setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>;
+  activePlans: ActivePlan[];
+  updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
 }) {
-  const essentials = activePlan?.type === "everyday_essentials" ? normalizeEverydayEssentialsPlan(activePlan) : null;
-  const getLean = activePlan?.type === "get_lean_shred" ? normalizeGetLeanPlan(activePlan) : null;
-  const learn = activePlan?.type === "learn_master_subject" ? normalizeLearnMasterPlan(activePlan) : null;
-  const essentialsStats = essentials ? getEssentialsProgress(essentials) : null;
+  const activeProgressPlans = activePlans;
 
   return (
     <section className="grid gap-6">
@@ -3675,21 +3792,22 @@ function ProgressFoundation({
         </div>
       </Panel>
 
-      {essentials && essentialsStats ? (
+      {activeProgressPlans.length ? (
         <Panel>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Everyday Essentials Progress</p>
-          <h3 className="mt-2 text-2xl font-black text-white">Life inventory consistency</h3>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <MiniMetric label="Daily Essentials Today" value={`${essentialsStats.daily.completed}/${essentialsStats.daily.total}`} />
-            <MiniMetric label="Weekly Restock" value={`${essentialsStats.weekly.completed}/${essentialsStats.weekly.total}`} />
-            <MiniMetric label="Monthly Inventory" value={`${essentialsStats.monthly.completed}/${essentialsStats.monthly.total}`} />
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Progress By Plan</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Plan-specific progress</h3>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {activeProgressPlans.map((plan) => <PlanProgressSummaryCard key={plan.id} activePlan={plan} />)}
           </div>
         </Panel>
       ) : null}
 
-      {getLean ? <GetLeanProgressPanel activePlan={getLean} setActivePlan={setActivePlan} /> : null}
-
-      {learn ? <LearnMasterProgressPanel activePlan={learn} setActivePlan={setActivePlan} /> : null}
+      {activeProgressPlans.map((plan) => {
+        const planSetter: Dispatch<SetStateAction<ActivePlan | null>> = (updater) => updateActivePlan(plan.id, updater);
+        if (plan.type === "get_lean_shred") return <GetLeanProgressPanel key={plan.id} activePlan={normalizeGetLeanPlan(plan)} setActivePlan={planSetter} />;
+        if (plan.type === "learn_master_subject") return <LearnMasterProgressPanel key={plan.id} activePlan={normalizeLearnMasterPlan(plan)} setActivePlan={planSetter} />;
+        return null;
+      })}
 
       <EveningReview review={review} setReview={setReview} stats={stats} dayLevel={dayLevel} tasks={tasks} todayKey={todayKey} />
       <HistoryPage history={history} sevenDayTest={sevenDayTest} />
@@ -3708,6 +3826,7 @@ function ProfileScreen({
   exportAllData,
   importAllData,
   todayMode,
+  activePlans,
   selectedTodayMode,
   setSelectedTodayMode,
   generateTodayByMode,
@@ -3722,6 +3841,7 @@ function ProfileScreen({
   exportAllData: () => void;
   importAllData: (rawJson: string) => string;
   todayMode: DailyMode;
+  activePlans: ActivePlan[];
   selectedTodayMode: DailyMode;
   setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
   generateTodayByMode: (mode?: DailyMode) => boolean;
@@ -3732,6 +3852,7 @@ function ProfileScreen({
   const [profileTab, setProfileTab] = useState<"Profile" | "Settings" | "Backup" | "Version">("Profile");
   const age = draft.dateOfBirth ? calculateAge(draft.dateOfBirth) : null;
   const fieldClass = "form-control";
+  const activePlanNames = activePlans.map(getPlanDisplayName);
 
   useEffect(() => {
     setDraft(profile);
@@ -3762,6 +3883,7 @@ function ProfileScreen({
             <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Profile</p>
             <h2 className="mt-2 text-3xl font-black text-white">Profile + Settings</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Your profile, app settings, storage backup, version notes, and danger actions live here.</p>
+            <p className="mt-2 text-sm font-bold text-amber-100">{activePlans.length} active plan{activePlans.length === 1 ? "" : "s"} saved locally.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {(["Profile", "Settings", "Backup", "Version"] as const).map((tab) => (
@@ -3827,6 +3949,14 @@ function ProfileScreen({
             <Field label="Active plan">
               <input disabled={!editing} value={draft.activePlan} onChange={(event) => updateDraft({ activePlan: event.target.value })} className={fieldClass} placeholder="Everyday Essentials" />
             </Field>
+            <Field label="Active plans count">
+              <input readOnly value={`${activePlans.length} plan${activePlans.length === 1 ? "" : "s"}`} className={fieldClass} />
+            </Field>
+            <div className="md:col-span-2">
+              <Field label="Active plan names">
+                <textarea readOnly value={activePlanNames.join("\n")} className="form-control min-h-24" placeholder="No active plans yet" />
+              </Field>
+            </div>
             <div className="md:col-span-2">
               <Field label="Food restrictions / personal rules">
                 <textarea
@@ -4113,6 +4243,77 @@ function ProfileVersionSection() {
 function EssentialsSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
   return (
     <SelectField label={label} value={value} options={options} onChange={onChange} />
+  );
+}
+
+function ActivePlanTasksSection({
+  activePlans,
+  updateActivePlan
+}: {
+  activePlans: ActivePlan[];
+  updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
+}) {
+  return (
+    <Panel compact>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Tasks</p>
+          <h3 className="mt-1 text-2xl font-black text-white">Plan systems for today</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Showing the top 3 tasks from each active plan.</p>
+        </div>
+        <Badge tone="dark">{activePlans.length} active</Badge>
+      </div>
+      <div className="mt-4 grid gap-3 xl:grid-cols-3">
+        {activePlans.map((plan) => {
+          const rows = getPlanTodayTaskRows(plan).slice(0, 3);
+          const progress = getPlanCompletion(plan);
+          return (
+            <article key={plan.id} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h4 className="break-words text-lg font-black text-white">{getPlanDisplayName(plan)}</h4>
+                  <p className="mt-1 text-sm text-slate-400">{progress.completed}/{progress.total} complete</p>
+                </div>
+                <Badge tone="green">active</Badge>
+              </div>
+              <div className="mt-4 grid gap-2">
+                {rows.map((row) => (
+                  <PlanTaskMiniRow key={row.id} row={row} onToggle={() => togglePlanTask(plan, row.id, updateActivePlan)} />
+                ))}
+              </div>
+              {getPlanTodayTaskRows(plan).length > 3 ? (
+                <button type="button" onClick={() => document.getElementById(`plan-details-${plan.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="secondary-button mt-4 w-full justify-center">
+                  View Full Plan Tasks
+                </button>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </Panel>
+  );
+}
+
+function PlanTaskMiniRow({ row, onToggle }: { row: PlanTaskRow; onToggle: () => void }) {
+  return (
+    <div className={`rounded-2xl border p-3 ${row.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : "border-white/10 bg-white/[0.04]"}`}>
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${row.completed ? "border-emerald-300 bg-emerald-400 text-slate-950" : "border-white/15 bg-black/20 text-slate-400"}`}
+        >
+          {row.completed ? <Check size={16} /> : null}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-black text-white">{row.title}</p>
+          {row.detail ? <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{row.detail}</p> : null}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge tone="dark">{row.badge}</Badge>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -6405,9 +6606,113 @@ function mergeGetLeanSetupWithProfile(setup: GetLeanSetup, profile: ProfileState
   };
 }
 
+function normalizePlanStatus(status: unknown): PlanStatus {
+  return status === "paused" || status === "completed" || status === "archived" || status === "active" ? status : "active";
+}
+
+function createPlanId(type: string): string {
+  return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeActivePlan(plan: ActivePlan): ActivePlan {
+  if (plan.type === "everyday_essentials") return normalizeEverydayEssentialsPlan(plan);
+  if (plan.type === "get_lean_shred") return normalizeGetLeanPlan(plan);
+  return normalizeLearnMasterPlan(plan);
+}
+
+function normalizeActivePlans(plans: ActivePlan[] = []): ActivePlan[] {
+  return plans.filter(Boolean).map(normalizeActivePlan);
+}
+
+function getPlanDisplayName(plan: ActivePlan): string {
+  if (plan.type === "learn_master_subject") return plan.subjectName ? `Learn / Master Subject: ${plan.subjectName}` : plan.name;
+  return plan.name;
+}
+
+function formatPlanType(type: ActivePlan["type"]): string {
+  if (type === "everyday_essentials") return "Everyday Essentials";
+  if (type === "get_lean_shred") return "Get Lean / Shred";
+  return "Learn / Master Subject";
+}
+
+function getPlanTodayTaskRows(plan: ActivePlan): PlanTaskRow[] {
+  if (plan.type === "everyday_essentials") {
+    return normalizeEverydayEssentialsPlan(plan).dailyTasks
+      .filter((item) => !item.disabled)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        detail: item.category,
+        badge: item.category,
+        completed: item.completed
+      }));
+  }
+
+  if (plan.type === "get_lean_shred") {
+    const normalized = normalizeGetLeanPlan(plan);
+    return normalized.dailyTasks
+      .filter((item) => !item.disabled)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        detail: getLeanTaskTargetDetail(item.id, normalized),
+        badge: item.category,
+        completed: item.completed
+      }));
+  }
+
+  const normalized = normalizeLearnMasterPlan(plan);
+  return normalized.dailyTasks
+    .filter((item) => !item.disabled)
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      detail: item.detail,
+      badge: "Study",
+      completed: item.completed
+    }));
+}
+
+function getPlanCompletion(plan: ActivePlan) {
+  const rows = getPlanTodayTaskRows(plan);
+  return {
+    completed: rows.filter((row) => row.completed).length,
+    total: rows.length
+  };
+}
+
+function getPlanWeeklyCompletionText(plan: ActivePlan): string {
+  if (plan.type === "everyday_essentials") {
+    const stats = getEssentialsProgress(normalizeEverydayEssentialsPlan(plan));
+    return `${stats.weekly.completed}/${stats.weekly.total}`;
+  }
+  if (plan.type === "get_lean_shred") return `${normalizeGetLeanPlan(plan).logs.slice(-7).filter((log) => log.workoutCompleted || log.steps || log.weightKg).length}/7 logs`;
+  return `${normalizeLearnMasterPlan(plan).logs.slice(-7).filter((log) => log.studyCompleted).length}/7 study days`;
+}
+
+function getPlanLastLogText(plan: ActivePlan): string {
+  if (plan.type === "get_lean_shred") return normalizeGetLeanPlan(plan).logs.at(-1)?.date ?? "No log yet";
+  if (plan.type === "learn_master_subject") return normalizeLearnMasterPlan(plan).logs.at(-1)?.date ?? "No log yet";
+  return "Checklist only";
+}
+
+function togglePlanTask(plan: ActivePlan, taskId: string, updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void) {
+  updateActivePlan(plan.id, (current) => {
+    const target = current ? normalizeActivePlan(current) : plan;
+    if (target.type === "everyday_essentials") {
+      return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
+    }
+    if (target.type === "get_lean_shred") {
+      return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
+    }
+    return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
+  });
+}
+
 function createGetLeanPlan(setup: GetLeanSetup, sleepTargetHours = 8): GetLeanPlan {
   const normalizedSetup = normalizeGetLeanSetup(setup);
   return {
+    id: createPlanId("get_lean_shred"),
     type: "get_lean_shred",
     name: "Get Lean / Shred",
     status: "active",
@@ -6425,9 +6730,10 @@ function createGetLeanPlan(setup: GetLeanSetup, sleepTargetHours = 8): GetLeanPl
 function normalizeGetLeanPlan(plan: GetLeanPlan): GetLeanPlan {
   const setup = normalizeGetLeanSetup(plan.setup);
   return {
+    id: plan.id || createPlanId("get_lean_shred"),
     type: "get_lean_shred",
     name: "Get Lean / Shred",
-    status: "active",
+    status: normalizePlanStatus(plan.status),
     speed: setup.speed,
     startDate: plan.startDate || getDateKey(new Date()),
     targetDate: plan.targetDate ?? "",
@@ -6571,6 +6877,7 @@ function formatWaterTarget(waterTarget: string | undefined, currentWeightKg: num
 function createLearnMasterPlan(setup: LearnMasterSetup): LearnMasterPlan {
   const dailyMinutes = getLearnDailyMinutes(setup);
   return {
+    id: createPlanId("learn_master_subject"),
     type: "learn_master_subject",
     name: "Learn / Master Subject",
     status: "active",
@@ -6592,9 +6899,10 @@ function createLearnMasterPlan(setup: LearnMasterSetup): LearnMasterPlan {
 
 function normalizeLearnMasterPlan(plan: LearnMasterPlan): LearnMasterPlan {
   return {
+    id: plan.id || createPlanId("learn_master_subject"),
     type: "learn_master_subject",
     name: "Learn / Master Subject",
-    status: "active",
+    status: normalizePlanStatus(plan.status),
     subjectName: plan.subjectName ?? "",
     currentLevel: learnCurrentLevels.includes(plan.currentLevel) ? plan.currentLevel : "Beginner",
     goalType: learnGoalTypes.includes(plan.goalType) ? plan.goalType : "Become useful",
@@ -6656,6 +6964,7 @@ function getLearnSpeedTemplate(speed: string): string[] {
 
 function createEverydayEssentialsPlan(setup: EssentialsSetup): EverydayEssentialsPlan {
   return {
+    id: createPlanId("everyday_essentials"),
     type: "everyday_essentials",
     name: "Everyday Essentials",
     status: "active",
@@ -6679,9 +6988,10 @@ function createEssentialsItems(items: readonly (readonly [string, string, Essent
 
 function normalizeEverydayEssentialsPlan(plan: EverydayEssentialsPlan): EverydayEssentialsPlan {
   return {
+    id: plan.id || createPlanId("everyday_essentials"),
     type: "everyday_essentials",
     name: "Everyday Essentials",
-    status: "active",
+    status: normalizePlanStatus(plan.status),
     startDate: plan.startDate || getDateKey(new Date()),
     setup: { ...defaultEssentialsSetup, ...plan.setup },
     dailyTasks: normalizeEssentialsItems(plan.dailyTasks, everydayEssentialsTemplates.dailyTasks),
