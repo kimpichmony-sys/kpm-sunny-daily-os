@@ -233,6 +233,7 @@ type GetLeanPlan = {
 type StudyTask = {
   id: string;
   title: string;
+  detail: string;
   completed: boolean;
   disabled: boolean;
 };
@@ -605,12 +606,12 @@ const learnDeadlines = ["No deadline", "30 days", "90 days", "1 year", "Custom d
 const learnStudyStyles = ["Reading", "Watching videos", "Practice", "Flashcards", "Project-based", "Mixed"];
 const learnMainResources = ["YouTube", "Course", "Book", "Notes", "App", "Custom"];
 const learnStudyLoop = ["Learn", "Practice", "Recall", "Review", "Apply"];
-const learnDailyTaskTemplates: Array<[string, string]> = [
-  ["review-yesterday", "Review yesterday"],
-  ["learn-topic", "Learn one topic"],
-  ["practice", "Practice"],
-  ["recall", "Test yourself without looking"],
-  ["notes", "Write notes"]
+const learnDailyTaskTemplates: Array<[string, string, string]> = [
+  ["review-yesterday", "Review yesterday", "10 min - review the last lesson or notes"],
+  ["learn-topic", "Learn one topic", "Learn one new topic from your selected resource"],
+  ["practice", "Practice", "Apply what you learned with exercises, coding, writing, or examples"],
+  ["recall", "Test yourself without looking", "Recall from memory before checking notes"],
+  ["notes", "Write notes", "Write what you learned and what was difficult"]
 ];
 
 const modeProfiles: Record<DailyMode, { description: string; bestFor: string; difficulty: string; note: string }> = {
@@ -4691,10 +4692,13 @@ function LearnMasterPlanDetails({ activePlan, setActivePlan }: { activePlan: Lea
         </div>
       </div>
 
-      <div className="mt-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        {activePlan.dailyTasks.map((item) => (
-          <LearnStudyTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} />
-        ))}
+      <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-200">Daily Task Breakdown</p>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {activePlan.dailyTasks.map((item) => (
+            <LearnStudyTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} />
+          ))}
+        </div>
       </div>
     </Panel>
   );
@@ -4724,6 +4728,7 @@ function LearnStudyTaskRow({
         </button>
         <div className="min-w-0 flex-1">
           <p className="break-words text-sm font-black text-white">{item.title}</p>
+          <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{item.detail}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge tone="dark">Study</Badge>
             {item.disabled ? <Badge tone="orange">Disabled</Badge> : null}
@@ -6606,10 +6611,11 @@ function normalizeLearnMasterPlan(plan: LearnMasterPlan): LearnMasterPlan {
   };
 }
 
-function createStudyTasks(items: Array<[string, string]>): StudyTask[] {
-  return items.map(([id, title]) => ({
+function createStudyTasks(items: Array<[string, string, string]>): StudyTask[] {
+  return items.map(([id, title, detail]) => ({
     id,
     title,
+    detail,
     completed: false,
     disabled: false
   }));
@@ -6617,7 +6623,13 @@ function createStudyTasks(items: Array<[string, string]>): StudyTask[] {
 
 function normalizeStudyTasks(savedItems: StudyTask[] = []): StudyTask[] {
   const savedById = new Map(savedItems.map((item) => [item.id, item]));
-  return createStudyTasks(learnDailyTaskTemplates).map((item) => ({ ...item, ...savedById.get(item.id), id: item.id, title: savedById.get(item.id)?.title ?? item.title }));
+  return createStudyTasks(learnDailyTaskTemplates).map((item) => ({
+    ...item,
+    ...savedById.get(item.id),
+    id: item.id,
+    title: savedById.get(item.id)?.title ?? item.title,
+    detail: savedById.get(item.id)?.detail ?? item.detail
+  }));
 }
 
 function getLearnDailyMinutes(setup: LearnMasterSetup): number {
