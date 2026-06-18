@@ -149,6 +149,38 @@ type DailyLogFoundation = {
   notes: string;
 };
 
+type EssentialsSetup = {
+  livingSituation: string;
+  budgetLevel: string;
+  skinHairNeeds: string;
+  foodStyle: string;
+  laundryAccess: string;
+  emergencyLevel: string;
+  restockReminder: string;
+};
+
+type EssentialsItem = {
+  id: string;
+  title: string;
+  category: EssentialsCategory;
+  completed: boolean;
+  disabled: boolean;
+  custom?: boolean;
+};
+
+type EssentialsCategory = "Hygiene" | "Clothing" | "Food & Water" | "Health" | "Room & Cleaning" | "Sleep" | "Tech" | "Emergency";
+
+type EverydayEssentialsPlan = {
+  type: "everyday_essentials";
+  name: "Everyday Essentials";
+  status: "active";
+  startDate: string;
+  setup: EssentialsSetup;
+  dailyTasks: EssentialsItem[];
+  weeklyTasks: EssentialsItem[];
+  monthlyTasks: EssentialsItem[];
+};
+
 type DayMeta = {
   dayType: BuildDayType | "Default Day";
   wakeTime?: string;
@@ -322,6 +354,7 @@ const TASKS_KEY_PREFIX = "kpm-sunny-tasks";
 const TOMORROW_KEY_PREFIX = "kpm-sunny-tomorrow-tasks";
 const SETTINGS_KEY = "kpm-sunny-settings";
 const PROFILE_KEY = "kpm-sunny-profile";
+const ACTIVE_PLAN_KEY = "kpm-sunny-active-plan";
 const PLAN_KEY = "kpm-sunny-plan";
 const REVIEW_KEY = "kpm-sunny-review";
 const DAILY_NOTES_KEY_PREFIX = "kpm-sunny-daily-notes";
@@ -388,6 +421,52 @@ const dailyLogFoundation: DailyLogFoundation = {
   completedTasks: [],
   notes: ""
 };
+
+const defaultEssentialsSetup: EssentialsSetup = {
+  livingSituation: "Alone",
+  budgetLevel: "Basic",
+  skinHairNeeds: "Normal",
+  foodStyle: "Simple",
+  laundryAccess: "Home",
+  emergencyLevel: "Simple",
+  restockReminder: "Weekly"
+};
+
+const everydayEssentialsTemplates = {
+  dailyTasks: [
+    ["toothbrush", "Toothbrush", "Hygiene"],
+    ["toothpaste", "Toothpaste", "Hygiene"],
+    ["soap-body-wash", "Soap / body wash", "Hygiene"],
+    ["shampoo", "Shampoo", "Hygiene"],
+    ["towel", "Towel", "Hygiene"],
+    ["clean-clothes", "Clean clothes", "Clothing"],
+    ["deodorant", "Deodorant", "Hygiene"],
+    ["water-bottle", "Water bottle", "Food & Water"],
+    ["phone-charger", "Phone charger", "Tech"],
+    ["basic-food", "Basic food", "Food & Water"],
+    ["sleep-clothes", "Sleep clothes", "Sleep"]
+  ],
+  weeklyTasks: [
+    ["toothpaste-low", "Toothpaste running low?", "Hygiene"],
+    ["soap-shampoo-low", "Soap / shampoo running low?", "Hygiene"],
+    ["laundry-done", "Laundry done?", "Clothing"],
+    ["water-enough", "Drinking water enough?", "Food & Water"],
+    ["food-enough", "Eggs / meat / rice / banana enough?", "Food & Water"],
+    ["trash-bags", "Trash bags enough?", "Room & Cleaning"],
+    ["tissue", "Toilet paper / tissue enough?", "Room & Cleaning"],
+    ["medicine-first-aid", "Medicine / first aid okay?", "Health"]
+  ],
+  monthlyTasks: [
+    ["replace-toothbrush", "Replace toothbrush if old", "Hygiene"],
+    ["medicine-expiry", "Check medicine expiry", "Health"],
+    ["emergency-money", "Check emergency money", "Emergency"],
+    ["clothes-condition", "Check clothes condition", "Clothing"],
+    ["shoes-slippers", "Check shoes / slippers", "Clothing"],
+    ["cleaning-supplies", "Check cleaning supplies", "Room & Cleaning"],
+    ["backup-charger", "Check backup charger / cable", "Tech"],
+    ["important-documents", "Check important documents", "Emergency"]
+  ]
+} as const;
 
 const modeProfiles: Record<DailyMode, { description: string; bestFor: string; difficulty: string; note: string }> = {
   "Full Day": {
@@ -577,6 +656,7 @@ function HomeApp() {
   const [activeSection, setActiveSection] = useState<SectionId>("Dashboard");
   const [settings, setSettings] = useLocalStorage<SettingsState>(SETTINGS_KEY, defaultSettings);
   const [profile, setProfile] = useLocalStorage<ProfileState>(PROFILE_KEY, defaultProfile);
+  const [activePlan, setActivePlan] = useLocalStorage<EverydayEssentialsPlan | null>(ACTIVE_PLAN_KEY, null);
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
   const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
   const tomorrowKey = getNextDateKey(todayKey);
@@ -1193,6 +1273,9 @@ function HomeApp() {
                     setActiveSection={setActiveSection}
                   />
                 )}
+                {!showBuildTodayFlow && tasks.length > 0 && activePlan?.type === "everyday_essentials" ? (
+                  <EverydayEssentialsTodayCard activePlan={normalizeEverydayEssentialsPlan(activePlan)} setActivePlan={setActivePlan} />
+                ) : null}
               </div>
             )}
             {activeSection === "Command Center" && (
@@ -1230,7 +1313,9 @@ function HomeApp() {
                 applyMissionPreview={applyMissionPreview}
                 cancelMissionPreview={cancelMissionPreview}
                 tomorrowTasks={tomorrowTasks}
-                activePlanName={profile.activePlan}
+                activePlan={activePlan}
+                setActivePlan={setActivePlan}
+                setProfile={setProfile}
               />
             )}
             {activeSection === "Progress" && (
@@ -1245,6 +1330,7 @@ function HomeApp() {
                 sevenDayTest={sevenDayTest}
                 analytics={analytics}
                 streaks={streaks}
+                activePlan={activePlan}
               />
             )}
             {activeSection === "Profile" && (
@@ -3159,7 +3245,9 @@ function PlanFoundation({
   applyMissionPreview,
   cancelMissionPreview,
   tomorrowTasks,
-  activePlanName
+  activePlan,
+  setActivePlan,
+  setProfile
 }: {
   plan: Plan;
   setPlan: Dispatch<SetStateAction<Plan>>;
@@ -3171,10 +3259,15 @@ function PlanFoundation({
   applyMissionPreview: () => void;
   cancelMissionPreview: () => void;
   tomorrowTasks: Task[];
-  activePlanName: string;
+  activePlan: EverydayEssentialsPlan | null;
+  setActivePlan: Dispatch<SetStateAction<EverydayEssentialsPlan | null>>;
+  setProfile: Dispatch<SetStateAction<ProfileState>>;
 }) {
+  const normalizedActivePlan = activePlan ? normalizeEverydayEssentialsPlan(activePlan) : null;
+  const [showEssentialsSetup, setShowEssentialsSetup] = useState(false);
+  const [essentialsSetup, setEssentialsSetup] = useState<EssentialsSetup>(normalizedActivePlan?.setup ?? defaultEssentialsSetup);
   const presetPlans = [
-    { name: "Everyday Essentials", purpose: "Protect food, hygiene, room, money checks, sleep, and one useful task." },
+    { name: "Everyday Essentials", purpose: "Make sure I have the basic things I need for daily life." },
     { name: "Get Lean / Shred", purpose: "Build a simple nutrition, walking, training, and sleep foundation." },
     { name: "Learn / Master Subject", purpose: "Turn one subject into daily practice, review, and weekly proof." },
     { name: "Fix Sleep & Energy", purpose: "Stabilize wake time, sunlight, meals, wind-down, and recovery." },
@@ -3182,6 +3275,13 @@ function PlanFoundation({
     { name: "Increase Income", purpose: "Prioritize job search, opportunities, business tasks, and money review." },
     { name: "Life Reset", purpose: "Clean the baseline: body, room, money, admin, relationships, and rhythm." }
   ];
+
+  function setupEverydayEssentials() {
+    const nextPlan = createEverydayEssentialsPlan(essentialsSetup);
+    setActivePlan(nextPlan);
+    setProfile((current) => ({ ...normalizeProfile(current), activePlan: nextPlan.name }));
+    setShowEssentialsSetup(false);
+  }
 
   return (
     <section className="grid gap-5">
@@ -3193,12 +3293,12 @@ function PlanFoundation({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {[
-          ["Active Plan", activePlanName || "No active plan selected"],
+          ["Active Plan", normalizedActivePlan?.name || "No active plan selected"],
           ["Big Goals", "Coming soon"],
           ["90-Day Plan", "Coming soon"],
           ["Monthly Focus", "Coming soon"],
           ["Weekly Missions", "Coming soon"],
-          ["Active Plan Details", activePlanFoundation.type || "Foundation ready"]
+          ["Active Plan Details", normalizedActivePlan ? `${normalizedActivePlan.setup.restockReminder} restock rhythm` : activePlanFoundation.type || "Foundation ready"]
         ].map(([label, value]) => (
           <Panel key={label} compact>
             <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-200">{label}</p>
@@ -3223,13 +3323,42 @@ function PlanFoundation({
                 <Badge tone="dark">Coming soon</Badge>
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-400">{preset.purpose}</p>
-              <button type="button" className="secondary-button mt-4 w-full justify-center" disabled>
+              <button
+                type="button"
+                onClick={() => preset.name === "Everyday Essentials" ? setShowEssentialsSetup((current) => !current) : undefined}
+                className="secondary-button mt-4 w-full justify-center disabled:opacity-50"
+                disabled={preset.name !== "Everyday Essentials"}
+              >
                 Set Up Plan
               </button>
             </article>
           ))}
         </div>
       </Panel>
+
+      {showEssentialsSetup ? (
+        <Panel>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Everyday Essentials Setup</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Make sure I have the basic things I need for daily life.</h3>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <EssentialsSelect label="Living situation" value={essentialsSetup.livingSituation} options={["Alone", "With family", "Shared room / shared home"]} onChange={(livingSituation) => setEssentialsSetup({ ...essentialsSetup, livingSituation })} />
+            <EssentialsSelect label="Budget level" value={essentialsSetup.budgetLevel} options={["Basic", "Normal", "Comfortable"]} onChange={(budgetLevel) => setEssentialsSetup({ ...essentialsSetup, budgetLevel })} />
+            <EssentialsSelect label="Skin / hair needs" value={essentialsSetup.skinHairNeeds} options={["Normal", "Sensitive", "Oily", "Dry"]} onChange={(skinHairNeeds) => setEssentialsSetup({ ...essentialsSetup, skinHairNeeds })} />
+            <EssentialsSelect label="Food style" value={essentialsSetup.foodStyle} options={["Simple", "Fitness", "Stomach-sensitive"]} onChange={(foodStyle) => setEssentialsSetup({ ...essentialsSetup, foodStyle })} />
+            <EssentialsSelect label="Laundry access" value={essentialsSetup.laundryAccess} options={["Home", "Outside"]} onChange={(laundryAccess) => setEssentialsSetup({ ...essentialsSetup, laundryAccess })} />
+            <EssentialsSelect label="Emergency level" value={essentialsSetup.emergencyLevel} options={["Simple", "Prepared"]} onChange={(emergencyLevel) => setEssentialsSetup({ ...essentialsSetup, emergencyLevel })} />
+            <EssentialsSelect label="Restock reminder" value={essentialsSetup.restockReminder} options={["Weekly", "Every 2 weeks", "Monthly"]} onChange={(restockReminder) => setEssentialsSetup({ ...essentialsSetup, restockReminder })} />
+          </div>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+            <button type="button" onClick={setupEverydayEssentials} className="primary-button justify-center">Save Everyday Essentials Plan</button>
+            <button type="button" onClick={() => setShowEssentialsSetup(false)} className="secondary-button justify-center">Cancel</button>
+          </div>
+        </Panel>
+      ) : null}
+
+      {normalizedActivePlan ? (
+        <EssentialsChecklistManager activePlan={normalizedActivePlan} setActivePlan={setActivePlan} />
+      ) : null}
 
       <PlanTomorrow
         plan={plan}
@@ -3257,7 +3386,8 @@ function ProgressFoundation({
   history,
   sevenDayTest,
   analytics,
-  streaks
+  streaks,
+  activePlan
 }: {
   review: Review;
   setReview: Dispatch<SetStateAction<Review>>;
@@ -3269,7 +3399,11 @@ function ProgressFoundation({
   sevenDayTest: SevenDayTestSummary;
   analytics: AnalyticsSummary;
   streaks: Streaks;
+  activePlan: EverydayEssentialsPlan | null;
 }) {
+  const essentials = activePlan ? normalizeEverydayEssentialsPlan(activePlan) : null;
+  const essentialsStats = essentials ? getEssentialsProgress(essentials) : null;
+
   return (
     <section className="grid gap-6">
       <Panel>
@@ -3286,6 +3420,18 @@ function ProgressFoundation({
           <MiniMetric label="Daily Log Model" value={dailyLogFoundation.date || "Ready"} />
         </div>
       </Panel>
+
+      {essentials && essentialsStats ? (
+        <Panel>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Everyday Essentials Progress</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Life inventory consistency</h3>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <MiniMetric label="Daily Essentials Today" value={`${essentialsStats.daily.completed}/${essentialsStats.daily.total}`} />
+            <MiniMetric label="Weekly Restock" value={`${essentialsStats.weekly.completed}/${essentialsStats.weekly.total}`} />
+            <MiniMetric label="Monthly Inventory" value={`${essentialsStats.monthly.completed}/${essentialsStats.monthly.total}`} />
+          </div>
+        </Panel>
+      ) : null}
 
       <EveningReview review={review} setReview={setReview} stats={stats} dayLevel={dayLevel} tasks={tasks} todayKey={todayKey} />
       <HistoryPage history={history} sevenDayTest={sevenDayTest} />
@@ -3390,6 +3536,168 @@ function ProfileScreen({ profile, setProfile }: { profile: ProfileState; setProf
         </div>
       </Panel>
     </section>
+  );
+}
+
+function EssentialsSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <SelectField label={label} value={value} options={options} onChange={onChange} />
+  );
+}
+
+function EverydayEssentialsTodayCard({ activePlan, setActivePlan }: { activePlan: EverydayEssentialsPlan; setActivePlan: Dispatch<SetStateAction<EverydayEssentialsPlan | null>> }) {
+  const visibleItems = activePlan.dailyTasks.filter((item) => !item.disabled).slice(0, 5);
+  const completed = activePlan.dailyTasks.filter((item) => !item.disabled && item.completed).length;
+  const total = activePlan.dailyTasks.filter((item) => !item.disabled).length;
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Panel compact>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Everyday Essentials</p>
+          <h3 className="mt-1 text-2xl font-black text-white">Basic life inventory</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{completed}/{total} daily essentials complete</p>
+        </div>
+        <button type="button" onClick={() => setExpanded((current) => !current)} className="secondary-button justify-center">
+          {expanded ? "Hide Full Checklist" : "View Full Essentials Checklist"}
+        </button>
+      </div>
+      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {(expanded ? activePlan.dailyTasks.filter((item) => !item.disabled) : visibleItems).map((item) => (
+          <EssentialsItemRow key={item.id} item={item} list="dailyTasks" activePlan={activePlan} setActivePlan={setActivePlan} compact />
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function EssentialsChecklistManager({ activePlan, setActivePlan }: { activePlan: EverydayEssentialsPlan; setActivePlan: Dispatch<SetStateAction<EverydayEssentialsPlan | null>> }) {
+  const [customTitle, setCustomTitle] = useState("");
+  const [customCategory, setCustomCategory] = useState<EssentialsCategory>("Hygiene");
+  const [customList, setCustomList] = useState<"dailyTasks" | "weeklyTasks" | "monthlyTasks">("dailyTasks");
+
+  function addCustomItem() {
+    const title = customTitle.trim();
+    if (!title) return;
+    const item: EssentialsItem = {
+      id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title,
+      category: customCategory,
+      completed: false,
+      disabled: false,
+      custom: true
+    };
+    setActivePlan({ ...activePlan, [customList]: [...activePlan[customList], item] });
+    setCustomTitle("");
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Details</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Everyday Essentials</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Started {activePlan.startDate}. Restock reminder: {activePlan.setup.restockReminder}.</p>
+        </div>
+        <Badge tone="green">Active</Badge>
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_0.8fr_0.8fr_auto]">
+        <Field label="Custom item">
+          <input value={customTitle} onChange={(event) => setCustomTitle(event.target.value)} className="form-control" placeholder="Add custom essential" />
+        </Field>
+        <SelectField label="Checklist" value={customList} options={["dailyTasks", "weeklyTasks", "monthlyTasks"]} onChange={(value) => setCustomList(value as "dailyTasks" | "weeklyTasks" | "monthlyTasks")} />
+        <SelectField label="Category" value={customCategory} options={["Hygiene", "Clothing", "Food & Water", "Health", "Room & Cleaning", "Sleep", "Tech", "Emergency"]} onChange={(value) => setCustomCategory(value as EssentialsCategory)} />
+        <div className="flex items-end">
+          <button type="button" onClick={addCustomItem} className="primary-button min-h-[3.25rem] w-full justify-center">
+            <Plus size={18} />
+            Add Item
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-5 xl:grid-cols-3">
+        <EssentialsChecklistSection title="Daily Use Checklist" list="dailyTasks" activePlan={activePlan} setActivePlan={setActivePlan} />
+        <EssentialsChecklistSection title="Weekly Restock Checklist" list="weeklyTasks" activePlan={activePlan} setActivePlan={setActivePlan} />
+        <EssentialsChecklistSection title="Monthly Inventory Checklist" list="monthlyTasks" activePlan={activePlan} setActivePlan={setActivePlan} />
+      </div>
+    </Panel>
+  );
+}
+
+function EssentialsChecklistSection({
+  title,
+  list,
+  activePlan,
+  setActivePlan
+}: {
+  title: string;
+  list: "dailyTasks" | "weeklyTasks" | "monthlyTasks";
+  activePlan: EverydayEssentialsPlan;
+  setActivePlan: Dispatch<SetStateAction<EverydayEssentialsPlan | null>>;
+}) {
+  const items = activePlan[list];
+  const enabled = items.filter((item) => !item.disabled);
+  const completed = enabled.filter((item) => item.completed).length;
+
+  return (
+    <section className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="text-lg font-black text-white">{title}</h4>
+          <p className="mt-1 text-sm text-slate-400">{completed}/{enabled.length} complete</p>
+        </div>
+        <button type="button" onClick={() => resetEssentialsList(activePlan, setActivePlan, list)} className="secondary-button min-h-10 px-3 py-2 text-xs">Reset</button>
+      </div>
+      <div className="mt-4 grid gap-2">
+        {items.map((item) => (
+          <EssentialsItemRow key={item.id} item={item} list={list} activePlan={activePlan} setActivePlan={setActivePlan} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EssentialsItemRow({
+  item,
+  list,
+  activePlan,
+  setActivePlan,
+  compact = false
+}: {
+  item: EssentialsItem;
+  list: "dailyTasks" | "weeklyTasks" | "monthlyTasks";
+  activePlan: EverydayEssentialsPlan;
+  setActivePlan: Dispatch<SetStateAction<EverydayEssentialsPlan | null>>;
+  compact?: boolean;
+}) {
+  if (item.disabled && compact) return null;
+  return (
+    <div className={`rounded-2xl border p-3 ${item.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : item.disabled ? "border-orange-300/25 bg-orange-400/[0.06] opacity-70" : "border-white/10 bg-white/[0.04]"}`}>
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => updateEssentialsItem(activePlan, setActivePlan, list, item.id, { completed: !item.completed })}
+          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${item.completed ? "border-emerald-300 bg-emerald-400 text-slate-950" : "border-white/15 bg-black/20 text-slate-400"}`}
+        >
+          {item.completed ? <Check size={16} /> : null}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-black text-white">{item.title}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge tone="dark">{item.category}</Badge>
+            {item.custom ? <Badge tone="gold">Custom</Badge> : null}
+            {item.disabled ? <Badge tone="orange">Disabled</Badge> : null}
+          </div>
+        </div>
+        {!compact ? (
+          <button type="button" onClick={() => updateEssentialsItem(activePlan, setActivePlan, list, item.id, { disabled: !item.disabled })} className="secondary-button min-h-9 px-3 py-2 text-xs">
+            {item.disabled ? "Enable" : "Disable"}
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -4942,6 +5250,91 @@ function normalizeProfile(profile: Partial<ProfileState>): ProfileState {
     mainLifeFocus: profile.mainLifeFocus ?? "",
     foodRules: Array.isArray(profile.foodRules) ? profile.foodRules.filter(Boolean) : [],
     activePlan: profile.activePlan ?? ""
+  };
+}
+
+function createEverydayEssentialsPlan(setup: EssentialsSetup): EverydayEssentialsPlan {
+  return {
+    type: "everyday_essentials",
+    name: "Everyday Essentials",
+    status: "active",
+    startDate: getDateKey(new Date()),
+    setup,
+    dailyTasks: createEssentialsItems(everydayEssentialsTemplates.dailyTasks),
+    weeklyTasks: createEssentialsItems(everydayEssentialsTemplates.weeklyTasks),
+    monthlyTasks: createEssentialsItems(everydayEssentialsTemplates.monthlyTasks)
+  };
+}
+
+function createEssentialsItems(items: readonly (readonly [string, string, EssentialsCategory])[]): EssentialsItem[] {
+  return items.map(([id, title, category]) => ({
+    id,
+    title,
+    category,
+    completed: false,
+    disabled: false
+  }));
+}
+
+function normalizeEverydayEssentialsPlan(plan: EverydayEssentialsPlan): EverydayEssentialsPlan {
+  return {
+    type: "everyday_essentials",
+    name: "Everyday Essentials",
+    status: "active",
+    startDate: plan.startDate || getDateKey(new Date()),
+    setup: { ...defaultEssentialsSetup, ...plan.setup },
+    dailyTasks: normalizeEssentialsItems(plan.dailyTasks, everydayEssentialsTemplates.dailyTasks),
+    weeklyTasks: normalizeEssentialsItems(plan.weeklyTasks, everydayEssentialsTemplates.weeklyTasks),
+    monthlyTasks: normalizeEssentialsItems(plan.monthlyTasks, everydayEssentialsTemplates.monthlyTasks)
+  };
+}
+
+function normalizeEssentialsItems(savedItems: EssentialsItem[] = [], template: readonly (readonly [string, string, EssentialsCategory])[]): EssentialsItem[] {
+  const savedById = new Map(savedItems.map((item) => [item.id, item]));
+  const baseItems = createEssentialsItems(template).map((item) => ({ ...item, ...savedById.get(item.id), id: item.id, title: savedById.get(item.id)?.title ?? item.title, category: savedById.get(item.id)?.category ?? item.category }));
+  const baseIds = new Set(baseItems.map((item) => item.id));
+  const customItems = savedItems.filter((item) => item.custom && !baseIds.has(item.id));
+  return [...baseItems, ...customItems];
+}
+
+function updateEssentialsItem(
+  activePlan: EverydayEssentialsPlan,
+  setActivePlan: Dispatch<SetStateAction<EverydayEssentialsPlan | null>>,
+  list: "dailyTasks" | "weeklyTasks" | "monthlyTasks",
+  id: string,
+  patch: Partial<EssentialsItem>
+) {
+  setActivePlan({
+    ...activePlan,
+    [list]: activePlan[list].map((item) => (item.id === id ? { ...item, ...patch } : item))
+  });
+}
+
+function resetEssentialsList(
+  activePlan: EverydayEssentialsPlan,
+  setActivePlan: Dispatch<SetStateAction<EverydayEssentialsPlan | null>>,
+  list: "dailyTasks" | "weeklyTasks" | "monthlyTasks"
+) {
+  if (!window.confirm(`Reset ${list.replace("Tasks", "").toLowerCase()} checklist completion?`)) return;
+  setActivePlan({
+    ...activePlan,
+    [list]: activePlan[list].map((item) => ({ ...item, completed: false }))
+  });
+}
+
+function getEssentialsProgress(plan: EverydayEssentialsPlan) {
+  const summarize = (items: EssentialsItem[]) => {
+    const enabled = items.filter((item) => !item.disabled);
+    return {
+      completed: enabled.filter((item) => item.completed).length,
+      total: enabled.length
+    };
+  };
+
+  return {
+    daily: summarize(plan.dailyTasks),
+    weekly: summarize(plan.weeklyTasks),
+    monthly: summarize(plan.monthlyTasks)
   };
 }
 
