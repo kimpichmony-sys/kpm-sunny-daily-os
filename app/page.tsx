@@ -39,6 +39,8 @@ type TimeNeeded = "15 min" | "30 min" | "1 hour" | "2 hours" | "3 hours";
 type DailyMode = "Full Day" | "Low Energy" | "Recovery" | "Money" | "Skill" | "CEO";
 type MainLifeFocus = "Money" | "Health" | "Skill" | "Cleaning" | "Stability" | "Personal Growth";
 type SectionId = "Dashboard" | "Today Task List" | "Plan Tomorrow" | "Evening Review" | "More" | "Command Center" | "History" | "Analytics" | "Template Editor" | "Settings";
+type BuildDayType = "Normal Day" | "Late Wake Day" | "Night Shift Day" | "Recovery Day" | "Appointment / Busy Day" | "Custom Day";
+type BuildEnergy = Energy | "Very Low";
 
 type Task = {
   id: string;
@@ -111,6 +113,14 @@ type SettingsState = {
   defaultDailyMode?: DailyMode;
   mainLifeFocus?: MainLifeFocus;
   sevenDayTestStartDate?: string;
+};
+
+type DayMeta = {
+  dayType: BuildDayType | "Default Day";
+  wakeTime?: string;
+  startTime?: string;
+  todayMode?: DailyMode;
+  mainMission?: string;
 };
 
 type Stats = {
@@ -249,12 +259,38 @@ type FocusPreset = {
   bestFor: string;
 };
 
+type BuildTodayDraft = {
+  dayType: BuildDayType;
+  wakeTime: string;
+  startTime: string;
+  energy: BuildEnergy;
+  todayMode: DailyMode;
+  mainMission: string;
+  shiftStart: string;
+  shiftEnd: string;
+  fixedEvent: string;
+  fixedEventTime: string;
+  fixedEventDuration: string;
+  sleepTime: string;
+  wantsSmallMainMission: boolean;
+};
+
+type BuildTodayPreview = {
+  dayType: BuildDayType;
+  wakeTime: string;
+  startTime: string;
+  todayMode: DailyMode;
+  mainMission: string;
+  tasks: Task[];
+};
+
 const TASKS_KEY_PREFIX = "kpm-sunny-tasks";
 const TOMORROW_KEY_PREFIX = "kpm-sunny-tomorrow-tasks";
 const SETTINGS_KEY = "kpm-sunny-settings";
 const PLAN_KEY = "kpm-sunny-plan";
 const REVIEW_KEY = "kpm-sunny-review";
 const DAILY_NOTES_KEY_PREFIX = "kpm-sunny-daily-notes";
+const DAY_META_KEY_PREFIX = "kpm-sunny-day-meta";
 const HISTORY_KEY = "kpm-sunny-history";
 const LAST_ACTIVE_DATE_KEY = "kpm-sunny-last-active-date";
 const DATE_OVERRIDE_KEY = "kpm-sunny-date-override";
@@ -442,6 +478,30 @@ const defaultTemplateDraft: TemplateDraft = {
   notes: ""
 };
 
+const defaultBuildTodayDraft: BuildTodayDraft = {
+  dayType: "Normal Day",
+  wakeTime: "5:30 AM",
+  startTime: "5:30 AM",
+  energy: "Medium",
+  todayMode: "Full Day",
+  mainMission: "",
+  shiftStart: "9:00 PM",
+  shiftEnd: "5:00 AM",
+  fixedEvent: "",
+  fixedEventTime: "1:00 PM",
+  fixedEventDuration: "1 hour",
+  sleepTime: "11:00 PM",
+  wantsSmallMainMission: true
+};
+
+const defaultDayMeta: DayMeta = {
+  dayType: "Default Day",
+  wakeTime: "5:30 AM",
+  startTime: "5:30 AM",
+  todayMode: "Full Day",
+  mainMission: ""
+};
+
 export default function Home() {
   return (
     <RecoveryErrorBoundary>
@@ -464,12 +524,15 @@ function HomeApp() {
   const [tomorrowTasks, setTomorrowTasks] = useState<Task[]>(defaultTasks);
   const [plan, setPlan] = useState<Plan>(defaultPlan);
   const [missionPreview, setMissionPreview] = useState<MissionPlanPreviewItem[]>([]);
+  const [buildTodayDraft, setBuildTodayDraft] = useState<BuildTodayDraft>(defaultBuildTodayDraft);
+  const [buildTodayPreview, setBuildTodayPreview] = useState<BuildTodayPreview | null>(null);
   const [dailyNotes, setDailyNotes] = useState("");
   const [review, setReview] = useState<Review>(defaultReview);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [todayMode, setTodayMode] = useState<DailyMode>("Full Day");
   const [selectedTodayMode, setSelectedTodayMode] = useState<DailyMode>("Full Day");
   const [tomorrowMode, setTomorrowMode] = useState<DailyMode>("Full Day");
+  const [dayMeta, setDayMeta] = useState<DayMeta>(defaultDayMeta);
   const [isReady, setIsReady] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [showLoadingRecovery, setShowLoadingRecovery] = useState(false);
@@ -503,6 +566,7 @@ function HomeApp() {
       const carriedTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${currentDate}`, []);
       const carriedMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${currentDate}`, loadedTodayMode);
       const storedTodayTasks = readStorage<Task[]>(`${TASKS_KEY_PREFIX}:${currentDate}`, []);
+      const loadedDayMeta = normalizeDayMeta(readStorage<Partial<DayMeta>>(`${DAY_META_KEY_PREFIX}:${currentDate}`, { ...defaultDayMeta, todayMode: carriedMode }));
       const nextTodayTasks = storedTodayTasks.length > 0
         ? mergeSchedule(storedTodayTasks, loadedDefaultTasks)
         : carriedTasks.length > 0
@@ -526,6 +590,8 @@ function HomeApp() {
       setTodayMode(carriedMode);
       setSelectedTodayMode(carriedMode);
       setTomorrowMode(loadedTomorrowMode);
+      setDayMeta({ ...loadedDayMeta, todayMode: carriedMode });
+      setBuildTodayDraft({ ...defaultBuildTodayDraft, todayMode: carriedMode, wakeTime: loadedDayMeta.wakeTime ?? "5:30 AM", startTime: loadedDayMeta.startTime ?? "5:30 AM" });
       writeStorage(`${MODE_KEY_PREFIX}:${currentDate}`, carriedMode);
       safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
       setIsReady(true);
@@ -588,6 +654,8 @@ function HomeApp() {
       setTodayMode(carriedMode);
       setSelectedTodayMode(carriedMode);
       setTomorrowMode(nextTomorrowMode);
+      setDayMeta({ ...defaultDayMeta, todayMode: carriedMode });
+      setBuildTodayPreview(null);
     }, 60000);
 
     return () => window.clearInterval(interval);
@@ -620,6 +688,11 @@ function HomeApp() {
     if (!isReady) return;
     writeStorage(`${MODE_KEY_PREFIX}:${todayKey}`, todayMode);
   }, [isReady, todayKey, todayMode]);
+
+  useEffect(() => {
+    if (!isReady) return;
+    writeStorage(`${DAY_META_KEY_PREFIX}:${todayKey}`, dayMeta);
+  }, [dayMeta, isReady, todayKey]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -670,6 +743,7 @@ function HomeApp() {
     setTodayMode(nextSettings.defaultDailyMode);
     setSelectedTodayMode(nextSettings.defaultDailyMode);
     setTomorrowMode(nextSettings.defaultDailyMode);
+    setDayMeta({ ...defaultDayMeta, todayMode: nextSettings.defaultDailyMode, wakeTime: nextSettings.scheduleVersion === "5:00" ? "5:00 AM" : "5:30 AM", startTime: nextSettings.scheduleVersion === "5:00" ? "5:00 AM" : "5:30 AM" });
     setTasks(nextTasks);
     setTomorrowTasks(buildModeSchedule(nextDefaultTasks, nextSettings.defaultDailyMode));
     setPlan({ ...defaultPlan, tomorrowMode: nextSettings.defaultDailyMode });
@@ -701,6 +775,7 @@ function HomeApp() {
     if (!window.confirm("Reset today's mission list? This will replace today's current tasks, but history will stay safe.")) return;
     setTasks(buildModeSchedule(defaultTasks, todayMode));
     setReview(defaultReview);
+    setBuildTodayPreview(null);
   }
 
   function clearAllLocalData() {
@@ -712,6 +787,7 @@ function HomeApp() {
     setTodayMode("Full Day");
     setSelectedTodayMode("Full Day");
     setTomorrowMode("Full Day");
+    setDayMeta(defaultDayMeta);
     setTasks(buildModeSchedule(buildSchedule(originalTemplate, false), "Full Day"));
     setTomorrowTasks(buildModeSchedule(buildSchedule(originalTemplate, false), "Full Day"));
     setPlan(defaultPlan);
@@ -745,6 +821,7 @@ function HomeApp() {
     setTodayMode(nextSettings.defaultDailyMode ?? "Full Day");
     setSelectedTodayMode(nextSettings.defaultDailyMode ?? "Full Day");
     setTomorrowMode(nextSettings.defaultDailyMode ?? "Full Day");
+    setDayMeta({ ...defaultDayMeta, todayMode: nextSettings.defaultDailyMode ?? "Full Day" });
     setActiveFocusTaskId(null);
     safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
     setShowLoadingRecovery(false);
@@ -878,6 +955,7 @@ function HomeApp() {
     const nextTasks = applyMainMissionTitle(buildModeSchedule(defaultTasks, resolvedMode), mainMissionTitle);
     setTodayMode(resolvedMode);
     setSelectedTodayMode(resolvedMode);
+    setDayMeta({ ...defaultDayMeta, dayType: "Normal Day", wakeTime: settings.scheduleVersion === "5:00" ? "5:00 AM" : "5:30 AM", startTime: settings.scheduleVersion === "5:00" ? "5:00 AM" : "5:30 AM", todayMode: resolvedMode, mainMission: mainMissionTitle });
     setTasks(nextTasks);
     setReview(defaultReview);
     return true;
@@ -896,8 +974,34 @@ function HomeApp() {
     const mode = resolveDailyMode(undefined, settings.defaultDailyMode);
     setTodayMode(mode);
     setSelectedTodayMode(mode);
+    setDayMeta({ ...defaultDayMeta, todayMode: mode });
     setTasks(buildModeSchedule(defaultTasks, mode));
     setReview(defaultReview);
+    setQuickStartMessage("Today's missions are ready.");
+  }
+
+  function createBuildTodayPreview(nextDraft: BuildTodayDraft) {
+    const preview = buildTodayPlan(nextDraft, defaultTasks);
+    setBuildTodayDraft(nextDraft);
+    setBuildTodayPreview(preview);
+  }
+
+  function applyBuildTodayPreview() {
+    if (!buildTodayPreview) return;
+    if (tasks.length > 0 && !window.confirm("Today already has missions. Replace today's current mission list with this preview?")) return;
+
+    setTasks(buildTodayPreview.tasks);
+    setTodayMode(buildTodayPreview.todayMode);
+    setSelectedTodayMode(buildTodayPreview.todayMode);
+    setDayMeta({
+      dayType: buildTodayPreview.dayType,
+      wakeTime: buildTodayPreview.wakeTime,
+      startTime: buildTodayPreview.startTime,
+      todayMode: buildTodayPreview.todayMode,
+      mainMission: buildTodayPreview.mainMission
+    });
+    setReview(defaultReview);
+    setBuildTodayPreview(null);
     setQuickStartMessage("Today's missions are ready.");
   }
 
@@ -979,17 +1083,28 @@ function HomeApp() {
 
           <div className="mt-6">
             {activeSection === "Dashboard" && (
-              <TodayCommand
-                stats={stats}
-                currentMission={nextTask}
-                mainMission={mainMission}
-                todayMode={todayMode}
-                tasks={tasks}
-                updateTask={updateTask}
-                snoozeTask={snoozeTask}
-                startMission={(id) => setActiveFocusTaskId(id)}
-                setActiveSection={setActiveSection}
-              />
+              <div className="grid gap-5">
+                <BuildToday
+                  draft={buildTodayDraft}
+                  setDraft={setBuildTodayDraft}
+                  preview={buildTodayPreview}
+                  createPreview={createBuildTodayPreview}
+                  applyPreview={applyBuildTodayPreview}
+                  cancelPreview={() => setBuildTodayPreview(null)}
+                />
+                <TodayCommand
+                  stats={stats}
+                  currentMission={nextTask}
+                  mainMission={mainMission}
+                  todayMode={todayMode}
+                  dayMeta={dayMeta}
+                  tasks={tasks}
+                  updateTask={updateTask}
+                  snoozeTask={snoozeTask}
+                  startMission={(id) => setActiveFocusTaskId(id)}
+                  setActiveSection={setActiveSection}
+                />
+              </div>
             )}
             {activeSection === "Command Center" && (
               <Dashboard
@@ -1501,11 +1616,227 @@ function MissionArtPanel({
   );
 }
 
+function BuildToday({
+  draft,
+  setDraft,
+  preview,
+  createPreview,
+  applyPreview,
+  cancelPreview
+}: {
+  draft: BuildTodayDraft;
+  setDraft: Dispatch<SetStateAction<BuildTodayDraft>>;
+  preview: BuildTodayPreview | null;
+  createPreview: (draft: BuildTodayDraft) => void;
+  applyPreview: () => void;
+  cancelPreview: () => void;
+}) {
+  const [flow, setFlow] = useState<"Normal" | "Special">(draft.dayType === "Normal Day" ? "Normal" : "Special");
+  const fieldClass = "min-h-12 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-semibold text-slate-100 outline-none focus:border-amber-300/60";
+
+  function updateDraft(patch: Partial<BuildTodayDraft>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  return (
+    <section className="grid gap-4">
+      <Panel className="border-amber-300/25 bg-[linear-gradient(135deg,rgba(251,191,36,0.10),rgba(255,255,255,0.04))]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Build Today</p>
+            <h2 className="mt-2 break-words text-3xl font-black leading-tight text-white sm:text-4xl">How should we build today?</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Choose the day shape first, preview the plan, then generate only when it feels right.</p>
+          </div>
+          <Badge tone="dark">Preview before overwrite</Badge>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => {
+              setFlow("Normal");
+              updateDraft({ dayType: "Normal Day" });
+            }}
+            className={`rounded-[1.35rem] border p-4 text-left transition ${flow === "Normal" ? "border-amber-300/70 bg-amber-300/[0.14]" : "border-white/10 bg-white/[0.04] hover:border-amber-300/30"}`}
+          >
+            <p className="text-xl font-black text-white">Normal Day</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">I woke up normally or just need to shift today&apos;s schedule.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFlow("Special");
+              updateDraft({ dayType: draft.dayType === "Normal Day" ? "Late Wake Day" : draft.dayType });
+            }}
+            className={`rounded-[1.35rem] border p-4 text-left transition ${flow === "Special" ? "border-teal-300/60 bg-teal-300/[0.10]" : "border-white/10 bg-white/[0.04] hover:border-teal-300/30"}`}
+          >
+            <p className="text-xl font-black text-white">Special Day</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Late wake, night shift, recovery, appointment, or custom day.</p>
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+          {flow === "Normal" ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="grid gap-2 text-sm font-bold text-slate-300">
+                What time did you wake up today?
+                <input type="time" value={timeToInputValue(draft.wakeTime)} onChange={(event) => updateDraft({ wakeTime: inputValueToTime(event.target.value), startTime: inputValueToTime(event.target.value), dayType: "Normal Day" })} className={fieldClass} />
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-slate-300">
+                Energy level
+                <select value={draft.energy} onChange={(event) => updateDraft({ energy: event.target.value as BuildEnergy })} className={fieldClass}>
+                  {(["Low", "Medium", "High"] as const).map((energy) => <option key={energy}>{energy}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-bold text-slate-300">
+                Today mode
+                <select value={draft.todayMode} onChange={(event) => updateDraft({ todayMode: event.target.value as DailyMode })} className={fieldClass}>
+                  {dailyModes.map((mode) => <option key={mode}>{mode}</option>)}
+                </select>
+              </label>
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              <label className="grid gap-2 text-sm font-bold text-slate-300">
+                Special day type
+                <select value={draft.dayType} onChange={(event) => updateDraft({ dayType: event.target.value as BuildDayType })} className={fieldClass}>
+                  {(["Late Wake Day", "Night Shift Day", "Recovery Day", "Appointment / Busy Day", "Custom Day"] as BuildDayType[]).map((type) => <option key={type}>{type}</option>)}
+                </select>
+              </label>
+
+              {draft.dayType === "Late Wake Day" ? (
+                <div className="grid gap-4 md:grid-cols-3">
+                  <BuildTimeField label="What time did you wake up?" value={draft.wakeTime} onChange={(wakeTime) => updateDraft({ wakeTime, startTime: wakeTime })} className={fieldClass} />
+                  <BuildTextField label="What is the one thing that matters today?" value={draft.mainMission} onChange={(mainMission) => updateDraft({ mainMission })} className={fieldClass} />
+                  <BuildEnergyField value={draft.energy} onChange={(energy) => updateDraft({ energy })} className={fieldClass} />
+                </div>
+              ) : null}
+
+              {draft.dayType === "Night Shift Day" ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <BuildTimeField label="What time does your active day start?" value={draft.startTime} onChange={(startTime) => updateDraft({ startTime, wakeTime: startTime })} className={fieldClass} />
+                  <BuildTimeField label="What time does your shift start?" value={draft.shiftStart} onChange={(shiftStart) => updateDraft({ shiftStart })} className={fieldClass} />
+                  <BuildTimeField label="What time does your shift end?" value={draft.shiftEnd} onChange={(shiftEnd) => updateDraft({ shiftEnd })} className={fieldClass} />
+                  <BuildTextField label="What is your main mission before shift?" value={draft.mainMission} onChange={(mainMission) => updateDraft({ mainMission })} className={fieldClass} />
+                </div>
+              ) : null}
+
+              {draft.dayType === "Recovery Day" ? (
+                <div className="grid gap-4 md:grid-cols-3">
+                  <BuildTimeField label="What time did you wake up?" value={draft.wakeTime} onChange={(wakeTime) => updateDraft({ wakeTime, startTime: wakeTime })} className={fieldClass} />
+                  <label className="grid gap-2 text-sm font-bold text-slate-300">
+                    Energy
+                    <select value={draft.energy} onChange={(event) => updateDraft({ energy: event.target.value as BuildEnergy })} className={fieldClass}>
+                      {(["Low", "Very Low"] as const).map((energy) => <option key={energy}>{energy}</option>)}
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm font-bold text-slate-300">
+                    One small main mission?
+                    <select value={draft.wantsSmallMainMission ? "Yes" : "No"} onChange={(event) => updateDraft({ wantsSmallMainMission: event.target.value === "Yes" })} className={fieldClass}>
+                      <option>Yes</option>
+                      <option>No</option>
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+
+              {draft.dayType === "Appointment / Busy Day" ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <BuildTimeField label="What time did you wake up?" value={draft.wakeTime} onChange={(wakeTime) => updateDraft({ wakeTime, startTime: wakeTime })} className={fieldClass} />
+                  <BuildTextField label="What fixed event do you have?" value={draft.fixedEvent} onChange={(fixedEvent) => updateDraft({ fixedEvent })} className={fieldClass} />
+                  <BuildTimeField label="What time is it?" value={draft.fixedEventTime} onChange={(fixedEventTime) => updateDraft({ fixedEventTime })} className={fieldClass} />
+                  <label className="grid gap-2 text-sm font-bold text-slate-300">
+                    How long does it last?
+                    <select value={draft.fixedEventDuration} onChange={(event) => updateDraft({ fixedEventDuration: event.target.value })} className={fieldClass}>
+                      {["30 min", "1 hour", "2 hours", "3 hours"].map((duration) => <option key={duration}>{duration}</option>)}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+
+              {draft.dayType === "Custom Day" ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <BuildTimeField label="What time does your day start?" value={draft.startTime} onChange={(startTime) => updateDraft({ startTime, wakeTime: startTime })} className={fieldClass} />
+                  <BuildTimeField label="What time do you want to sleep?" value={draft.sleepTime} onChange={(sleepTime) => updateDraft({ sleepTime })} className={fieldClass} />
+                  <BuildTextField label="What is the main mission?" value={draft.mainMission} onChange={(mainMission) => updateDraft({ mainMission })} className={fieldClass} />
+                  <BuildEnergyField value={draft.energy} onChange={(energy) => updateDraft({ energy })} className={fieldClass} />
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          <button type="button" onClick={() => createPreview({ ...draft, dayType: flow === "Normal" ? "Normal Day" : draft.dayType })} className="primary-button justify-center">
+            Build Today Preview
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </Panel>
+
+      {preview ? (
+        <Panel className="border-teal-300/25 bg-teal-300/[0.06]">
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">Today Plan Preview</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge tone="gold">{preview.dayType}</Badge>
+            <Badge tone="dark">Start: {preview.startTime}</Badge>
+            <Badge tone="dark">Wake: {preview.wakeTime}</Badge>
+            <Badge tone="dark">{preview.todayMode} Mode</Badge>
+          </div>
+          <h3 className="mt-4 break-words text-2xl font-black text-white">{preview.mainMission || "Today is built around steady control."}</h3>
+          <div className="mt-4 grid gap-2">
+            {preview.tasks.slice(0, 5).map((task) => (
+              <div key={task.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-black/20 p-3">
+                <span className="text-sm font-black text-amber-200">{task.time}</span>
+                <span className="min-w-0 flex-1 break-words text-sm font-bold text-white">{task.title}</span>
+                <Badge tone={task.category}>{task.category}</Badge>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <button type="button" onClick={applyPreview} className="primary-button justify-center">Generate Today</button>
+            <button type="button" onClick={cancelPreview} className="secondary-button justify-center">Edit</button>
+            <button type="button" onClick={cancelPreview} className="secondary-button justify-center">Cancel</button>
+          </div>
+        </Panel>
+      ) : null}
+    </section>
+  );
+}
+
+function BuildTimeField({ label, value, onChange, className }: { label: string; value: string; onChange: (value: string) => void; className: string }) {
+  return (
+    <label className="grid gap-2 text-sm font-bold text-slate-300">
+      {label}
+      <input type="time" value={timeToInputValue(value)} onChange={(event) => onChange(inputValueToTime(event.target.value))} className={className} />
+    </label>
+  );
+}
+
+function BuildTextField({ label, value, onChange, className }: { label: string; value: string; onChange: (value: string) => void; className: string }) {
+  return (
+    <label className="grid gap-2 text-sm font-bold text-slate-300">
+      {label}
+      <input value={value} onChange={(event) => onChange(event.target.value)} className={className} placeholder="Main mission" />
+    </label>
+  );
+}
+
+function BuildEnergyField({ value, onChange, className }: { value: BuildEnergy; onChange: (value: BuildEnergy) => void; className: string }) {
+  return (
+    <label className="grid gap-2 text-sm font-bold text-slate-300">
+      How much energy do you have?
+      <select value={value} onChange={(event) => onChange(event.target.value as BuildEnergy)} className={className}>
+        {(["Low", "Medium", "High"] as const).map((energy) => <option key={energy}>{energy}</option>)}
+      </select>
+    </label>
+  );
+}
+
 function TodayCommand({
   stats,
   currentMission,
   mainMission,
   todayMode,
+  dayMeta,
   tasks,
   updateTask,
   snoozeTask,
@@ -1516,6 +1847,7 @@ function TodayCommand({
   currentMission?: Task;
   mainMission?: Task;
   todayMode: DailyMode;
+  dayMeta: DayMeta;
   tasks: Task[];
   updateTask: (id: string, patch: Partial<Task>) => void;
   snoozeTask: (id: string) => void;
@@ -1537,6 +1869,9 @@ function TodayCommand({
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Current Mission</p>
               <Badge tone="gold">{todayMode} Mode</Badge>
+              <Badge tone="dark">{dayMeta.dayType}</Badge>
+              {dayMeta.startTime ? <Badge tone="dark">Start {dayMeta.startTime}</Badge> : null}
+              {dayMeta.wakeTime ? <Badge tone="dark">Wake {dayMeta.wakeTime}</Badge> : null}
             </div>
             {currentMission ? (
               <>
@@ -4210,6 +4545,17 @@ function normalizeSettings(settings: Partial<SettingsState>): SettingsState {
   };
 }
 
+function normalizeDayMeta(meta: Partial<DayMeta>): DayMeta {
+  const dayTypes: Array<DayMeta["dayType"]> = ["Default Day", "Normal Day", "Late Wake Day", "Night Shift Day", "Recovery Day", "Appointment / Busy Day", "Custom Day"];
+  return {
+    dayType: meta.dayType && dayTypes.includes(meta.dayType) ? meta.dayType : "Default Day",
+    wakeTime: meta.wakeTime || "5:30 AM",
+    startTime: meta.startTime || meta.wakeTime || "5:30 AM",
+    todayMode: meta.todayMode && dailyModes.includes(meta.todayMode) ? meta.todayMode : "Full Day",
+    mainMission: meta.mainMission || ""
+  };
+}
+
 function readMode(key: string, fallback: DailyMode): DailyMode {
   const saved = readStorage<unknown>(key, fallback);
   return typeof saved === "string" && dailyModes.includes(saved as DailyMode) ? (saved as DailyMode) : fallback;
@@ -4379,10 +4725,199 @@ function buildSchedule(template: TemplateTask[], shiftEarlier: boolean): Task[] 
       block: templateTask.block,
       displayLabel: templateTask.displayLabel,
       subtitle: templateTask.subtitle,
-      flexible: templateTask.flexible,
+      flexible: templateTask.flexible ?? true,
       timerPresetMinutes: templateTask.timerPresetMinutes
     };
   }).sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+}
+
+function buildTodayPlan(draft: BuildTodayDraft, defaultTasks: Task[]): BuildTodayPreview {
+  const dayType = draft.dayType;
+  const startTime = dayType === "Normal Day" ? draft.wakeTime : draft.startTime || draft.wakeTime;
+  const mainMission = draft.mainMission.trim();
+  let todayMode: DailyMode = draft.todayMode;
+  let tasks: Task[];
+
+  if (dayType === "Normal Day") {
+    tasks = applyMainMissionTitle(shiftFlexibleTasks(buildModeSchedule(defaultTasks, todayMode), draft.wakeTime), mainMission);
+  } else if (dayType === "Late Wake Day") {
+    todayMode = "Low Energy";
+    tasks = buildLateWakeSchedule(draft);
+  } else if (dayType === "Night Shift Day") {
+    todayMode = "Low Energy";
+    tasks = buildNightShiftSchedule(draft);
+  } else if (dayType === "Recovery Day") {
+    todayMode = "Recovery";
+    tasks = buildRecoveryDaySchedule(draft);
+  } else if (dayType === "Appointment / Busy Day") {
+    todayMode = "Full Day";
+    tasks = protectFixedEvent(buildAppointmentDaySchedule(draft), draft.fixedEventTime, durationToMinutes(draft.fixedEventDuration));
+  } else {
+    todayMode = "Full Day";
+    tasks = buildCustomDaySchedule(draft);
+  }
+
+  return {
+    dayType,
+    wakeTime: draft.wakeTime || startTime,
+    startTime,
+    todayMode,
+    mainMission: mainMission || getMainMissionForDay(tasks)?.title || "",
+    tasks: tasks.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+  };
+}
+
+function shiftFlexibleTasks(dayTasks: Task[], wakeTime: string): Task[] {
+  const wakeTask = dayTasks.find((task) => task.title.toLowerCase().includes("wake up"));
+  const baseTime = wakeTask?.time ?? "5:30 AM";
+  const offset = timeToMinutes(wakeTime) - timeToMinutes(baseTime);
+  if (offset === 0) return resetTaskStatuses(dayTasks);
+
+  return resetTaskStatuses(dayTasks).map((task) => {
+    if (task.flexible === false) return task;
+    const nextTime = shiftTime(task.time, offset);
+    return { ...task, time: nextTime, block: getTaskBlock(nextTime) };
+  });
+}
+
+function buildLateWakeSchedule(draft: BuildTodayDraft): Task[] {
+  const start = draft.wakeTime;
+  const main = draft.mainMission.trim() || "One thing that matters today";
+  return [
+    buildDayTask("late-wake", start, 0, "Wake up", "Sunny", "A", 10),
+    buildDayTask("late-wake", start, 5, "Drink water", "Sunny", "A", 8),
+    buildDayTask("late-wake", start, 10, "Toilet", "Sunny", "B", 5),
+    buildDayTask("late-wake", start, 20, "Brush teeth / wash face", "Sunny", "A", 10),
+    buildDayTask("late-wake", start, 35, "Shower or body reset", "Sunny", "A", 12),
+    buildDayTask("late-wake", start, 60, "First meal", "Sunny", "A", 12),
+    buildDayTask("late-wake", start, 90, "Check main mission", "Plan", "A", 12),
+    buildDayTask("late-wake", start, 105, main, "Plan", "S", 35, "Compressed main mission"),
+    buildDayTask("late-wake", start, 180, "Walk / sunlight", "Sunny", "A", 20),
+    buildDayTask("late-wake", start, 225, "Clean one small area", "Monitoring", "B", 15),
+    buildDayTask("late-wake", start, 255, "Money / supplies check", "Monitoring", "A", 18),
+    buildDayTask("late-wake", start, 300, "Plan tomorrow", "Plan", "A", 15),
+    buildDayTask("late-wake", start, 360, "Brush teeth / wash face", "Sunny", "A", 10),
+    buildDayTask("late-wake", start, 375, "Sleep routine", "Sunny", "A", 15)
+  ];
+}
+
+function buildNightShiftSchedule(draft: BuildTodayDraft): Task[] {
+  const start = draft.startTime;
+  const main = draft.mainMission.trim() || "Mini main mission before shift";
+  return [
+    buildDayTask("night-shift", start, 0, "Wake/reset routine", "Sunny", "A", 12),
+    buildDayTask("night-shift", start, 30, "First meal", "Sunny", "A", 12),
+    buildDayTask("night-shift", start, 60, "Prepare for shift", "Plan", "A", 18),
+    buildDayTask("night-shift", start, 90, main, "Plan", "S", 30, "Keep this realistic before work."),
+    buildFixedDayTask("night-shift-work", draft.shiftStart, "Work shift block", "Plan", "S", 30, "Fixed-time shift block"),
+    buildDayTask("night-shift", draft.shiftStart, 180, "Break / food / water", "Sunny", "A", 12),
+    buildFixedDayTask("night-shift-end", draft.shiftEnd, "Shift end", "Plan", "A", 10, "Fixed-time shift end"),
+    buildDayTask("night-shift", draft.shiftEnd, 15, "Return home", "Sunny", "B", 8),
+    buildDayTask("night-shift", draft.shiftEnd, 35, "Shower / hygiene", "Sunny", "A", 12),
+    buildDayTask("night-shift", draft.shiftEnd, 55, "Soak feet with warm water", "Sunny", "A", 15, "A calm night routine recommended by Nanno.", "Nanno’s Sleep Boost"),
+    buildDayTask("night-shift", draft.shiftEnd, 75, "Sleep preparation", "Sunny", "A", 15),
+    buildDayTask("night-shift", draft.shiftEnd, 95, "Sleep", "Sunny", "S", 25)
+  ];
+}
+
+function buildRecoveryDaySchedule(draft: BuildTodayDraft): Task[] {
+  const start = draft.wakeTime;
+  const usefulTask = draft.wantsSmallMainMission ? [buildDayTask("recovery", start, 150, "One useful task for 5-15 minutes", "Plan", "B", 15, "Gentle pressure only.")] : [];
+  return [
+    buildDayTask("recovery", start, 0, "Drink water", "Sunny", "A", 8),
+    buildDayTask("recovery", start, 5, "Toilet", "Sunny", "B", 5),
+    buildDayTask("recovery", start, 15, "Brush teeth / wash face", "Sunny", "A", 10),
+    buildDayTask("recovery", start, 30, "Shower or wipe body", "Sunny", "A", 12),
+    buildDayTask("recovery", start, 60, "Eat simple food", "Sunny", "A", 12),
+    buildDayTask("recovery", start, 105, "Sunlight / fresh air", "Sunny", "A", 15),
+    buildDayTask("recovery", start, 130, "Clean one tiny area", "Monitoring", "B", 12),
+    ...usefulTask,
+    buildDayTask("recovery", start, 240, "Prepare food", "Sunny", "A", 12),
+    buildDayTask("recovery", start, 420, "Reduce screen brightness", "Sunny", "B", 10),
+    buildDayTask("recovery", start, 440, "Soak feet with warm water", "Sunny", "A", 15, "A calm night routine recommended by Nanno.", "Nanno’s Sleep Boost"),
+    buildDayTask("recovery", start, 460, "Sleep routine", "Sunny", "A", 15),
+    buildDayTask("recovery", start, 485, "Sleep", "Sunny", "S", 25)
+  ];
+}
+
+function buildAppointmentDaySchedule(draft: BuildTodayDraft): Task[] {
+  const start = draft.wakeTime;
+  const fixedTitle = draft.fixedEvent.trim() || "Fixed appointment";
+  return [
+    buildDayTask("appointment", start, 0, "Wake/reset routine", "Sunny", "A", 12),
+    buildDayTask("appointment", start, 35, "First meal", "Sunny", "A", 12),
+    buildDayTask("appointment", start, 70, "Main mission before busy block", "Plan", "S", 30),
+    buildFixedDayTask("appointment-fixed", draft.fixedEventTime, fixedTitle, "Plan", "S", 25, "Fixed-time event. Do not move."),
+    buildDayTask("appointment", draft.fixedEventTime, durationToMinutes(draft.fixedEventDuration) + 15, "Food / water reset", "Sunny", "A", 12),
+    buildDayTask("appointment", draft.fixedEventTime, durationToMinutes(draft.fixedEventDuration) + 45, "Movement / fresh air", "Sunny", "A", 15),
+    buildDayTask("appointment", draft.fixedEventTime, durationToMinutes(draft.fixedEventDuration) + 75, "Small cleaning reset", "Monitoring", "B", 12),
+    buildDayTask("appointment", draft.fixedEventTime, durationToMinutes(draft.fixedEventDuration) + 120, "Evening review / plan tomorrow", "Plan", "A", 15),
+    buildDayTask("appointment", draft.fixedEventTime, durationToMinutes(draft.fixedEventDuration) + 180, "Sleep routine", "Sunny", "A", 15)
+  ];
+}
+
+function buildCustomDaySchedule(draft: BuildTodayDraft): Task[] {
+  const start = draft.startTime;
+  const main = draft.mainMission.trim() || "Main mission";
+  return [
+    buildDayTask("custom", start, 0, "Start routine", "Sunny", "A", 15),
+    buildDayTask("custom", start, 45, main, "Plan", "S", 35),
+    buildDayTask("custom", start, 135, "Meal", "Sunny", "A", 12),
+    buildDayTask("custom", start, 180, "Movement", "Sunny", "A", 15),
+    buildDayTask("custom", start, 225, "Small cleaning", "Monitoring", "B", 12),
+    buildDayTask("custom", draft.sleepTime, -60, "Review", "Plan", "A", 15),
+    buildDayTask("custom", draft.sleepTime, -30, "Sleep routine", "Sunny", "A", 15)
+  ];
+}
+
+function buildDayTask(prefix: string, baseTime: string, offsetMinutes: number, title: string, category: Category, priority: Priority, points: number, notes = "", displayLabel?: string): Task {
+  const time = shiftTime(baseTime, offsetMinutes);
+  return {
+    id: `${prefix}-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${timeToMinutes(time)}`,
+    time,
+    title,
+    category,
+    priority,
+    points,
+    completed: false,
+    skipped: false,
+    notes,
+    block: getTaskBlock(time),
+    displayLabel,
+    subtitle: displayLabel ? notes : undefined,
+    flexible: true,
+    custom: true,
+    timerPresetMinutes: title.toLowerCase().includes("soak feet") ? 15 : undefined
+  };
+}
+
+function buildFixedDayTask(id: string, time: string, title: string, category: Category, priority: Priority, points: number, notes = ""): Task {
+  return {
+    id,
+    time,
+    title,
+    category,
+    priority,
+    points,
+    completed: false,
+    skipped: false,
+    notes,
+    block: getTaskBlock(time),
+    flexible: false,
+    custom: true
+  };
+}
+
+function protectFixedEvent(dayTasks: Task[], fixedTime: string, durationMinutes: number): Task[] {
+  const fixedStart = timeToMinutes(fixedTime);
+  const fixedEnd = fixedStart + durationMinutes;
+  return dayTasks.map((task) => {
+    if (task.flexible === false) return task;
+    const minutes = timeToMinutes(task.time);
+    if (minutes < fixedStart || minutes >= fixedEnd) return task;
+    const nextTime = minutesToTime(fixedEnd + 15);
+    return { ...task, time: nextTime, block: getTaskBlock(nextTime), notes: [task.notes, "Moved around fixed event"].filter(Boolean).join(" / ") };
+  });
 }
 
 function buildModeSchedule(baseTasks: Task[], mode: DailyMode): Task[] {
@@ -4472,6 +5007,7 @@ function modeTask(baseTasks: Task[], mode: DailyMode, time: string, title: strin
     skipped: false,
     notes: modeProfiles[mode].note,
     block,
+    flexible: true,
     custom: true
   };
 }
@@ -4700,8 +5236,28 @@ function timeNeededToMinutes(value: TimeNeeded): number {
   return 60;
 }
 
+function durationToMinutes(value: string): number {
+  if (value === "30 min") return 30;
+  if (value === "2 hours") return 120;
+  if (value === "3 hours") return 180;
+  return 60;
+}
+
 function shiftTime(time: string, offsetMinutes: number): string {
   return minutesToTime(timeToMinutes(time) + offsetMinutes);
+}
+
+function timeToInputValue(time: string): string {
+  const minutes = timeToMinutes(time);
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function inputValueToTime(value: string): string {
+  const [hourRaw, minuteRaw] = value.split(":").map(Number);
+  if (Number.isNaN(hourRaw) || Number.isNaN(minuteRaw)) return "5:30 AM";
+  return minutesToTime(hourRaw * 60 + minuteRaw);
 }
 
 function timeToMinutes(time: string): number {
