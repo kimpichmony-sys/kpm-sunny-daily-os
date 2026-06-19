@@ -295,6 +295,22 @@ type PlanTaskRow = {
   completed: boolean;
 };
 
+type PlanTaskFilter = "All" | "Main" | "Body" | "Skill" | "Essentials";
+
+type PrioritizedPlanTaskRow = PlanTaskRow & {
+  plan: ActivePlan;
+  source: string;
+  filterGroup: Exclude<PlanTaskFilter, "All">;
+  rank: number;
+  specificity: number;
+};
+
+type TodayFocusItem = {
+  title: string;
+  detail: string;
+  source: string;
+};
+
 type DayMeta = {
   dayType: BuildDayType | "Default Day";
   wakeTime?: string;
@@ -1473,7 +1489,7 @@ function HomeApp() {
                   />
                 )}
                 {!showBuildTodayFlow && tasks.length > 0 && activeTodayPlans.length > 0 ? (
-                  <ActivePlanTasksSection activePlans={activeTodayPlans} updateActivePlan={updateActivePlan} />
+                  <ActivePlanTasksSection activePlans={activeTodayPlans} tasks={tasks} mainMission={mainMission} updateActivePlan={updateActivePlan} />
                 ) : null}
               </div>
             )}
@@ -2312,6 +2328,7 @@ function TodayCommand({
                   <Badge tone={currentMission.category}>{currentMission.category}</Badge>
                   <Badge tone={currentMission.priority === "S" ? "gold" : "dark"}>{currentMission.priority}-Tier</Badge>
                   <Badge tone="dark">{currentMission.points} KPM</Badge>
+                  <Badge tone="dark">Manual Today Mission</Badge>
                 </div>
                 <h2 className="mt-4 break-words text-3xl font-black leading-tight text-white sm:text-4xl xl:text-5xl">{currentMission.title}</h2>
                 <p className="mt-3 max-w-3xl text-base leading-7 text-slate-300">{getMissionReason(currentMission)}</p>
@@ -2372,6 +2389,7 @@ function TodayCommand({
                 <Badge tone={mainMissionStatus === "Done" ? "green" : "gold"}>{mainMissionStatus}</Badge>
                 {mainMission ? <Badge tone="dark">{mainMission.time}</Badge> : null}
                 {mainMission ? <Badge tone={mainMission.category}>{mainMission.category}</Badge> : null}
+                {mainMission ? <Badge tone="dark">Manual Today Mission</Badge> : null}
               </div>
             </div>
             {mainMission ? (
@@ -2412,6 +2430,7 @@ function TodayCommand({
                     <Badge tone={task.category}>{task.category}</Badge>
                     <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
                     <Badge tone="dark">{task.points} KPM</Badge>
+                    <Badge tone="dark">Manual Today Mission</Badge>
                   </div>
                 </div>
                 <button type="button" onClick={() => updateTask(task.id, { completed: true, skipped: false })} className="secondary-button sm:min-w-28">
@@ -4248,53 +4267,92 @@ function EssentialsSelect({ label, value, options, onChange }: { label: string; 
 
 function ActivePlanTasksSection({
   activePlans,
+  tasks,
+  mainMission,
   updateActivePlan
 }: {
   activePlans: ActivePlan[];
+  tasks: Task[];
+  mainMission?: Task;
   updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
 }) {
+  const [filter, setFilter] = useState<PlanTaskFilter>("All");
+  const [showMore, setShowMore] = useState(false);
+  const prioritizedRows = useMemo(() => getPrioritizedPlanTaskRows(activePlans), [activePlans]);
+  const focusItems = useMemo(() => getTodayFocusItems(tasks, mainMission, prioritizedRows), [tasks, mainMission, prioritizedRows]);
+  const filteredRows = filter === "All" ? prioritizedRows : prioritizedRows.filter((row) => row.filterGroup === filter);
+  const visibleRows = showMore ? filteredRows : filteredRows.slice(0, 5);
+  const hiddenCount = Math.max(filteredRows.length - visibleRows.length, 0);
+
   return (
     <Panel compact>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Tasks</p>
           <h3 className="mt-1 text-2xl font-black text-white">Plan systems for today</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">Showing the top 3 tasks from each active plan.</p>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Showing the top 5 priority tasks from all active plans.</p>
         </div>
         <Badge tone="dark">{activePlans.length} active</Badge>
       </div>
-      <div className="mt-4 grid gap-3 xl:grid-cols-3">
-        {activePlans.map((plan) => {
-          const rows = getPlanTodayTaskRows(plan).slice(0, 3);
-          const progress = getPlanCompletion(plan);
-          return (
-            <article key={plan.id} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h4 className="break-words text-lg font-black text-white">{getPlanDisplayName(plan)}</h4>
-                  <p className="mt-1 text-sm text-slate-400">{progress.completed}/{progress.total} complete</p>
-                </div>
-                <Badge tone="green">active</Badge>
+
+      {focusItems.length > 0 ? (
+        <div className="mt-5 rounded-[1.35rem] border border-amber-300/20 bg-amber-300/[0.06] p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Today Focus</p>
+              <h4 className="mt-1 text-lg font-black text-white">Three things that matter most</h4>
+            </div>
+            <Badge tone="gold">{focusItems.length}/3 focus</Badge>
+          </div>
+          <div className="mt-4 grid gap-2 lg:grid-cols-3">
+            {focusItems.map((item) => (
+              <div key={`${item.source}-${item.title}`} className="min-w-0 rounded-2xl border border-white/10 bg-black/25 p-3">
+                <p className="break-words text-sm font-black text-white">{item.title}</p>
+                {item.detail ? <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{item.detail}</p> : null}
+                <span className="mt-2 inline-flex">
+                  <Badge tone="dark">{item.source}</Badge>
+                </span>
               </div>
-              <div className="mt-4 grid gap-2">
-                {rows.map((row) => (
-                  <PlanTaskMiniRow key={row.id} row={row} onToggle={() => togglePlanTask(plan, row.id, updateActivePlan)} />
-                ))}
-              </div>
-              {getPlanTodayTaskRows(plan).length > 3 ? (
-                <button type="button" onClick={() => document.getElementById(`plan-details-${plan.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="secondary-button mt-4 w-full justify-center">
-                  View Full Plan Tasks
-                </button>
-              ) : null}
-            </article>
-          );
-        })}
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        {(["All", "Main", "Body", "Skill", "Essentials"] as PlanTaskFilter[]).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => {
+              setFilter(option);
+              setShowMore(false);
+            }}
+            className={`rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${filter === option ? "border-amber-300 bg-amber-300 text-slate-950" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-amber-200/50 hover:text-white"}`}
+          >
+            {option}
+          </button>
+        ))}
       </div>
+
+      <div className="mt-4 grid gap-2">
+        {visibleRows.length > 0 ? (
+          visibleRows.map((row) => (
+            <PlanTaskMiniRow key={`${row.plan.id}-${row.id}`} row={row} onToggle={() => togglePlanTask(row.plan, row.id, updateActivePlan)} />
+          ))
+        ) : (
+          <p className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm font-semibold text-slate-300">No plan tasks match this filter.</p>
+        )}
+      </div>
+      {filteredRows.length > 5 ? (
+        <button type="button" onClick={() => setShowMore((current) => !current)} className="secondary-button mt-4 w-full justify-center">
+          {showMore ? "Show Less Plan Tasks" : `View More Plan Tasks (${hiddenCount} hidden)`}
+        </button>
+      ) : null}
     </Panel>
   );
 }
 
-function PlanTaskMiniRow({ row, onToggle }: { row: PlanTaskRow; onToggle: () => void }) {
+function PlanTaskMiniRow({ row, onToggle }: { row: PlanTaskRow & { source?: string; filterGroup?: string }; onToggle: () => void }) {
   return (
     <div className={`rounded-2xl border p-3 ${row.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : "border-white/10 bg-white/[0.04]"}`}>
       <div className="flex items-start gap-3">
@@ -4310,6 +4368,8 @@ function PlanTaskMiniRow({ row, onToggle }: { row: PlanTaskRow; onToggle: () => 
           {row.detail ? <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{row.detail}</p> : null}
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge tone="dark">{row.badge}</Badge>
+            {row.source ? <Badge tone="gold">{row.source}</Badge> : null}
+            {row.filterGroup ? <Badge tone="dark">{row.filterGroup}</Badge> : null}
           </div>
         </div>
       </div>
@@ -6087,7 +6147,7 @@ function Badge({ children, tone = "dark" }: { children: ReactNode; tone?: Catego
     orange: "border-orange-300/35 bg-orange-400/10 text-orange-100",
     dark: "border-white/10 bg-white/[0.06] text-slate-300"
   };
-  return <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-black ${tones[tone]}`}>{children}</span>;
+  return <span className={`inline-flex max-w-full items-center rounded-full border px-3 py-1 text-left text-xs font-black leading-snug break-words whitespace-normal ${tones[tone]}`}>{children}</span>;
 }
 
 function readStorage<T>(key: string, fallback: T): T {
@@ -6671,6 +6731,132 @@ function getPlanTodayTaskRows(plan: ActivePlan): PlanTaskRow[] {
       badge: "Study",
       completed: item.completed
     }));
+}
+
+function getPrioritizedPlanTaskRows(activePlans: ActivePlan[]): PrioritizedPlanTaskRow[] {
+  const rows = activePlans.flatMap((plan) =>
+    getPlanTodayTaskRows(plan).map((row) => {
+      const filterGroup = getPlanTaskFilterGroup(plan, row);
+      return {
+        ...row,
+        plan,
+        source: getPlanDisplayName(plan),
+        filterGroup,
+        rank: getPlanTaskRank(plan, row, filterGroup),
+        specificity: getPlanTaskSpecificity(row)
+      };
+    })
+  );
+
+  return dedupePlanTaskRows(rows).sort((a, b) => {
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    if (a.specificity !== b.specificity) return b.specificity - a.specificity;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+function getPlanTaskFilterGroup(plan: ActivePlan, row: PlanTaskRow): Exclude<PlanTaskFilter, "All"> {
+  const text = `${row.title} ${row.detail} ${row.badge}`.toLowerCase();
+  if (plan.type === "everyday_essentials") return "Essentials";
+  if (plan.type === "learn_master_subject") return "Skill";
+  if (plan.type === "get_lean_shred") return "Body";
+  if (text.includes("money") || text.includes("main") || text.includes("mission")) return "Main";
+  if (text.includes("skill") || text.includes("study") || text.includes("practice") || text.includes("learn")) return "Skill";
+  if (text.includes("health") || text.includes("sleep") || text.includes("water") || text.includes("walk")) return "Body";
+  return "Essentials";
+}
+
+function getPlanTaskRank(plan: ActivePlan, row: PlanTaskRow, filterGroup: Exclude<PlanTaskFilter, "All">): number {
+  const text = `${row.title} ${row.detail} ${row.badge}`.toLowerCase();
+  if (text.includes("s-tier") || text.includes("priority s")) return 10;
+  if (text.includes("main mission") || text.includes("main task")) return 20;
+  if (filterGroup === "Body" && /sleep|protein|water|walk|steps|calorie|workout|health/.test(text)) return 30;
+  if (filterGroup === "Skill" || plan.type === "learn_master_subject") return 40;
+  if (filterGroup === "Essentials" || plan.type === "everyday_essentials") return 50;
+  if (text.includes("weekly") || text.includes("restock")) return 60;
+  return 80;
+}
+
+function getPlanTaskSpecificity(row: PlanTaskRow): number {
+  const text = `${row.title} ${row.detail}`.toLowerCase();
+  let score = row.detail.length;
+  if (/\d/.test(text)) score += 50;
+  if (/target|kcal|protein|steps|liters|water|hours|minutes|min/.test(text)) score += 35;
+  return score;
+}
+
+function dedupePlanTaskRows(rows: PrioritizedPlanTaskRow[]): PrioritizedPlanTaskRow[] {
+  const byKey = new Map<string, PrioritizedPlanTaskRow>();
+  rows.forEach((row) => {
+    const key = getPlanDuplicateKey(row);
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, row);
+      return;
+    }
+    if (shouldPreferPlanTask(row, existing)) byKey.set(key, row);
+  });
+  return Array.from(byKey.values());
+}
+
+function getPlanDuplicateKey(row: PrioritizedPlanTaskRow): string {
+  const text = `${row.title} ${row.detail}`.toLowerCase();
+  if (/nanno|soak feet|sleep boost/.test(text)) return "sleep-nanno-boost";
+  if (/sleep routine|bedtime|sleep preparation/.test(text)) return "sleep-routine";
+  if (/water|drink/.test(text)) return "water";
+  if (/walk|steps|sunlight|exercise/.test(text)) return "walk-steps";
+  if (/protein/.test(text)) return "protein";
+  if (/calorie|kcal/.test(text)) return "calories";
+  if (/hygiene|brush teeth|wash face|shower|clean clothes/.test(text)) return "hygiene";
+  return row.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function shouldPreferPlanTask(candidate: PrioritizedPlanTaskRow, current: PrioritizedPlanTaskRow): boolean {
+  if (candidate.completed !== current.completed) return !candidate.completed;
+  if (candidate.specificity !== current.specificity) return candidate.specificity > current.specificity;
+  return candidate.rank < current.rank;
+}
+
+function getTodayFocusItems(tasks: Task[], mainMission: Task | undefined, planRows: PrioritizedPlanTaskRow[]): TodayFocusItem[] {
+  const incompletePlanRows = planRows.filter((row) => !row.completed);
+  const focus: TodayFocusItem[] = [];
+  const body = incompletePlanRows.find((row) => row.filterGroup === "Body") ?? taskToFocusItemSource(tasks.find(isBodyTask), "Manual Today Mission");
+  const main = mainMission && !mainMission.completed && !mainMission.skipped
+    ? taskToFocusItemSource(mainMission, "Manual Today Mission")
+    : incompletePlanRows.find((row) => row.filterGroup === "Main" || row.filterGroup === "Skill") ?? taskToFocusItemSource(tasks.find(isMainOrSkillTask), "Manual Today Mission");
+  const essentials = incompletePlanRows.find((row) => row.filterGroup === "Essentials") ?? taskToFocusItemSource(tasks.find(isEssentialsTask), "Manual Today Mission");
+
+  [body, main, essentials].forEach((item) => {
+    if (!item) return;
+    const key = `${item.source}-${item.title}`;
+    if (!focus.some((existing) => `${existing.source}-${existing.title}` === key)) focus.push(item);
+  });
+  return focus.slice(0, 3);
+}
+
+function taskToFocusItemSource(task: Task | PrioritizedPlanTaskRow | undefined, source?: string): TodayFocusItem | undefined {
+  if (!task) return undefined;
+  return {
+    title: task.title,
+    detail: "detail" in task ? task.detail : `${task.time} - ${task.category}`,
+    source: "source" in task ? task.source : source ?? "Manual Today Mission"
+  };
+}
+
+function isBodyTask(task: Task): boolean {
+  const text = `${task.title} ${task.category}`.toLowerCase();
+  return !task.completed && !task.skipped && /health|sunlight|walk|exercise|water|shower|sleep|bedtime|food|breakfast|lunch|dinner/.test(text);
+}
+
+function isMainOrSkillTask(task: Task): boolean {
+  const text = `${task.title} ${task.category} ${task.priority}`.toLowerCase();
+  return !task.completed && !task.skipped && (task.priority === "S" || /main|work|learn|skill|practice|coding|money|job/.test(text));
+}
+
+function isEssentialsTask(task: Task): boolean {
+  const text = `${task.title} ${task.category}`.toLowerCase();
+  return !task.completed && !task.skipped && /brush|clothes|clean|bed|dishes|toilet|hygiene|room|charger/.test(text);
 }
 
 function getPlanCompletion(plan: ActivePlan) {
