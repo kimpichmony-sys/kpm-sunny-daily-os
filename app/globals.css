@@ -5,7 +5,31 @@
 :root {
   color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #05070d;
+
+  /*
+    Visual Moodboard: Dark Manhwa Command System
+    - Today: Mission Directive, icy cyan edge light, pale gold CTA, compact command panels.
+    - Plan: Strategy Hall, disciplined plan cards and training paths.
+    - Progress: Records Archive, logs and progress signals.
+    - Profile: Identity Core, personal data and system controls.
+    Inspiration note: mood/atmosphere only; no copied characters or copyrighted art.
+  */
+  --sunny-bg: #060a14;
+  --sunny-bg-deep: #030711;
+  --sunny-bg-soft: #0a1020;
+  --sunny-surface: #111827;
+  --sunny-surface-soft: #172033;
+  --sunny-surface-lifted: #1b2438;
+  --sunny-gold: #d8c27a;
+  --sunny-gold-soft: #e7d79b;
+  --sunny-cyan: #59c3ff;
+  --sunny-cyan-soft: #8be9ff;
+  --sunny-crimson: #a61e2c;
+  --sunny-crimson-soft: #c72c41;
+  --sunny-text: #f3f4f7;
+  --sunny-text-soft: #b8c2d9;
+  --sunny-text-muted: #7f8aa3;
+  background: var(--sunny-bg);
 }
 
 * {
@@ -19,7 +43,7 @@
 }
 
 html {
-  background: #05070d;
+  background: var(--sunny-bg);
   min-height: 100%;
   max-width: 100%;
   overflow-x: hidden;
@@ -33,7 +57,7 @@ body {
   min-height: 100dvh;
   max-width: 100%;
   overflow-x: hidden;
-  background: #05070d;
+  background: var(--sunny-bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
 }
@@ -79,67 +103,67 @@ textarea {
 }
 
 select option {
-  background: #0b1220;
-  color: #f8fafc;
+  background: var(--sunny-surface);
+  color: var(--sunny-text);
 }
 
 .primary-button {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 2.5rem;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 1rem;
-  background-image: linear-gradient(135deg, #fcd34d, #f59e0b 55%, #f97316);
-  padding: 0.75rem 1rem;
+  border-radius: 0.7rem;
+  background-image: linear-gradient(135deg, var(--sunny-gold-soft), var(--sunny-gold));
+  padding: 0.62rem 0.9rem;
   font-weight: 900;
   color: #111827;
-  box-shadow: 0 18px 38px rgba(245, 158, 11, 0.24);
+  box-shadow: 0 10px 24px rgba(216, 194, 122, 0.18), inset 0 1px 0 rgba(255,255,255,0.28);
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
 .primary-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 22px 44px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 14px 30px rgba(216, 194, 122, 0.24), 0 0 0 1px rgba(216,194,122,0.18);
 }
 
 .danger-button {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 2.5rem;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(248, 113, 113, 0.35);
-  background: rgba(127, 29, 29, 0.18);
-  padding: 0.75rem 1rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(199, 44, 65, 0.40);
+  background: rgba(166, 30, 44, 0.16);
+  padding: 0.62rem 0.9rem;
   font-weight: 900;
-  color: #fecaca;
+  color: #ffd6dc;
   transition: background 160ms ease, border-color 160ms ease;
 }
 
 .danger-button:hover {
-  border-color: rgba(248, 113, 113, 0.7);
-  background: rgba(127, 29, 29, 0.28);
+  border-color: rgba(199, 44, 65, 0.72);
+  background: rgba(166, 30, 44, 0.26);
 }
 
 .secondary-button {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: 2.5rem;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.06);
-  padding: 0.75rem 1rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(139, 233, 255, 0.14);
+  background: rgba(17, 24, 39, 0.82);
+  padding: 0.62rem 0.9rem;
   font-weight: 900;
-  color: #e2e8f0;
+  color: var(--sunny-text-soft);
   transition: background 160ms ease, border-color 160ms ease;
 }
 
 .secondary-button:hover {
-  border-color: rgba(252, 211, 77, 0.38);
-  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(89, 195, 255, 0.42);
+  background: rgba(27, 36, 56, 0.92);
 }
 
 .primary-button,
@@ -154,22 +178,22 @@ select option {
   min-height: 3.25rem;
   width: 100%;
   border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(139, 233, 255, 0.12);
+  background: rgba(17, 24, 39, 0.84);
   padding: 0.85rem 1rem;
-  color: #f8fafc;
+  color: var(--sunny-text);
   outline: none;
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
 .form-control::placeholder {
-  color: #64748b;
+  color: var(--sunny-text-muted);
 }
 
 .form-control:focus {
-  border-color: rgba(252, 211, 77, 0.7);
-  background: rgba(0, 0, 0, 0.3);
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12);
+  border-color: rgba(89, 195, 255, 0.70);
+  background: rgba(10, 16, 32, 0.95);
+  box-shadow: 0 0 0 3px rgba(89, 195, 255, 0.13);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -185,9 +209,9 @@ select option {
   isolation: isolate;
   max-width: 100%;
   box-shadow:
-    0 22px 54px rgba(0, 0, 0, 0.30),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
-    inset 0 0 42px rgba(251, 191, 36, 0.06);
+    0 20px 48px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(183, 194, 214, 0.04),
+    inset 0 0 42px rgba(89, 195, 255, 0.05);
 }
 
 .manhwa-art-panel::before {
@@ -195,9 +219,9 @@ select option {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 18% 16%, rgba(251, 191, 36, 0.30), transparent 25%),
-    radial-gradient(circle at 86% 78%, rgba(45, 212, 191, 0.18), transparent 32%),
-    linear-gradient(135deg, #071426, #030712 58%, #01030a);
+    radial-gradient(circle at 18% 16%, rgba(216, 194, 122, 0.14), transparent 25%),
+    radial-gradient(circle at 86% 78%, rgba(89, 195, 255, 0.18), transparent 32%),
+    linear-gradient(135deg, #10182b, #060a14 58%, #030711);
 }
 
 .manhwa-art-panel img {
@@ -214,6 +238,33 @@ select option {
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.72);
 }
 
+.mission-directive-panel {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(89, 195, 255, 0.28) !important;
+  background:
+    linear-gradient(135deg, rgba(17, 24, 39, 0.96), rgba(10, 16, 32, 0.90)),
+    radial-gradient(circle at 88% 0%, rgba(89, 195, 255, 0.16), transparent 34%),
+    radial-gradient(circle at 2% 100%, rgba(166, 30, 44, 0.10), transparent 30%) !important;
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(139, 233, 255, 0.055),
+    inset 0 0 34px rgba(89, 195, 255, 0.055) !important;
+}
+
+.mission-directive-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 1px solid rgba(139, 233, 255, 0.38);
+  background: linear-gradient(110deg, rgba(89, 195, 255, 0.09), transparent 34%, rgba(216, 194, 122, 0.045));
+  pointer-events: none;
+}
+
+.mission-directive-panel > * {
+  position: relative;
+}
+
 .app-shell,
 .sunny-main,
 .sunny-dashboard,
@@ -224,6 +275,13 @@ select option {
 .sunny-command-header {
   min-width: 0;
   max-width: 100%;
+}
+
+.sunny-panel,
+.sunny-mission-section,
+.sunny-command-header,
+details {
+  border-radius: 0.95rem;
 }
 
 .sunny-main {
@@ -259,33 +317,34 @@ select option {
 
 @media (min-width: 1024px) and (max-width: 1535px) {
   .sunny-main {
-    max-width: calc(100vw - 230px);
+    max-width: calc(100vw - 188px);
   }
 }
 
 @media (min-width: 1536px) {
   .app-shell.with-right-panel .sunny-main {
-    max-width: calc(100vw - 530px);
+    max-width: calc(100vw - 488px);
   }
 
   .app-shell:not(.with-right-panel) .sunny-main {
-    max-width: calc(100vw - 230px);
+    max-width: calc(100vw - 188px);
   }
 }
 
 @media (max-width: 767px) {
   body {
     background:
-      radial-gradient(circle at 50% -10%, rgba(252, 211, 77, 0.16), transparent 34%),
-      radial-gradient(circle at 92% 22%, rgba(45, 212, 191, 0.11), transparent 30%),
-      linear-gradient(180deg, #06101f 0%, #030712 52%, #02040a 100%);
+      radial-gradient(circle at 50% -10%, rgba(89, 195, 255, 0.16), transparent 34%),
+      radial-gradient(circle at 92% 22%, rgba(166, 30, 44, 0.10), transparent 30%),
+      linear-gradient(180deg, #060a14 0%, #0a1020 52%, #030711 100%);
   }
 
   .sunny-mobile-shell {
     background:
-      radial-gradient(circle at 25% 4%, rgba(251, 191, 36, 0.20), transparent 22%),
-      radial-gradient(circle at 95% 16%, rgba(45, 212, 191, 0.14), transparent 24%),
-      linear-gradient(180deg, #071426 0%, #040916 46%, #01030a 100%);
+      radial-gradient(circle at 25% 4%, rgba(89, 195, 255, 0.16), transparent 22%),
+      radial-gradient(circle at 95% 16%, rgba(166, 30, 44, 0.10), transparent 24%),
+      radial-gradient(circle at 48% 0%, rgba(216, 194, 122, 0.055), transparent 24%),
+      linear-gradient(180deg, #0a1020 0%, #060a14 46%, #030711 100%);
   }
 
   .sunny-main {
@@ -347,12 +406,12 @@ select option {
   .sunny-command-header {
     position: relative;
     overflow: hidden;
-    border-color: rgba(251, 191, 36, 0.28);
+    border-color: rgba(139, 233, 255, 0.12);
     background:
-      linear-gradient(135deg, rgba(8, 16, 32, 0.96), rgba(4, 8, 17, 0.82)),
-      radial-gradient(circle at 18% 18%, rgba(251, 191, 36, 0.18), transparent 26%),
-      radial-gradient(circle at 88% 0%, rgba(45, 212, 191, 0.12), transparent 30%);
-    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+      linear-gradient(135deg, rgba(17, 24, 39, 0.96), rgba(10, 16, 32, 0.88)),
+      radial-gradient(circle at 18% 18%, rgba(89, 195, 255, 0.13), transparent 26%),
+      radial-gradient(circle at 88% 0%, rgba(166, 30, 44, 0.08), transparent 30%);
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34), inset 0 0 0 1px rgba(183, 194, 214, 0.025);
   }
 
   .sunny-command-header::after {
@@ -360,7 +419,7 @@ select option {
     position: absolute;
     inset: auto -25% -45% 30%;
     height: 8rem;
-    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.18), transparent);
+    background: linear-gradient(90deg, transparent, rgba(89, 195, 255, 0.13), transparent);
     transform: rotate(-8deg);
     pointer-events: none;
   }
@@ -372,11 +431,11 @@ select option {
     align-items: center;
     justify-content: center;
     border-radius: 999px;
-    border: 1px solid rgba(251, 191, 36, 0.55);
-    background: radial-gradient(circle at 35% 30%, #fff7c2, #facc15 48%, #b45309 100%);
+    border: 1px solid rgba(216, 194, 122, 0.42);
+    background: radial-gradient(circle at 35% 30%, #fff6c7, #f0d77a 52%, #b99a3e 100%);
     color: #3b2105;
     font-size: 1.9rem;
-    box-shadow: 0 0 34px rgba(251, 191, 36, 0.35);
+    box-shadow: 0 0 26px rgba(216, 194, 122, 0.22);
   }
 
   .sunny-date-row svg {
@@ -385,26 +444,26 @@ select option {
 
   .sunny-page-title {
     font-family: Georgia, "Times New Roman", serif;
-    color: #fff4c2;
-    text-shadow: 0 0 22px rgba(251, 191, 36, 0.24);
+    color: var(--sunny-text);
+    text-shadow: 0 0 22px rgba(89, 195, 255, 0.16);
     letter-spacing: 0;
   }
 
   .sunny-panel,
   .sunny-mission-section {
-    border-color: rgba(251, 191, 36, 0.22);
+    border-color: rgba(139, 233, 255, 0.10);
     background:
-      linear-gradient(135deg, rgba(8, 15, 29, 0.94), rgba(3, 7, 18, 0.86)),
-      radial-gradient(circle at 100% 0%, rgba(45, 212, 191, 0.08), transparent 34%);
-    box-shadow: 0 20px 52px rgba(0, 0, 0, 0.32), inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+      linear-gradient(135deg, rgba(17, 24, 39, 0.95), rgba(10, 16, 32, 0.90)),
+      radial-gradient(circle at 100% 0%, rgba(89, 195, 255, 0.065), transparent 34%);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.30), inset 0 0 0 1px rgba(139, 233, 255, 0.02);
   }
 
   .sunny-start-panel,
   .sunny-plan-form {
-    border-color: rgba(251, 191, 36, 0.42);
+    border-color: rgba(216, 194, 122, 0.22);
     background:
-      linear-gradient(135deg, rgba(18, 15, 8, 0.58), rgba(2, 6, 14, 0.94)),
-      radial-gradient(circle at 15% 0%, rgba(251, 191, 36, 0.20), transparent 30%);
+      linear-gradient(135deg, rgba(15, 26, 46, 0.92), rgba(7, 17, 31, 0.94)),
+      radial-gradient(circle at 15% 0%, rgba(89, 195, 255, 0.14), transparent 30%);
   }
 
   .sunny-seven-panel {
@@ -423,8 +482,8 @@ select option {
   .sunny-dashboard h3,
   .sunny-today-board h2 {
     font-family: Georgia, "Times New Roman", serif;
-    color: #fde68a;
-    text-shadow: 0 0 18px rgba(251, 191, 36, 0.18);
+    color: var(--sunny-text);
+    text-shadow: 0 0 18px rgba(89, 195, 255, 0.14);
   }
 
   .sunny-task-card {
@@ -439,7 +498,7 @@ select option {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(110deg, rgba(251, 191, 36, 0.10), transparent 36%, rgba(45, 212, 191, 0.06));
+    background: linear-gradient(110deg, rgba(89, 195, 255, 0.08), transparent 36%, rgba(166, 30, 44, 0.045));
     opacity: 0.8;
     pointer-events: none;
   }
@@ -453,34 +512,34 @@ select option {
   }
 
   .form-control {
-    border-color: rgba(255, 255, 255, 0.14);
-    background: rgba(2, 6, 14, 0.72);
+    border-color: rgba(183, 194, 214, 0.14);
+    background: rgba(15, 26, 46, 0.78);
     border-radius: 1rem;
   }
 
   .primary-button {
     min-height: 3.25rem;
     border-radius: 1rem;
-    background-image: linear-gradient(135deg, #fff2a3, #fbbf24 52%, #d97706);
-    box-shadow: 0 16px 34px rgba(251, 191, 36, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.42);
+    background-image: linear-gradient(135deg, #f0d77a, #e8c86a);
+    box-shadow: 0 14px 28px rgba(216, 194, 122, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.34);
   }
 
   .secondary-button {
     min-height: 3.1rem;
-    border-color: rgba(251, 191, 36, 0.20);
-    background: rgba(8, 15, 29, 0.72);
+    border-color: rgba(139, 233, 255, 0.14);
+    background: rgba(17, 24, 39, 0.84);
   }
 
   .sunny-bottom-nav {
     left: 0.85rem;
     right: 0.85rem;
     bottom: calc(0.55rem + env(safe-area-inset-bottom));
-    border: 1px solid rgba(251, 191, 36, 0.18);
+    border: 1px solid rgba(139, 233, 255, 0.12);
     border-radius: 1.45rem;
     background:
-      linear-gradient(180deg, rgba(10, 20, 35, 0.96), rgba(3, 7, 18, 0.96)),
-      radial-gradient(circle at 50% 0%, rgba(251, 191, 36, 0.10), transparent 40%);
-    box-shadow: 0 -12px 44px rgba(0, 0, 0, 0.42), 0 0 34px rgba(45, 212, 191, 0.08);
+      linear-gradient(180deg, rgba(17, 24, 39, 0.97), rgba(6, 10, 20, 0.97)),
+      radial-gradient(circle at 50% 0%, rgba(89, 195, 255, 0.10), transparent 40%);
+    box-shadow: 0 -12px 44px rgba(0, 0, 0, 0.40), 0 0 34px rgba(89, 195, 255, 0.08);
     padding: 0.45rem;
     backdrop-filter: blur(18px);
   }
@@ -492,8 +551,8 @@ select option {
   }
 
   .sunny-bottom-nav-button.bg-amber-300 {
-    background: linear-gradient(180deg, #fde68a, #f59e0b);
-    box-shadow: 0 0 22px rgba(251, 191, 36, 0.38);
+    background: linear-gradient(180deg, #13213a, #18253f);
+    box-shadow: 0 0 22px rgba(89, 195, 255, 0.20);
   }
 
   .sunny-bottom-nav-button svg {
@@ -506,4 +565,102 @@ select option {
   .sunny-plan-page {
     gap: 1rem;
   }
+}
+
+/* KPM Sunny cinematic palette overrides.
+   Keep existing Tailwind class names, but shift the mood away from orange dashboard UI. */
+.bg-\[\#05070d\],
+.bg-\[\#07111F\] {
+  background-color: var(--sunny-bg) !important;
+}
+
+.text-slate-100,
+.text-white {
+  color: var(--sunny-text) !important;
+}
+
+.text-slate-200,
+.text-slate-300 {
+  color: var(--sunny-text-soft) !important;
+}
+
+.text-slate-400,
+.text-slate-500 {
+  color: var(--sunny-text-muted) !important;
+}
+
+.text-amber-100,
+.text-amber-200 {
+  color: var(--sunny-gold) !important;
+}
+
+.text-emerald-100,
+.text-teal-100 {
+  color: var(--sunny-cyan-soft) !important;
+}
+
+.bg-white\/\[0\.04\],
+.bg-white\/\[0\.055\],
+.bg-white\/\[0\.06\],
+.bg-white\/\[0\.065\] {
+  background-color: rgba(17, 24, 39, 0.76) !important;
+}
+
+.bg-black\/20,
+.bg-black\/25,
+.bg-black\/30 {
+  background-color: rgba(5, 11, 22, 0.42) !important;
+}
+
+.border-white\/10,
+.border-white\/15 {
+  border-color: rgba(139, 233, 255, 0.105) !important;
+}
+
+.border-amber-300\/20,
+.border-amber-300\/25,
+.border-amber-300\/30,
+.border-amber-300\/35,
+.border-amber-300\/45,
+.border-amber-300\/50,
+.border-amber-300\/60,
+.border-amber-300\/70 {
+  border-color: rgba(216, 194, 122, 0.22) !important;
+}
+
+.bg-amber-300\/10,
+.bg-amber-300\/\[0\.08\],
+.bg-amber-300\/\[0\.10\],
+.bg-amber-300\/\[0\.12\],
+.bg-amber-300\/\[0\.14\],
+.bg-amber-400\/10 {
+  background-color: rgba(216, 194, 122, 0.065) !important;
+}
+
+.bg-emerald-400\/10,
+.bg-teal-300\/\[0\.10\],
+.bg-teal-400\/10 {
+  background-color: rgba(89, 195, 255, 0.095) !important;
+}
+
+.border-emerald-300\/25,
+.border-emerald-300\/30,
+.border-emerald-300\/35,
+.border-emerald-400\/35,
+.border-teal-300\/30,
+.border-teal-300\/60 {
+  border-color: rgba(89, 195, 255, 0.34) !important;
+}
+
+.bg-orange-400\/10,
+.bg-orange-400\/15,
+.bg-orange-400\/\[0\.08\] {
+  background-color: rgba(166, 30, 44, 0.11) !important;
+}
+
+.border-orange-300\/25,
+.border-orange-300\/35,
+.border-orange-400\/35,
+.border-orange-400\/45 {
+  border-color: rgba(199, 44, 65, 0.35) !important;
 }
