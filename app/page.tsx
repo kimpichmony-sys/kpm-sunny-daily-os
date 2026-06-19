@@ -41,6 +41,7 @@ type MainLifeFocus = "Money" | "Health" | "Skill" | "Cleaning" | "Stability" | "
 type SectionId = "Dashboard" | "Plan" | "Progress" | "Profile" | "Today Task List" | "Plan Tomorrow" | "Evening Review" | "More" | "Command Center" | "History" | "Analytics" | "Template Editor" | "Settings";
 type BuildDayType = "Normal Day" | "Late Wake Day" | "Night Shift Day" | "Recovery Day" | "Appointment / Busy Day" | "Custom Day";
 type BuildEnergy = Energy | "Very Low";
+type DayLengthType = "Normal" | "Compact" | "Short" | "Night Shift";
 
 type Task = {
   id: string;
@@ -171,6 +172,17 @@ type EssentialsItem = {
 type EssentialsCategory = "Hygiene" | "Clothing" | "Food & Water" | "Health" | "Room & Cleaning" | "Sleep" | "Tech" | "Emergency";
 type PlanStatus = "active" | "paused" | "completed" | "archived";
 
+type PlanWeeklyReview = {
+  id: string;
+  date: string;
+  wentWell: string;
+  hard: string;
+  completionRating: number;
+  decision: "continue" | "adjust" | "pause";
+  nextWeekFocus: string;
+  specifics: Record<string, string | number | boolean>;
+};
+
 type EverydayEssentialsPlan = {
   id: string;
   type: "everyday_essentials";
@@ -181,6 +193,7 @@ type EverydayEssentialsPlan = {
   dailyTasks: EssentialsItem[];
   weeklyTasks: EssentialsItem[];
   monthlyTasks: EssentialsItem[];
+  weeklyReviews?: PlanWeeklyReview[];
 };
 
 type GetLeanSetup = {
@@ -201,6 +214,8 @@ type GetLeanCalculations = {
   maintenanceCalories: number;
   targetCalories: number;
   proteinTarget: number;
+  carbTarget: number;
+  fatTarget: number;
   stepTarget: number;
   workoutDaysPerWeek: string;
   waterTarget: string;
@@ -218,6 +233,55 @@ type FitnessLog = {
   notes: string;
 };
 
+type FoodMeasurementType = "per 100g" | "per 100ml" | "per piece" | "per serving" | "per egg";
+type MealType = "Breakfast" | "Lunch" | "Dinner" | "Snack / Drinks";
+
+type FoodItem = {
+  id: string;
+  name: string;
+  unit: string;
+  measurementType: FoodMeasurementType;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  custom?: boolean;
+};
+
+type FoodEntry = {
+  id: string;
+  foodId: string;
+  foodName: string;
+  meal: MealType;
+  amount: number;
+  unit: string;
+  measurementType: FoodMeasurementType;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  note: string;
+};
+
+type DailyFoodLogs = Record<string, FoodEntry[]>;
+
+type MacroTargets = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  water: string;
+  steps: number;
+  sleep: number;
+};
+
+type MacroTotals = {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
 type GetLeanPlan = {
   id: string;
   type: "get_lean_shred";
@@ -231,6 +295,7 @@ type GetLeanPlan = {
   dailyTasks: EssentialsItem[];
   weeklyReviewDay: "Sunday";
   logs: FitnessLog[];
+  weeklyReviews?: PlanWeeklyReview[];
 };
 
 type StudyTask = {
@@ -269,6 +334,96 @@ type LearnMasterPlan = {
   dailyTasks: StudyTask[];
   weeklyReviewDay: "Sunday";
   logs: StudyLog[];
+  weeklyReviews?: PlanWeeklyReview[];
+};
+
+type SleepEnergySetup = {
+  normalWakeTime: string;
+  targetSleepTime: string;
+  targetSleepDuration: string;
+  customSleepDuration: number;
+  currentSleepProblem: string;
+  caffeineHabit: string;
+  caffeineCutoffTime: string;
+  napPreference: string;
+  nightRoutinePreference: string;
+  includeNannoSleepBoost: boolean;
+};
+
+type SleepEnergyLog = {
+  date: string;
+  sleepTime: string;
+  wakeTime: string;
+  sleepHours: number;
+  wakeUpsCount: number;
+  energy: number;
+  caffeineAfterCutoff: boolean;
+  napTaken: boolean;
+  nightRoutineCompleted: boolean;
+  targetSleepTimeSuccess: boolean;
+  notes: string;
+};
+
+type SleepEnergyPlan = {
+  id: string;
+  type: "fix_sleep_energy";
+  name: "Fix Sleep & Energy";
+  status: PlanStatus;
+  startDate: string;
+  setup: SleepEnergySetup;
+  dailyTasks: EssentialsItem[];
+  weeklyTasks: EssentialsItem[];
+  logs: SleepEnergyLog[];
+  weeklyReviews?: PlanWeeklyReview[];
+};
+
+type ProjectTask = {
+  id: string;
+  title: string;
+  detail: string;
+  completed: boolean;
+  disabled: boolean;
+  timerPreset: FocusPresetId;
+};
+
+type ProjectSetup = {
+  projectName: string;
+  projectType: string;
+  projectGoal: string;
+  currentStage: string;
+  dailyProjectTime: string;
+  customDailyMinutes: number;
+  projectSpeed: string;
+  deadline: string;
+  customDeadline: string;
+  mainBottleneck: string;
+  buildStyle: string;
+};
+
+type ProjectLog = {
+  date: string;
+  workedOn: string;
+  minutesWorked: number;
+  difficulty: number;
+  focus: number;
+  blocker: string;
+  nextStep: string;
+  weeklyReviewCompleted: boolean;
+  note: string;
+};
+
+type BuildProjectPlan = {
+  id: string;
+  type: "build_project";
+  name: "Build a Project";
+  status: PlanStatus;
+  startDate: string;
+  setup: ProjectSetup;
+  projectRoadmap: ProjectTask[];
+  dailyTasks: ProjectTask[];
+  weeklyTasks: ProjectTask[];
+  logs: ProjectLog[];
+  weeklyReviews?: PlanWeeklyReview[];
 };
 
 type LearnMasterSetup = {
@@ -285,7 +440,7 @@ type LearnMasterSetup = {
   customResource: string;
 };
 
-type ActivePlan = EverydayEssentialsPlan | GetLeanPlan | LearnMasterPlan;
+type ActivePlan = EverydayEssentialsPlan | GetLeanPlan | LearnMasterPlan | SleepEnergyPlan | BuildProjectPlan;
 
 type PlanTaskRow = {
   id: string;
@@ -315,6 +470,11 @@ type DayMeta = {
   dayType: BuildDayType | "Default Day";
   wakeTime?: string;
   startTime?: string;
+  targetSleepTime?: string;
+  dayLengthMinutes?: number;
+  dayLengthLabel?: string;
+  dayLengthType?: DayLengthType;
+  nightShutdownTime?: string;
   todayMode?: DailyMode;
   mainMission?: string;
 };
@@ -475,6 +635,11 @@ type BuildTodayPreview = {
   dayType: BuildDayType;
   wakeTime: string;
   startTime: string;
+  targetSleepTime: string;
+  dayLengthMinutes: number;
+  dayLengthLabel: string;
+  dayLengthType: DayLengthType;
+  nightShutdownTime: string;
   todayMode: DailyMode;
   mainMission: string;
   tasks: Task[];
@@ -486,6 +651,8 @@ const SETTINGS_KEY = "kpm-sunny-settings";
 const PROFILE_KEY = "kpm-sunny-profile";
 const ACTIVE_PLAN_KEY = "kpm-sunny-active-plan";
 const ACTIVE_PLANS_KEY = "kpm-sunny-active-plans";
+const FOOD_LIBRARY_KEY = "kpm-sunny-food-library";
+const DAILY_FOOD_LOGS_KEY = "kpm-sunny-daily-food-logs";
 const PLAN_KEY = "kpm-sunny-plan";
 const REVIEW_KEY = "kpm-sunny-review";
 const DAILY_NOTES_KEY_PREFIX = "kpm-sunny-daily-notes";
@@ -497,8 +664,8 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V1.9";
-const APP_LAST_UPDATED = "June 14, 2026";
+const APP_VERSION = "V2.11";
+const APP_LAST_UPDATED = "June 19, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
 const categories: Category[] = ["Knowledge", "Plan", "Monitoring", "Sunny"];
@@ -576,6 +743,48 @@ const defaultLearnMasterSetup: LearnMasterSetup = {
   mainResource: "Course",
   customResource: ""
 };
+
+const defaultSleepEnergySetup: SleepEnergySetup = {
+  normalWakeTime: "7:00 AM",
+  targetSleepTime: "11:00 PM",
+  targetSleepDuration: "8h",
+  customSleepDuration: 8,
+  currentSleepProblem: "Sleep too late",
+  caffeineHabit: "coffee",
+  caffeineCutoffTime: "2:00 PM",
+  napPreference: "no nap",
+  nightRoutinePreference: "normal",
+  includeNannoSleepBoost: true
+};
+
+const sleepDurationOptions = ["6h", "7h", "7.5h", "8h", "custom"];
+const sleepProblemOptions = ["Sleep too late", "Wake too late", "Wake up many times", "Low energy after waking", "Too much caffeine", "Night phone use", "Irregular schedule"];
+const caffeineHabitOptions = ["none", "coffee", "energy drink", "tea", "multiple"];
+const napPreferenceOptions = ["no nap", "10 min", "15 min", "20 min", "30 min"];
+const nightRoutineOptions = ["simple", "normal", "strong sleep reset"];
+
+const defaultProjectSetup: ProjectSetup = {
+  projectName: "",
+  projectType: "App / Website",
+  projectGoal: "Finish MVP",
+  currentStage: "Idea only",
+  dailyProjectTime: "60 min",
+  customDailyMinutes: 60,
+  projectSpeed: "Moderate",
+  deadline: "No deadline",
+  customDeadline: "",
+  mainBottleneck: "I do not know the next step",
+  buildStyle: "Small daily progress"
+};
+
+const projectTypeOptions = ["App / Website", "Game", "Writing / Novel", "Study project", "Business project", "Design project", "Other"];
+const projectGoalOptions = ["Personal use", "Portfolio", "Learn a skill", "Make money", "Finish MVP", "Other"];
+const projectStageOptions = ["Idea only", "Planning", "First version started", "Working MVP", "Improving existing project", "Testing / polishing"];
+const projectDailyTimeOptions = ["30 min", "60 min", "90 min", "120 min", "custom"];
+const projectSpeedOptions = ["Slow", "Moderate", "Intensive"];
+const projectDeadlineOptions = ["No deadline", "7 days", "14 days", "30 days", "90 days", "custom date"];
+const projectBottleneckOptions = ["I do not know what to build", "I do not know the next step", "Too many ideas", "Coding difficulty", "Design difficulty", "Testing difficulty", "Low energy", "Consistency"];
+const projectBuildStyleOptions = ["Small daily progress", "Deep work blocks", "Weekend sprint", "Fix one issue at a time"];
 
 const everydayEssentialsTemplates = {
   dailyTasks: [
@@ -815,6 +1024,11 @@ const defaultDayMeta: DayMeta = {
   dayType: "Default Day",
   wakeTime: "5:30 AM",
   startTime: "5:30 AM",
+  targetSleepTime: "11:00 PM",
+  dayLengthMinutes: 1050,
+  dayLengthLabel: "17h 30m",
+  dayLengthType: "Normal",
+  nightShutdownTime: "10:00 PM",
   todayMode: "Full Day",
   mainMission: ""
 };
@@ -833,6 +1047,8 @@ function HomeApp() {
   const [profile, setProfile] = useLocalStorage<ProfileState>(PROFILE_KEY, defaultProfile);
   const [activePlan, setActivePlan] = useLocalStorage<ActivePlan | null>(ACTIVE_PLAN_KEY, null);
   const [activePlans, setActivePlans] = useLocalStorage<ActivePlan[]>(ACTIVE_PLANS_KEY, []);
+  const [foodLibrary, setFoodLibrary] = useLocalStorage<FoodItem[]>(FOOD_LIBRARY_KEY, createDefaultFoodLibrary());
+  const [dailyFoodLogs, setDailyFoodLogs] = useLocalStorage<DailyFoodLogs>(DAILY_FOOD_LOGS_KEY, {});
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
   const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
   const tomorrowKey = getNextDateKey(todayKey);
@@ -912,7 +1128,13 @@ function HomeApp() {
       setSelectedTodayMode(carriedMode);
       setTomorrowMode(loadedTomorrowMode);
       setDayMeta({ ...loadedDayMeta, todayMode: carriedMode });
-      setBuildTodayDraft({ ...defaultBuildTodayDraft, todayMode: carriedMode, wakeTime: loadedDayMeta.wakeTime ?? "5:30 AM", startTime: loadedDayMeta.startTime ?? "5:30 AM" });
+      setBuildTodayDraft({
+        ...defaultBuildTodayDraft,
+        todayMode: carriedMode,
+        wakeTime: loadedDayMeta.wakeTime ?? "5:30 AM",
+        startTime: loadedDayMeta.startTime ?? "5:30 AM",
+        sleepTime: loadedDayMeta.targetSleepTime ?? "11:00 PM"
+      });
       setShowBuildTodayFlow(nextTodayTasks.length === 0);
       writeStorage(`${MODE_KEY_PREFIX}:${currentDate}`, carriedMode);
       safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
@@ -1039,8 +1261,9 @@ function HomeApp() {
 
   useEffect(() => {
     const normalizedPlans = normalizeActivePlans(activePlans);
-    if (activePlans.length === 0 && activePlan) {
-      setActivePlans([normalizeActivePlan(activePlan)]);
+    const migratedActivePlan = normalizeMaybeActivePlan(activePlan);
+    if (normalizedPlans.length === 0 && migratedActivePlan) {
+      setActivePlans([migratedActivePlan]);
       return;
     }
     if (JSON.stringify(normalizedPlans) !== JSON.stringify(activePlans)) setActivePlans(normalizedPlans);
@@ -1048,7 +1271,7 @@ function HomeApp() {
 
   const stats = useMemo(() => getStats(tasks), [tasks]);
   const dayLevel = getDayLevel(stats.points);
-  const nextTask = useMemo(() => getCurrentMission(tasks), [tasks]);
+  const nextTask = useMemo(() => getCurrentMission(tasks, dayMeta.startTime), [dayMeta.startTime, tasks]);
   const mainMission = useMemo(
     () => tasks.find((task) => task.priority === "S" && !task.completed && !task.skipped) || tasks.find((task) => task.priority === "S"),
     [tasks]
@@ -1062,6 +1285,8 @@ function HomeApp() {
     [combinedDays, settings.sevenDayTestStartDate, todayKey]
   );
   const normalizedActivePlans = useMemo(() => normalizeActivePlans(activePlans), [activePlans]);
+  const normalizedFoodLibrary = useMemo(() => normalizeFoodLibrary(foodLibrary), [foodLibrary]);
+  const normalizedDailyFoodLogs = useMemo(() => normalizeDailyFoodLogs(dailyFoodLogs), [dailyFoodLogs]);
   const activeTodayPlans = useMemo(() => normalizedActivePlans.filter((plan) => plan.status === "active"), [normalizedActivePlans]);
   const todayPlanRows = useMemo(() => getPrioritizedPlanTaskRows(activeTodayPlans), [activeTodayPlans]);
   const todayFocusItems = useMemo(() => getTodayFocusItems(tasks, mainMission, todayPlanRows), [tasks, mainMission, todayPlanRows]);
@@ -1234,7 +1459,7 @@ function HomeApp() {
   function exportAllData() {
     const payload = {
       app: "KPM Sunny Daily OS",
-      version: "1.9",
+      version: APP_VERSION,
       exportedAt: new Date().toISOString(),
       data: getRawKpmLocalData()
     };
@@ -1367,6 +1592,11 @@ function HomeApp() {
       dayType: buildTodayPreview.dayType,
       wakeTime: buildTodayPreview.wakeTime,
       startTime: buildTodayPreview.startTime,
+      targetSleepTime: buildTodayPreview.targetSleepTime,
+      dayLengthMinutes: buildTodayPreview.dayLengthMinutes,
+      dayLengthLabel: buildTodayPreview.dayLengthLabel,
+      dayLengthType: buildTodayPreview.dayLengthType,
+      nightShutdownTime: buildTodayPreview.nightShutdownTime,
       todayMode: buildTodayPreview.todayMode,
       mainMission: buildTodayPreview.mainMission
     });
@@ -1490,6 +1720,8 @@ function HomeApp() {
                     focusItems={todayFocusItems}
                     activePlans={activeTodayPlans}
                     updateActivePlan={updateActivePlan}
+                    foodLogs={normalizedDailyFoodLogs}
+                    todayKey={todayKey}
                   />
                 )}
               </div>
@@ -1535,6 +1767,11 @@ function HomeApp() {
                 updatePlanStatus={updatePlanStatus}
                 profile={normalizeProfile(profile)}
                 setProfile={setProfile}
+                foodLibrary={normalizedFoodLibrary}
+                setFoodLibrary={setFoodLibrary}
+                dailyFoodLogs={normalizedDailyFoodLogs}
+                setDailyFoodLogs={setDailyFoodLogs}
+                todayKey={todayKey}
               />
             )}
             {activeSection === "Progress" && (
@@ -1551,6 +1788,7 @@ function HomeApp() {
                 streaks={streaks}
                 activePlans={normalizedActivePlans}
                 updateActivePlan={updateActivePlan}
+                dailyFoodLogs={normalizedDailyFoodLogs}
               />
             )}
             {activeSection === "Profile" && (
@@ -1871,7 +2109,10 @@ function CommandHeader({
           <div className="mt-1 flex flex-wrap gap-1.5">
             {isToday ? <Badge tone="dark">{todayMode} Mode</Badge> : null}
             {isToday ? <Badge tone="dark">{dayMeta.dayType}</Badge> : null}
+            {isToday && dayMeta.dayLengthType ? <Badge tone="dark">{dayMeta.dayLengthType}</Badge> : null}
             {isToday && dayMeta.wakeTime ? <Badge tone="dark">Wake {dayMeta.wakeTime}</Badge> : null}
+            {isToday && dayMeta.targetSleepTime ? <Badge tone="dark">Sleep {dayMeta.targetSleepTime}</Badge> : null}
+            {isToday && dayMeta.dayLengthLabel ? <Badge tone="dark">{dayMeta.dayLengthLabel}</Badge> : null}
           </div>
           </div>
         </div>
@@ -2142,11 +2383,12 @@ function BuildToday({
         {activeFlow ? (
         <div className="mt-5 grid gap-4 rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
           {activeFlow === "Normal" ? (
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <label className="grid gap-2 text-sm font-bold text-slate-300">
-                What time did you wake up today?
+                What time did you wake up / start today?
                 <input type="time" value={timeToInputValue(draft.wakeTime)} onChange={(event) => updateDraft({ wakeTime: inputValueToTime(event.target.value), startTime: inputValueToTime(event.target.value), dayType: "Normal Day" })} className={fieldClass} />
               </label>
+              <BuildTimeField label="What time do you want to sleep today?" value={draft.sleepTime} onChange={(sleepTime) => updateDraft({ sleepTime })} className={fieldClass} />
               <label className="grid gap-2 text-sm font-bold text-slate-300">
                 Energy level
                 <select value={draft.energy} onChange={(event) => updateDraft({ energy: event.target.value as BuildEnergy })} className={fieldClass}>
@@ -2168,6 +2410,10 @@ function BuildToday({
                   {(["Late Wake Day", "Night Shift Day", "Recovery Day", "Appointment / Busy Day", "Custom Day"] as BuildDayType[]).map((type) => <option key={type}>{type}</option>)}
                 </select>
               </label>
+
+              {draft.dayType !== "Custom Day" ? (
+                <BuildTimeField label="What time do you want to sleep today?" value={draft.sleepTime} onChange={(sleepTime) => updateDraft({ sleepTime })} className={fieldClass} />
+              ) : null}
 
               {draft.dayType === "Late Wake Day" ? (
                 <div className="grid gap-4 md:grid-cols-3">
@@ -2243,8 +2489,12 @@ function BuildToday({
           <p className="text-sm font-black uppercase tracking-[0.2em] text-teal-200">Today Plan Preview</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge tone="gold">{preview.dayType}</Badge>
+            <Badge tone="gold">{preview.dayLengthType}</Badge>
             <Badge tone="dark">Start: {preview.startTime}</Badge>
             <Badge tone="dark">Wake: {preview.wakeTime}</Badge>
+            <Badge tone="dark">Sleep: {preview.targetSleepTime}</Badge>
+            <Badge tone="dark">Day length: {preview.dayLengthLabel}</Badge>
+            <Badge tone="dark">Shutdown: {preview.nightShutdownTime}</Badge>
             <Badge tone="dark">{preview.todayMode} Mode</Badge>
           </div>
           <h3 className="mt-4 break-words text-2xl font-black text-white">{preview.mainMission || "Today is built around steady control."}</h3>
@@ -2310,7 +2560,9 @@ function TodayCommand({
   setActiveSection,
   focusItems,
   activePlans,
-  updateActivePlan
+  updateActivePlan,
+  foodLogs,
+  todayKey
 }: {
   stats: Stats;
   currentMission?: Task;
@@ -2325,10 +2577,12 @@ function TodayCommand({
   focusItems: TodayFocusItem[];
   activePlans: ActivePlan[];
   updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
+  foodLogs: DailyFoodLogs;
+  todayKey: string;
 }) {
   const nextMissions = tasks
     .filter((task) => !task.completed && !task.skipped && task.id !== currentMission?.id)
-    .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+    .sort((a, b) => relativeTaskMinutes(a.time, dayMeta.startTime ?? "5:30 AM") - relativeTaskMinutes(b.time, dayMeta.startTime ?? "5:30 AM"))
     .slice(0, 3);
 
   const mainMissionStatus = getMainMissionStatus(mainMission);
@@ -2359,6 +2613,8 @@ function TodayCommand({
                     <Badge tone="dark">{dayMeta.dayType}</Badge>
                     {dayMeta.startTime ? <Badge tone="dark">Start {dayMeta.startTime}</Badge> : null}
                     {dayMeta.wakeTime ? <Badge tone="dark">Wake {dayMeta.wakeTime}</Badge> : null}
+                    {dayMeta.targetSleepTime ? <Badge tone="dark">Sleep {dayMeta.targetSleepTime}</Badge> : null}
+                    {dayMeta.dayLengthLabel ? <Badge tone="dark">{dayMeta.dayLengthLabel}</Badge> : null}
                   </div>
                 </details>
               </>
@@ -2474,7 +2730,7 @@ function TodayCommand({
             <MiniMetric label="KPM" value={stats.points} compact />
           </div>
         </Panel>
-        {activePlans.length > 0 ? <ActivePlanTasksSection activePlans={activePlans} updateActivePlan={updateActivePlan} /> : null}
+        {activePlans.length > 0 ? <ActivePlanTasksSection activePlans={activePlans} updateActivePlan={updateActivePlan} foodLogs={foodLogs} todayKey={todayKey} /> : null}
       </aside>
     </section>
   );
@@ -3536,7 +3792,12 @@ function PlanFoundation({
   updateActivePlan,
   updatePlanStatus,
   profile,
-  setProfile
+  setProfile,
+  foodLibrary,
+  setFoodLibrary,
+  dailyFoodLogs,
+  setDailyFoodLogs,
+  todayKey
 }: {
   plan: Plan;
   setPlan: Dispatch<SetStateAction<Plan>>;
@@ -3554,6 +3815,11 @@ function PlanFoundation({
   updatePlanStatus: (planId: string, status: PlanStatus) => void;
   profile: ProfileState;
   setProfile: Dispatch<SetStateAction<ProfileState>>;
+  foodLibrary: FoodItem[];
+  setFoodLibrary: Dispatch<SetStateAction<FoodItem[]>>;
+  dailyFoodLogs: DailyFoodLogs;
+  setDailyFoodLogs: Dispatch<SetStateAction<DailyFoodLogs>>;
+  todayKey: string;
 }) {
   const activeCount = activePlans.filter((item) => item.status === "active").length;
   const pausedCount = activePlans.filter((item) => item.status === "paused").length;
@@ -3563,9 +3829,13 @@ function PlanFoundation({
   const [showEssentialsSetup, setShowEssentialsSetup] = useState(false);
   const [showGetLeanSetup, setShowGetLeanSetup] = useState(false);
   const [showLearnSetup, setShowLearnSetup] = useState(false);
+  const [showSleepSetup, setShowSleepSetup] = useState(false);
+  const [showProjectSetup, setShowProjectSetup] = useState(false);
   const [essentialsSetup, setEssentialsSetup] = useState<EssentialsSetup>(defaultEssentialsSetup);
   const [getLeanSetup, setGetLeanSetup] = useState<GetLeanSetup>(() => createGetLeanSetupFromProfile(profile));
   const [learnSetup, setLearnSetup] = useState<LearnMasterSetup>(defaultLearnMasterSetup);
+  const [sleepSetup, setSleepSetup] = useState<SleepEnergySetup>(() => createSleepEnergySetupFromProfile(profile));
+  const [projectSetup, setProjectSetup] = useState<ProjectSetup>(defaultProjectSetup);
   const presetPlans = [
     { name: "Everyday Essentials", purpose: "Make sure I have the basic things I need for daily life." },
     { name: "Get Lean / Shred", purpose: "Create a simple rule-based fat-loss plan using my profile data." },
@@ -3597,11 +3867,27 @@ function PlanFoundation({
     setShowLearnSetup(false);
   }
 
+  function setupSleepEnergyPlan() {
+    const nextPlan = createSleepEnergyPlan(sleepSetup);
+    addActivePlan(nextPlan);
+    setProfile((current) => ({ ...normalizeProfile(current), activePlan: nextPlan.name }));
+    setShowSleepSetup(false);
+  }
+
+  function setupBuildProjectPlan() {
+    const nextPlan = createBuildProjectPlan(projectSetup);
+    addActivePlan(nextPlan);
+    setProfile((current) => ({ ...normalizeProfile(current), activePlan: nextPlan.name }));
+    setShowProjectSetup(false);
+  }
+
   function openPresetSetup(name: string) {
     if (name === "Everyday Essentials") {
       setShowEssentialsSetup((current) => !current);
       setShowGetLeanSetup(false);
       setShowLearnSetup(false);
+      setShowSleepSetup(false);
+      setShowProjectSetup(false);
       return;
     }
     if (name === "Get Lean / Shred") {
@@ -3609,12 +3895,33 @@ function PlanFoundation({
       setShowGetLeanSetup((current) => !current);
       setShowEssentialsSetup(false);
       setShowLearnSetup(false);
+      setShowSleepSetup(false);
+      setShowProjectSetup(false);
       return;
     }
     if (name === "Learn / Master Subject") {
       setShowLearnSetup((current) => !current);
       setShowEssentialsSetup(false);
       setShowGetLeanSetup(false);
+      setShowSleepSetup(false);
+      setShowProjectSetup(false);
+      return;
+    }
+    if (name === "Fix Sleep & Energy") {
+      setSleepSetup((current) => mergeSleepEnergySetupWithProfile(current, profile));
+      setShowSleepSetup((current) => !current);
+      setShowEssentialsSetup(false);
+      setShowGetLeanSetup(false);
+      setShowLearnSetup(false);
+      setShowProjectSetup(false);
+      return;
+    }
+    if (name === "Build a Project") {
+      setShowProjectSetup((current) => !current);
+      setShowEssentialsSetup(false);
+      setShowGetLeanSetup(false);
+      setShowLearnSetup(false);
+      setShowSleepSetup(false);
     }
   }
 
@@ -3656,7 +3963,7 @@ function PlanFoundation({
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {presetPlans.map((preset) => {
-            const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred" || preset.name === "Learn / Master Subject";
+            const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred" || preset.name === "Learn / Master Subject" || preset.name === "Fix Sleep & Energy" || preset.name === "Build a Project";
             const isActive = activePlans.some((plan) => plan.name === preset.name && plan.status === "active");
             return (
               <article key={preset.name} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
@@ -3718,14 +4025,48 @@ function PlanFoundation({
         />
       ) : null}
 
+      {showSleepSetup ? (
+        <SleepEnergySetupPanel
+          setup={sleepSetup}
+          setSetup={setSleepSetup}
+          onSave={setupSleepEnergyPlan}
+          onCancel={() => setShowSleepSetup(false)}
+        />
+      ) : null}
+
+      {showProjectSetup ? (
+        <BuildProjectSetupPanel
+          setup={projectSetup}
+          setSetup={setProjectSetup}
+          onSave={setupBuildProjectPlan}
+          onCancel={() => setShowProjectSetup(false)}
+        />
+      ) : null}
+
       {activePlans.length > 0 ? (
         <CollapsibleSection title="Active plan details" subtitle="Open this when you want the full checklist or plan controls." defaultOpen={false}>
           <div className="grid gap-5">
             {activePlans.map((item) => {
               const planSetter: Dispatch<SetStateAction<ActivePlan | null>> = (updater) => updateActivePlan(item.id, updater);
               if (item.type === "everyday_essentials") return <div key={item.id} id={`plan-details-${item.id}`}><EssentialsChecklistManager activePlan={normalizeEverydayEssentialsPlan(item)} setActivePlan={planSetter} /></div>;
-              if (item.type === "get_lean_shred") return <div key={item.id} id={`plan-details-${item.id}`}><GetLeanPlanDetails activePlan={normalizeGetLeanPlan(item)} setActivePlan={planSetter} /></div>;
+              if (item.type === "get_lean_shred") {
+                return (
+                  <div key={item.id} id={`plan-details-${item.id}`}>
+                    <GetLeanPlanDetails
+                      activePlan={normalizeGetLeanPlan(item)}
+                      setActivePlan={planSetter}
+                      foodLibrary={foodLibrary}
+                      setFoodLibrary={setFoodLibrary}
+                      dailyFoodLogs={dailyFoodLogs}
+                      setDailyFoodLogs={setDailyFoodLogs}
+                      todayKey={todayKey}
+                    />
+                  </div>
+                );
+              }
               if (item.type === "learn_master_subject") return <div key={item.id} id={`plan-details-${item.id}`}><LearnMasterPlanDetails activePlan={normalizeLearnMasterPlan(item)} setActivePlan={planSetter} /></div>;
+              if (item.type === "fix_sleep_energy") return <div key={item.id} id={`plan-details-${item.id}`}><SleepEnergyPlanDetails activePlan={normalizeSleepEnergyPlan(item)} setActivePlan={planSetter} /></div>;
+              if (item.type === "build_project") return <div key={item.id} id={`plan-details-${item.id}`}><BuildProjectPlanDetails activePlan={normalizeBuildProjectPlan(item)} setActivePlan={planSetter} /></div>;
               return null;
             })}
           </div>
@@ -3759,23 +4100,58 @@ function ActivePlansManager({
   updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
   updatePlanStatus: (planId: string, status: PlanStatus) => void;
 }) {
+  const [filter, setFilter] = useState<PlanStatus | "all">("active");
+  const [openPlanId, setOpenPlanId] = useState<string | null>(null);
+  const [editPlanId, setEditPlanId] = useState<string | null>(null);
+  const [reviewPlanId, setReviewPlanId] = useState<string | null>(null);
+  const visiblePlans = activePlans.filter((plan) => filter === "all" ? true : plan.status === filter);
+  const openPlan = activePlans.find((plan) => plan.id === openPlanId);
+  const editPlan = activePlans.find((plan) => plan.id === editPlanId);
+  const reviewPlan = activePlans.find((plan) => plan.id === reviewPlanId);
+
+  function archivePlan(plan: ActivePlan) {
+    updatePlanStatus(plan.id, "archived");
+    if (openPlanId === plan.id) setOpenPlanId(null);
+  }
+
+  function deletePlan(plan: ActivePlan) {
+    if (!window.confirm(`Delete "${getPlanDisplayName(plan)}" permanently from this device? This removes its setup and logs.`)) return;
+    updateActivePlan(plan.id, null);
+    if (openPlanId === plan.id) setOpenPlanId(null);
+    if (editPlanId === plan.id) setEditPlanId(null);
+    if (reviewPlanId === plan.id) setReviewPlanId(null);
+  }
+
   return (
     <Panel>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plans</p>
-          <h3 className="mt-2 text-2xl font-black text-white">Systems running together</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">Paused, completed, and archived plans stay here but stop sending tasks to Today.</p>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Control Center</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Control every life system from one place</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Open, edit, pause, review, and archive plans. Only active plans send tasks to Today.</p>
         </div>
         <Badge tone="dark">{activePlans.length} plans</Badge>
       </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {(["active", "paused", "archived", "all"] as Array<PlanStatus | "all">).map((option) => (
+          <button key={option} type="button" onClick={() => setFilter(option)} className={`rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] ${filter === option ? "border-amber-200/50 bg-amber-300/[0.12] text-amber-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}>
+            {option === "all" ? "All" : option}
+          </button>
+        ))}
+      </div>
+
       {activePlans.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-300">
           No active plans yet. Set up a preset plan below to start.
         </div>
+      ) : visiblePlans.length === 0 ? (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-300">
+          No plans match this filter.
+        </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {activePlans.map((plan) => (
+          {visiblePlans.map((plan) => (
             <article key={plan.id} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -3784,21 +4160,45 @@ function ActivePlansManager({
                 </div>
                 <Badge tone={plan.status === "active" ? "green" : plan.status === "paused" ? "orange" : "dark"}>{plan.status}</Badge>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-400">Started {plan.startDate || "Unknown"}</p>
+              <div className="mt-3 grid gap-2 text-sm leading-6 text-slate-400">
+                <SummaryRow label="Started" value={plan.startDate || "Unknown"} />
+                <SummaryRow label="Today tasks" value={`${getPlanCompletion(plan).completed}/${getPlanCompletion(plan).total}`} />
+                <SummaryRow label="Weekly" value={getPlanWeeklyCompletionText(plan)} />
+                <SummaryRow label="Last log" value={getPlanLastLogText(plan)} />
+              </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" onClick={() => document.getElementById(`plan-details-${plan.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" })} className="secondary-button min-h-9 px-3 py-2 text-xs">View details</button>
+                <button type="button" onClick={() => setOpenPlanId(openPlanId === plan.id ? null : plan.id)} className="secondary-button min-h-9 px-3 py-2 text-xs">Open</button>
+                <button type="button" onClick={() => setEditPlanId(plan.id)} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit Setup</button>
                 {plan.status === "active" ? (
                   <button type="button" onClick={() => updatePlanStatus(plan.id, "paused")} className="secondary-button min-h-9 px-3 py-2 text-xs">Pause</button>
                 ) : (
                   <button type="button" onClick={() => updatePlanStatus(plan.id, "active")} className="secondary-button min-h-9 px-3 py-2 text-xs">Resume</button>
                 )}
-                <button type="button" onClick={() => updatePlanStatus(plan.id, "completed")} className="secondary-button min-h-9 px-3 py-2 text-xs">End plan</button>
-                <button type="button" onClick={() => updatePlanStatus(plan.id, "archived")} className="danger-button min-h-9 px-3 py-2 text-xs">Archive</button>
+                <button type="button" onClick={() => setReviewPlanId(plan.id)} className="secondary-button min-h-9 px-3 py-2 text-xs">Weekly Review</button>
+                <button type="button" onClick={() => archivePlan(plan)} className="danger-button min-h-9 px-3 py-2 text-xs">Archive</button>
               </div>
             </article>
           ))}
         </div>
       )}
+
+      {openPlan ? (
+        <PlanControlDetail
+          plan={openPlan}
+          updatePlanStatus={updatePlanStatus}
+          editPlan={() => setEditPlanId(openPlan.id)}
+          reviewPlan={() => setReviewPlanId(openPlan.id)}
+          deletePlan={() => deletePlan(openPlan)}
+        />
+      ) : null}
+
+      {editPlan ? (
+        <PlanSetupEditor plan={editPlan} updateActivePlan={updateActivePlan} close={() => setEditPlanId(null)} />
+      ) : null}
+
+      {reviewPlan ? (
+        <PlanWeeklyReviewEditor plan={reviewPlan} updateActivePlan={updateActivePlan} close={() => setReviewPlanId(null)} />
+      ) : null}
     </Panel>
   );
 }
@@ -3824,6 +4224,255 @@ function PlanProgressSummaryCard({ activePlan }: { activePlan: ActivePlan }) {
   );
 }
 
+function PlanControlDetail({
+  plan,
+  updatePlanStatus,
+  editPlan,
+  reviewPlan,
+  deletePlan
+}: {
+  plan: ActivePlan;
+  updatePlanStatus: (planId: string, status: PlanStatus) => void;
+  editPlan: () => void;
+  reviewPlan: () => void;
+  deletePlan: () => void;
+}) {
+  const setupRows = getPlanSetupRows(plan);
+  const targetRows = getPlanTargetRows(plan);
+  const todayRows = getPlanTodayTaskRows(plan);
+  const weeklyRows = getPlanWeeklyRows(plan);
+  const reviewCount = getPlanWeeklyReviews(plan).length;
+
+  return (
+    <section className="mt-5 rounded-[1.35rem] border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Plan Detail View</p>
+          <h3 className="mt-2 break-words text-2xl font-black text-white">{getPlanDisplayName(plan)}</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{formatPlanType(plan.type)} · {plan.status} · Started {plan.startDate || "Unknown"}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={editPlan} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit Setup</button>
+          <button type="button" onClick={() => updatePlanStatus(plan.id, plan.status === "active" ? "paused" : "active")} className="secondary-button min-h-9 px-3 py-2 text-xs">{plan.status === "active" ? "Pause" : "Resume"}</button>
+          <button type="button" onClick={reviewPlan} className="secondary-button min-h-9 px-3 py-2 text-xs">Weekly Review</button>
+          <button type="button" onClick={() => updatePlanStatus(plan.id, "archived")} className="danger-button min-h-9 px-3 py-2 text-xs">Archive</button>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <PlanInfoBlock title="Setup Answers" rows={setupRows} />
+        <PlanInfoBlock title="Calculated Targets / Summary" rows={targetRows} />
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <h4 className="font-black text-white">Today tasks from this plan</h4>
+          <div className="mt-3 grid gap-2">
+            {todayRows.length ? todayRows.slice(0, 8).map((row) => <PlanTaskMiniRow key={row.id} row={{ ...row, source: getPlanTaskSourceLabel(plan) }} onToggle={() => {}} />) : <p className="text-sm text-slate-400">No tasks.</p>}
+          </div>
+        </section>
+        <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <h4 className="font-black text-white">Weekly tasks / reviews</h4>
+          <div className="mt-3 grid gap-2 text-sm leading-6 text-slate-300">
+            {weeklyRows.length ? weeklyRows.map((row) => <SummaryRow key={row.label} label={row.label} value={row.value} />) : <p className="text-slate-400">No weekly tasks yet.</p>}
+            <SummaryRow label="Weekly reviews saved" value={String(reviewCount)} />
+          </div>
+        </section>
+      </div>
+
+      <section className="mt-5 rounded-2xl border border-red-300/20 bg-red-400/[0.06] p-4">
+        <p className="font-black text-white">Danger Zone</p>
+        <p className="mt-1 text-sm text-slate-400">Delete only if you really want to remove this plan setup and logs from this device.</p>
+        <button type="button" onClick={deletePlan} className="danger-button mt-3 min-h-9 px-3 py-2 text-xs">Delete Plan</button>
+      </section>
+    </section>
+  );
+}
+
+function PlanInfoBlock({ title, rows }: { title: string; rows: Array<{ label: string; value: string | number | boolean }> }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h4 className="font-black text-white">{title}</h4>
+      <div className="mt-3 grid gap-2 text-sm leading-6 text-slate-300">
+        {rows.length ? rows.map((row) => <SummaryRow key={row.label} label={row.label} value={String(row.value)} />) : <p className="text-slate-400">Nothing to show yet.</p>}
+      </div>
+    </section>
+  );
+}
+
+function PlanSetupEditor({ plan, updateActivePlan, close }: { plan: ActivePlan; updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void; close: () => void }) {
+  const [draft, setDraft] = useState<ActivePlan>(plan);
+
+  useEffect(() => {
+    setDraft(plan);
+  }, [plan]);
+
+  function save() {
+    updateActivePlan(plan.id, draft);
+    close();
+  }
+
+  return (
+    <section className="mt-5 rounded-[1.35rem] border border-amber-200/20 bg-amber-300/[0.055] p-4">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-100">Edit Plan Setup</p>
+      <h3 className="mt-2 text-2xl font-black text-white">{getPlanDisplayName(plan)}</h3>
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <PlanSpecificSetupFields plan={draft} setPlan={setDraft} />
+      </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={save} className="primary-button justify-center">Save Setup Changes</button>
+        <button type="button" onClick={close} className="secondary-button justify-center">Cancel</button>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-slate-400">Saving setup updates future generated tasks and plan details. Existing logs are kept.</p>
+    </section>
+  );
+}
+
+function PlanSpecificSetupFields({ plan, setPlan }: { plan: ActivePlan; setPlan: Dispatch<SetStateAction<ActivePlan>> }) {
+  if (plan.type === "everyday_essentials") {
+    const setup = plan.setup;
+    return (
+      <>
+        <EssentialsSelect label="Living situation" value={setup.livingSituation} options={["Alone", "With family", "Shared room / shared home"]} onChange={(livingSituation) => setPlan({ ...plan, setup: { ...setup, livingSituation } })} />
+        <EssentialsSelect label="Budget level" value={setup.budgetLevel} options={["Basic", "Normal", "Comfortable"]} onChange={(budgetLevel) => setPlan({ ...plan, setup: { ...setup, budgetLevel } })} />
+        <EssentialsSelect label="Restock reminder" value={setup.restockReminder} options={["Weekly", "Every 2 weeks", "Monthly"]} onChange={(restockReminder) => setPlan({ ...plan, setup: { ...setup, restockReminder } })} />
+      </>
+    );
+  }
+  if (plan.type === "get_lean_shred") {
+    const setup = plan.setup;
+    return (
+      <>
+        <Field label="Current weight"><input type="number" value={setup.currentWeightKg || ""} onChange={(event) => setPlan({ ...plan, setup: { ...setup, currentWeightKg: Number(event.target.value) || 0 } })} className="form-control" /></Field>
+        <Field label="Goal weight"><input type="number" value={setup.goalWeightKg || ""} onChange={(event) => setPlan({ ...plan, setup: { ...setup, goalWeightKg: Number(event.target.value) || 0 } })} className="form-control" /></Field>
+        <SelectField label="Speed" value={setup.speed} options={getLeanSpeeds} onChange={(speed) => setPlan({ ...plan, setup: { ...setup, speed } })} />
+        <SelectField label="Exercise access" value={setup.exerciseAccess} options={getLeanExerciseAccess} onChange={(exerciseAccess) => setPlan({ ...plan, setup: { ...setup, exerciseAccess } })} />
+      </>
+    );
+  }
+  if (plan.type === "fix_sleep_energy") {
+    const setup = plan.setup;
+    return (
+      <>
+        <Field label="Target sleep time"><input type="time" value={timeToInputValue(setup.targetSleepTime)} onChange={(event) => setPlan({ ...plan, setup: { ...setup, targetSleepTime: inputValueToTime(event.target.value) } })} className="form-control" /></Field>
+        <Field label="Caffeine cutoff"><input type="time" value={timeToInputValue(setup.caffeineCutoffTime)} onChange={(event) => setPlan({ ...plan, setup: { ...setup, caffeineCutoffTime: inputValueToTime(event.target.value) } })} className="form-control" /></Field>
+        <SelectField label="Nap preference" value={setup.napPreference} options={napPreferenceOptions} onChange={(napPreference) => setPlan({ ...plan, setup: { ...setup, napPreference } })} />
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={setup.includeNannoSleepBoost} onChange={(event) => setPlan({ ...plan, setup: { ...setup, includeNannoSleepBoost: event.target.checked } })} className="h-5 w-5 accent-emerald-400" />Nanno Sleep Boost</label>
+      </>
+    );
+  }
+  if (plan.type === "learn_master_subject") {
+    return (
+      <>
+        <Field label="Subject"><input value={plan.subjectName} onChange={(event) => setPlan({ ...plan, subjectName: event.target.value })} className="form-control" /></Field>
+        <Field label="Daily minutes"><input type="number" value={plan.dailyMinutes || ""} onChange={(event) => setPlan({ ...plan, dailyMinutes: Number(event.target.value) || 60 })} className="form-control" /></Field>
+        <SelectField label="Speed" value={plan.speed} options={learnSpeeds} onChange={(speed) => setPlan({ ...plan, speed })} />
+        <SelectField label="Current level" value={plan.currentLevel} options={learnCurrentLevels} onChange={(currentLevel) => setPlan({ ...plan, currentLevel })} />
+      </>
+    );
+  }
+  const setup = plan.setup;
+  return (
+    <>
+      <Field label="Project name"><input value={setup.projectName} onChange={(event) => setPlan({ ...plan, setup: { ...setup, projectName: event.target.value } })} className="form-control" /></Field>
+      <SelectField label="Current stage" value={setup.currentStage} options={projectStageOptions} onChange={(currentStage) => setPlan({ ...plan, setup: { ...setup, currentStage } })} />
+      <SelectField label="Daily project time" value={setup.dailyProjectTime} options={projectDailyTimeOptions} onChange={(dailyProjectTime) => setPlan({ ...plan, setup: { ...setup, dailyProjectTime } })} />
+      <SelectField label="Project speed" value={setup.projectSpeed} options={projectSpeedOptions} onChange={(projectSpeed) => setPlan({ ...plan, setup: { ...setup, projectSpeed } })} />
+    </>
+  );
+}
+
+function PlanWeeklyReviewEditor({ plan, updateActivePlan, close }: { plan: ActivePlan; updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void; close: () => void }) {
+  const [draft, setDraft] = useState<PlanWeeklyReview>(() => createDefaultPlanWeeklyReview(plan));
+
+  function updateDraft(patch: Partial<PlanWeeklyReview>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function updateSpecific(key: string, value: string | number | boolean) {
+    setDraft((current) => ({ ...current, specifics: { ...current.specifics, [key]: value } }));
+  }
+
+  function save() {
+    updateActivePlan(plan.id, (current) => {
+      const target = current ? normalizeActivePlan(current) : plan;
+      return { ...target, weeklyReviews: [...getPlanWeeklyReviews(target), draft] } as ActivePlan;
+    });
+    close();
+  }
+
+  return (
+    <section className="mt-5 rounded-[1.35rem] border border-teal-200/20 bg-teal-300/[0.055] p-4">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-100">Weekly Review</p>
+      <h3 className="mt-2 text-2xl font-black text-white">{getPlanDisplayName(plan)}</h3>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <Field label="What went well"><textarea value={draft.wentWell} onChange={(event) => updateDraft({ wentWell: event.target.value })} className="form-control min-h-24" /></Field>
+        <Field label="What was hard"><textarea value={draft.hard} onChange={(event) => updateDraft({ hard: event.target.value })} className="form-control min-h-24" /></Field>
+        <Field label="Completion rating 1-10"><input type="number" min="1" max="10" value={draft.completionRating} onChange={(event) => updateDraft({ completionRating: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+        <SelectField label="Decision" value={draft.decision} options={["continue", "adjust", "pause"]} onChange={(decision) => updateDraft({ decision: decision as PlanWeeklyReview["decision"] })} />
+        <Field label="Next week focus"><input value={draft.nextWeekFocus} onChange={(event) => updateDraft({ nextWeekFocus: event.target.value })} className="form-control" /></Field>
+        <PlanSpecificReviewFields plan={plan} draft={draft} updateSpecific={updateSpecific} />
+      </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={save} className="primary-button justify-center">Save Weekly Review</button>
+        <button type="button" onClick={close} className="secondary-button justify-center">Cancel</button>
+      </div>
+    </section>
+  );
+}
+
+function PlanSpecificReviewFields({ plan, draft, updateSpecific }: { plan: ActivePlan; draft: PlanWeeklyReview; updateSpecific: (key: string, value: string | number | boolean) => void }) {
+  const s = draft.specifics;
+  if (plan.type === "get_lean_shred") {
+    return (
+      <>
+        <Field label="Current weight"><input type="number" value={Number(s.currentWeight) || ""} onChange={(event) => updateSpecific("currentWeight", Number(event.target.value) || 0)} className="form-control" /></Field>
+        <Field label="Hunger 1-10"><input type="number" value={Number(s.hunger) || ""} onChange={(event) => updateSpecific("hunger", clampNumber(Number(event.target.value) || 1, 1, 10))} className="form-control" /></Field>
+        <Field label="Energy 1-10"><input type="number" value={Number(s.energy) || ""} onChange={(event) => updateSpecific("energy", clampNumber(Number(event.target.value) || 1, 1, 10))} className="form-control" /></Field>
+        <Field label="Calories consistency"><input value={String(s.caloriesConsistency ?? "")} onChange={(event) => updateSpecific("caloriesConsistency", event.target.value)} className="form-control" /></Field>
+        <Field label="Protein consistency"><input value={String(s.proteinConsistency ?? "")} onChange={(event) => updateSpecific("proteinConsistency", event.target.value)} className="form-control" /></Field>
+      </>
+    );
+  }
+  if (plan.type === "fix_sleep_energy") {
+    return (
+      <>
+        <Field label="Average sleep"><input type="number" value={Number(s.averageSleep) || ""} onChange={(event) => updateSpecific("averageSleep", Number(event.target.value) || 0)} className="form-control" /></Field>
+        <Field label="Energy average"><input type="number" value={Number(s.energyAverage) || ""} onChange={(event) => updateSpecific("energyAverage", Number(event.target.value) || 0)} className="form-control" /></Field>
+        <Field label="Caffeine cutoff success"><input value={String(s.caffeineCutoffSuccess ?? "")} onChange={(event) => updateSpecific("caffeineCutoffSuccess", event.target.value)} className="form-control" /></Field>
+        <Field label="Night routine consistency"><input value={String(s.nightRoutineConsistency ?? "")} onChange={(event) => updateSpecific("nightRoutineConsistency", event.target.value)} className="form-control" /></Field>
+      </>
+    );
+  }
+  if (plan.type === "build_project") {
+    return (
+      <>
+        <Field label="Project minutes"><input type="number" value={Number(s.projectMinutes) || ""} onChange={(event) => updateSpecific("projectMinutes", Number(event.target.value) || 0)} className="form-control" /></Field>
+        <Field label="Progress made"><input value={String(s.progressMade ?? "")} onChange={(event) => updateSpecific("progressMade", event.target.value)} className="form-control" /></Field>
+        <Field label="Blocker"><input value={String(s.blocker ?? "")} onChange={(event) => updateSpecific("blocker", event.target.value)} className="form-control" /></Field>
+        <Field label="Next milestone"><input value={String(s.nextMilestone ?? "")} onChange={(event) => updateSpecific("nextMilestone", event.target.value)} className="form-control" /></Field>
+      </>
+    );
+  }
+  if (plan.type === "learn_master_subject") {
+    return (
+      <>
+        <Field label="Study days"><input type="number" value={Number(s.studyDays) || ""} onChange={(event) => updateSpecific("studyDays", Number(event.target.value) || 0)} className="form-control" /></Field>
+        <Field label="Topic learned"><input value={String(s.topicLearned ?? "")} onChange={(event) => updateSpecific("topicLearned", event.target.value)} className="form-control" /></Field>
+        <Field label="Difficulty"><input value={String(s.difficulty ?? "")} onChange={(event) => updateSpecific("difficulty", event.target.value)} className="form-control" /></Field>
+        <Field label="Can explain without notes?"><input value={String(s.canExplain ?? "")} onChange={(event) => updateSpecific("canExplain", event.target.value)} className="form-control" /></Field>
+      </>
+    );
+  }
+  return (
+    <>
+      <Field label="Missing items"><input value={String(s.missingItems ?? "")} onChange={(event) => updateSpecific("missingItems", event.target.value)} className="form-control" /></Field>
+      <Field label="Restock needed"><input value={String(s.restockNeeded ?? "")} onChange={(event) => updateSpecific("restockNeeded", event.target.value)} className="form-control" /></Field>
+      <Field label="Life maintenance score"><input type="number" value={Number(s.lifeMaintenanceScore) || ""} onChange={(event) => updateSpecific("lifeMaintenanceScore", Number(event.target.value) || 0)} className="form-control" /></Field>
+    </>
+  );
+}
+
 function ProgressFoundation({
   review,
   setReview,
@@ -3836,7 +4485,8 @@ function ProgressFoundation({
   analytics,
   streaks,
   activePlans,
-  updateActivePlan
+  updateActivePlan,
+  dailyFoodLogs
 }: {
   review: Review;
   setReview: Dispatch<SetStateAction<Review>>;
@@ -3850,8 +4500,13 @@ function ProgressFoundation({
   streaks: Streaks;
   activePlans: ActivePlan[];
   updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
+  dailyFoodLogs: DailyFoodLogs;
 }) {
   const activeProgressPlans = activePlans;
+  const activePlanCount = activeProgressPlans.filter((plan) => plan.status === "active").length;
+  const pausedPlanCount = activeProgressPlans.filter((plan) => plan.status === "paused").length;
+  const weeklyReviewCount = activeProgressPlans.reduce((total, plan) => total + getPlanWeeklyReviews(plan).length, 0);
+  const planLogCount = activeProgressPlans.reduce((total, plan) => total + getPlanLogCount(plan), 0);
 
   return (
     <section className="grid gap-6">
@@ -3865,6 +4520,10 @@ function ProgressFoundation({
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MiniMetric label="Current Streak" value={streaks.current} />
           <MiniMetric label="Best Streak" value={streaks.best} />
+          <MiniMetric label="Active Plans" value={activePlanCount} />
+          <MiniMetric label="Paused Plans" value={pausedPlanCount} />
+          <MiniMetric label="Weekly Reviews" value={weeklyReviewCount} />
+          <MiniMetric label="Recent Plan Logs" value={planLogCount} />
           <MiniMetric label="Productive" value={streaks.productive} />
           <MiniMetric label="Daily Log Model" value={dailyLogFoundation.date || "Ready"} />
         </div>
@@ -3880,12 +4539,17 @@ function ProgressFoundation({
         </Panel>
       ) : null}
 
-      {activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject") ? (
-        <CollapsibleSection title="Daily Logs" subtitle="Fitness and study logs for active plans." defaultOpen={false}>
+      {activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project") ? (
+        <CollapsibleSection title="Daily Logs" subtitle="Fitness, sleep, project, and study logs for active plans." defaultOpen={false}>
           <div className="grid gap-5">
+            {activeProgressPlans.some((plan) => plan.type === "get_lean_shred") ? (
+              <GetLeanNutritionSummary activePlans={activeProgressPlans} dailyFoodLogs={dailyFoodLogs} />
+            ) : null}
             {activeProgressPlans.map((plan) => {
               const planSetter: Dispatch<SetStateAction<ActivePlan | null>> = (updater) => updateActivePlan(plan.id, updater);
               if (plan.type === "get_lean_shred") return <GetLeanProgressPanel key={plan.id} activePlan={normalizeGetLeanPlan(plan)} setActivePlan={planSetter} />;
+              if (plan.type === "fix_sleep_energy") return <SleepEnergyProgressPanel key={plan.id} activePlan={normalizeSleepEnergyPlan(plan)} setActivePlan={planSetter} />;
+              if (plan.type === "build_project") return <BuildProjectProgressPanel key={plan.id} activePlan={normalizeBuildProjectPlan(plan)} setActivePlan={planSetter} />;
               if (plan.type === "learn_master_subject") return <LearnMasterProgressPanel key={plan.id} activePlan={normalizeLearnMasterPlan(plan)} setActivePlan={planSetter} />;
               return null;
             })}
@@ -4323,6 +4987,14 @@ function ProfileVersionSection() {
           <li>V2.1 Everyday Essentials preset plan</li>
           <li>V2.2 Get Lean / Shred preset plan</li>
           <li>V2.3 Learn / Master Subject preset plan</li>
+          <li>V2.4 Multiple active plans</li>
+          <li>V2.5 Today Priority Control</li>
+          <li>V2.6 Wake time + target sleep Build Today</li>
+          <li>V2.7 Get Lean macro targets + food log</li>
+          <li>V2.8 Fix Sleep & Energy preset plan</li>
+          <li>V2.9 Build a Project preset plan</li>
+          <li>V2.10 Active Plan Control Center</li>
+          <li>V2.11 Stability + backup test pass</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -4338,10 +5010,14 @@ function EssentialsSelect({ label, value, options, onChange }: { label: string; 
 
 function ActivePlanTasksSection({
   activePlans,
-  updateActivePlan
+  updateActivePlan,
+  foodLogs,
+  todayKey
 }: {
   activePlans: ActivePlan[];
   updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
+  foodLogs: DailyFoodLogs;
+  todayKey: string;
 }) {
   const [filter, setFilter] = useState<PlanTaskFilter>("All");
   const [showMore, setShowMore] = useState(false);
@@ -4349,6 +5025,9 @@ function ActivePlanTasksSection({
   const filteredRows = filter === "All" ? prioritizedRows : prioritizedRows.filter((row) => row.filterGroup === filter);
   const visibleRows = showMore ? filteredRows : filteredRows.slice(0, 5);
   const hiddenCount = Math.max(filteredRows.length - 5, 0);
+  const getLeanPlan = activePlans.find((plan): plan is GetLeanPlan => plan.type === "get_lean_shred");
+  const sleepPlan = activePlans.find((plan): plan is SleepEnergyPlan => plan.type === "fix_sleep_energy");
+  const projectPlan = activePlans.find((plan): plan is BuildProjectPlan => plan.type === "build_project");
 
   return (
     <Panel compact>
@@ -4360,6 +5039,14 @@ function ActivePlanTasksSection({
         </div>
         <Badge tone="dark">{filteredRows.length} tasks</Badge>
       </div>
+
+      {getLeanPlan ? (
+        <CompactMacroSummary activePlan={normalizeGetLeanPlan(getLeanPlan)} entries={foodLogs[todayKey] ?? []} />
+      ) : null}
+
+      {sleepPlan ? <CompactSleepEnergySummary activePlan={normalizeSleepEnergyPlan(sleepPlan)} /> : null}
+
+      {projectPlan ? <CompactProjectSummary activePlan={normalizeBuildProjectPlan(projectPlan)} /> : null}
 
       <div className="mt-5 flex flex-wrap gap-2">
         {(["All", "Main", "Body", "Skill", "Essentials"] as PlanTaskFilter[]).map((option) => (
@@ -4667,6 +5354,8 @@ function GetLeanSetupPanel({
         <MiniMetric label="Maintenance" value={`${Math.round(calculations.maintenanceCalories)} kcal`} />
         <MiniMetric label="Target Calories" value={`${Math.round(calculations.targetCalories)} kcal`} />
         <MiniMetric label="Protein Target" value={`${Math.round(calculations.proteinTarget)}g`} />
+        <MiniMetric label="Carb Target" value={`${Math.round(calculations.carbTarget)}g`} />
+        <MiniMetric label="Fat Target" value={`${Math.round(calculations.fatTarget)}g`} />
         <MiniMetric label="Step Target" value={`${calculations.stepTarget.toLocaleString()} steps`} />
         <MiniMetric label="Workout Plan" value={calculations.workoutDaysPerWeek} />
         <MiniMetric label="Water Target" value={calculations.waterTarget} />
@@ -4713,11 +5402,29 @@ function GetLeanTodayCard({ activePlan, setActivePlan }: { activePlan: GetLeanPl
   );
 }
 
-function GetLeanPlanDetails({ activePlan, setActivePlan }: { activePlan: GetLeanPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>> }) {
+function GetLeanPlanDetails({
+  activePlan,
+  setActivePlan,
+  foodLibrary,
+  setFoodLibrary,
+  dailyFoodLogs,
+  setDailyFoodLogs,
+  todayKey
+}: {
+  activePlan: GetLeanPlan;
+  setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>;
+  foodLibrary: FoodItem[];
+  setFoodLibrary: Dispatch<SetStateAction<FoodItem[]>>;
+  dailyFoodLogs: DailyFoodLogs;
+  setDailyFoodLogs: Dispatch<SetStateAction<DailyFoodLogs>>;
+  todayKey: string;
+}) {
   const completed = activePlan.dailyTasks.filter((item) => !item.disabled && item.completed).length;
   const total = activePlan.dailyTasks.filter((item) => !item.disabled).length;
+  const macroTargets = getMacroTargets(activePlan);
 
   return (
+    <div className="grid gap-5">
     <Panel>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
@@ -4732,7 +5439,9 @@ function GetLeanPlanDetails({ activePlan, setActivePlan }: { activePlan: GetLean
         <MiniMetric label="BMR" value={`${Math.round(activePlan.calculations.bmr)} kcal`} />
         <MiniMetric label="Maintenance" value={`${Math.round(activePlan.calculations.maintenanceCalories)} kcal`} />
         <MiniMetric label="Target Calories" value={`${Math.round(activePlan.calculations.targetCalories)} kcal`} />
-        <MiniMetric label="Protein" value={`${Math.round(activePlan.calculations.proteinTarget)}g`} />
+        <MiniMetric label="Protein" value={`${macroTargets.protein}g`} />
+        <MiniMetric label="Carbs" value={`${macroTargets.carbs}g`} />
+        <MiniMetric label="Fat" value={`${macroTargets.fat}g`} />
         <MiniMetric label="Steps" value={`${activePlan.calculations.stepTarget.toLocaleString()}`} />
         <MiniMetric label="Workout" value={activePlan.calculations.workoutDaysPerWeek} />
         <MiniMetric label="Water" value={activePlan.calculations.waterTarget} />
@@ -4749,6 +5458,288 @@ function GetLeanPlanDetails({ activePlan, setActivePlan }: { activePlan: GetLean
         {getLeanSpeedDescription(activePlan.speed)} Adjust slowly. If you feel unwell, slow down and prioritize sleep, food quality, and recovery.
       </div>
     </Panel>
+    <GetLeanFoodLog
+      activePlan={activePlan}
+      foodLibrary={foodLibrary}
+      setFoodLibrary={setFoodLibrary}
+      dailyFoodLogs={dailyFoodLogs}
+      setDailyFoodLogs={setDailyFoodLogs}
+      todayKey={todayKey}
+    />
+    </div>
+  );
+}
+
+function CompactMacroSummary({ activePlan, entries }: { activePlan: GetLeanPlan; entries: FoodEntry[] }) {
+  const targets = getMacroTargets(activePlan);
+  const totals = getFoodTotals(entries);
+  return (
+    <div className="mt-4 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">Today Macros</p>
+        <Badge tone="dark">Get Lean</Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs font-black text-slate-200">
+        <MacroMini label="Calories" value={`${totals.calories} / ${targets.calories}`} />
+        <MacroMini label="Protein" value={`${totals.protein}g / ${targets.protein}g`} />
+        <MacroMini label="Carbs" value={`${totals.carbs}g / ${targets.carbs}g`} />
+        <MacroMini label="Fat" value={`${totals.fat}g / ${targets.fat}g`} />
+      </div>
+    </div>
+  );
+}
+
+function MacroMini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-white/10 bg-black/20 p-2">
+      <p className="text-[10px] uppercase tracking-[0.12em] text-slate-400">{label}</p>
+      <p className="mt-1 break-words text-sm text-white">{value}</p>
+    </div>
+  );
+}
+
+function CompactSleepEnergySummary({ activePlan }: { activePlan: SleepEnergyPlan }) {
+  const setup = activePlan.setup;
+  return (
+    <div className="mt-4 rounded-2xl border border-indigo-200/15 bg-indigo-300/[0.055] p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">Sleep & Energy</p>
+        <Badge tone="dark">Routine</Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs font-black text-slate-200">
+        <MacroMini label="Sleep target" value={`${getSleepTargetHours(setup)}h · ${setup.targetSleepTime}`} />
+        <MacroMini label="Caffeine cutoff" value={setup.caffeineCutoffTime} />
+        <MacroMini label="Shutdown" value={getNightShutdownTime(setup.targetSleepTime, 720)} />
+        <MacroMini label="Sleep Boost" value={setup.includeNannoSleepBoost ? "Enabled" : "Off"} />
+      </div>
+    </div>
+  );
+}
+
+function CompactProjectSummary({ activePlan }: { activePlan: BuildProjectPlan }) {
+  const nextTask = activePlan.dailyTasks.find((task) => !task.completed && !task.disabled) ?? activePlan.dailyTasks.find((task) => !task.disabled);
+  return (
+    <div className="mt-4 rounded-2xl border border-amber-200/15 bg-amber-300/[0.055] p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Build Project</p>
+        <Badge tone="dark">{activePlan.setup.currentStage}</Badge>
+      </div>
+      <div className="grid gap-2">
+        <MacroMini label="Project" value={activePlan.setup.projectName || "Untitled project"} />
+        <MacroMini label="Today mission" value={nextTask?.title ?? "Choose one tiny project task"} />
+        <MacroMini label="Time" value={`${getProjectDailyMinutes(activePlan.setup)} min`} />
+      </div>
+    </div>
+  );
+}
+
+function GetLeanFoodLog({
+  activePlan,
+  foodLibrary,
+  setFoodLibrary,
+  dailyFoodLogs,
+  setDailyFoodLogs,
+  todayKey
+}: {
+  activePlan: GetLeanPlan;
+  foodLibrary: FoodItem[];
+  setFoodLibrary: Dispatch<SetStateAction<FoodItem[]>>;
+  dailyFoodLogs: DailyFoodLogs;
+  setDailyFoodLogs: Dispatch<SetStateAction<DailyFoodLogs>>;
+  todayKey: string;
+}) {
+  const normalizedLibrary = normalizeFoodLibrary(foodLibrary);
+  const entries = normalizeFoodEntries(dailyFoodLogs[todayKey] ?? [], normalizedLibrary);
+  const targets = getMacroTargets(activePlan);
+  const totals = getFoodTotals(entries);
+  const [entryDraft, setEntryDraft] = useState(() => createDefaultFoodEntryDraft(normalizedLibrary));
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [foodDraft, setFoodDraft] = useState<FoodItem>(createBlankFoodItem());
+  const [editingFoodId, setEditingFoodId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEntryDraft((current) => normalizedLibrary.some((food) => food.id === current.foodId) ? current : createDefaultFoodEntryDraft(normalizedLibrary));
+  }, [normalizedLibrary]);
+
+  function saveEntries(nextEntries: FoodEntry[]) {
+    setDailyFoodLogs((current) => ({ ...current, [todayKey]: nextEntries.map((entry) => normalizeFoodEntry(entry, normalizedLibrary)) }));
+  }
+
+  function saveFoodLibrary(nextLibrary: FoodItem[]) {
+    setFoodLibrary(normalizeFoodLibrary(nextLibrary));
+  }
+
+  function addOrUpdateEntry() {
+    const food = normalizedLibrary.find((item) => item.id === entryDraft.foodId);
+    if (!food || entryDraft.amount <= 0) return;
+    const nutrition = calculateFoodEntryNutrition(food, entryDraft.amount);
+    const nextEntry: FoodEntry = {
+      id: editingEntryId ?? `food-entry-${Date.now()}`,
+      foodId: food.id,
+      foodName: food.name,
+      meal: entryDraft.meal,
+      amount: entryDraft.amount,
+      unit: food.unit,
+      measurementType: food.measurementType,
+      calories: nutrition.calories,
+      protein: nutrition.protein,
+      carbs: nutrition.carbs,
+      fat: nutrition.fat,
+      note: entryDraft.note.trim()
+    };
+    saveEntries([...entries.filter((entry) => entry.id !== nextEntry.id), nextEntry]);
+    setEditingEntryId(null);
+    setEntryDraft(createDefaultFoodEntryDraft(normalizedLibrary));
+  }
+
+  function editEntry(entry: FoodEntry) {
+    setEditingEntryId(entry.id);
+    setEntryDraft({ foodId: entry.foodId, meal: entry.meal, amount: entry.amount, note: entry.note });
+  }
+
+  function deleteEntry(id: string) {
+    if (!window.confirm("Delete this food entry?")) return;
+    saveEntries(entries.filter((entry) => entry.id !== id));
+  }
+
+  function saveFood() {
+    if (!foodDraft.name.trim()) return;
+    const normalizedFood = normalizeFoodItem({ ...foodDraft, id: editingFoodId ?? foodDraft.id ?? `food-${Date.now()}`, custom: true });
+    saveFoodLibrary([...normalizedLibrary.filter((food) => food.id !== normalizedFood.id), normalizedFood]);
+    setEditingFoodId(null);
+    setFoodDraft(createBlankFoodItem());
+  }
+
+  function editFood(food: FoodItem) {
+    setEditingFoodId(food.id);
+    setFoodDraft(food);
+  }
+
+  const groupedEntries = mealTypes.map((meal) => ({ meal, entries: entries.filter((entry) => entry.meal === meal) }));
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Get Lean Food Log</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Macro targets + simple food record</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Nutrition values are estimates. Edit foods to match your real portions, oil, skin, cooking method, and brand.</p>
+        </div>
+        <Badge tone="dark">{todayKey}</Badge>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniMetric label="Calories" value={`${targets.calories} kcal`} />
+        <MiniMetric label="Protein" value={`${targets.protein}g`} />
+        <MiniMetric label="Carbs" value={`${targets.carbs}g`} />
+        <MiniMetric label="Fat" value={`${targets.fat}g`} />
+        <MiniMetric label="Water" value={targets.water} />
+        <MiniMetric label="Steps" value={targets.steps.toLocaleString()} />
+        <MiniMetric label="Sleep" value={`${targets.sleep}h`} />
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <MacroSummaryCard title="Consumed so far" values={totals} />
+        <MacroSummaryCard title="Remaining today" values={getRemainingMacros(targets, totals)} remaining />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <h4 className="font-black text-white">{editingEntryId ? "Edit Food Entry" : "Add Food Entry"}</h4>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <SelectField label="Food" value={entryDraft.foodId} options={normalizedLibrary.map((food) => food.id)} onChange={(foodId) => setEntryDraft((current) => ({ ...current, foodId }))} optionLabels={Object.fromEntries(normalizedLibrary.map((food) => [food.id, `${food.name} (${food.unit})`]))} />
+          <SelectField label="Meal" value={entryDraft.meal} options={mealTypes} onChange={(meal) => setEntryDraft((current) => ({ ...current, meal: meal as MealType }))} />
+          <Field label="Amount">
+            <input type="number" value={entryDraft.amount || ""} onChange={(event) => setEntryDraft((current) => ({ ...current, amount: Number(event.target.value) || 0 }))} className="form-control" />
+          </Field>
+          <Field label="Note">
+            <input value={entryDraft.note} onChange={(event) => setEntryDraft((current) => ({ ...current, note: event.target.value }))} className="form-control" placeholder="Optional" />
+          </Field>
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <button type="button" onClick={addOrUpdateEntry} className="primary-button justify-center">{editingEntryId ? "Save Entry" : "Add Food"}</button>
+          {editingEntryId ? <button type="button" onClick={() => { setEditingEntryId(null); setEntryDraft(createDefaultFoodEntryDraft(normalizedLibrary)); }} className="secondary-button justify-center">Cancel Edit</button> : null}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        {groupedEntries.map(({ meal, entries: mealEntries }) => (
+          <section key={meal} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="font-black text-white">{meal}</h4>
+              <Badge tone="dark">{mealEntries.length}</Badge>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {mealEntries.length ? mealEntries.map((entry) => (
+                <FoodEntryRow key={entry.id} entry={entry} editEntry={editEntry} deleteEntry={deleteEntry} />
+              )) : <p className="text-sm font-semibold text-slate-400">No food logged.</p>}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <CollapsibleSection title="Food Library" subtitle="Edit default nutrition estimates or create custom foods." defaultOpen={false}>
+        <div className="grid gap-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="Food name"><input value={foodDraft.name} onChange={(event) => setFoodDraft((current) => ({ ...current, name: event.target.value }))} className="form-control" /></Field>
+            <Field label="Unit"><input value={foodDraft.unit} onChange={(event) => setFoodDraft((current) => ({ ...current, unit: event.target.value }))} className="form-control" /></Field>
+            <SelectField label="Measurement type" value={foodDraft.measurementType} options={measurementTypes} onChange={(measurementType) => setFoodDraft((current) => ({ ...current, measurementType: measurementType as FoodMeasurementType }))} />
+            <Field label="Calories"><input type="number" value={foodDraft.calories || ""} onChange={(event) => setFoodDraft((current) => ({ ...current, calories: Number(event.target.value) || 0 }))} className="form-control" /></Field>
+            <Field label="Protein"><input type="number" value={foodDraft.protein || ""} onChange={(event) => setFoodDraft((current) => ({ ...current, protein: Number(event.target.value) || 0 }))} className="form-control" /></Field>
+            <Field label="Carbs"><input type="number" value={foodDraft.carbs || ""} onChange={(event) => setFoodDraft((current) => ({ ...current, carbs: Number(event.target.value) || 0 }))} className="form-control" /></Field>
+            <Field label="Fat"><input type="number" value={foodDraft.fat || ""} onChange={(event) => setFoodDraft((current) => ({ ...current, fat: Number(event.target.value) || 0 }))} className="form-control" /></Field>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button type="button" onClick={saveFood} className="primary-button justify-center">{editingFoodId ? "Save Food" : "Create Custom Food"}</button>
+            {editingFoodId ? <button type="button" onClick={() => { setEditingFoodId(null); setFoodDraft(createBlankFoodItem()); }} className="secondary-button justify-center">Cancel Edit</button> : null}
+          </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            {normalizedLibrary.map((food) => (
+              <div key={food.id} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-black text-white">{food.name}</p>
+                    <p className="mt-1 text-xs font-bold leading-5 text-slate-400">{food.unit} · {food.calories} kcal · P {food.protein}g · C {food.carbs}g · F {food.fat}g</p>
+                  </div>
+                  <button type="button" onClick={() => editFood(food)} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CollapsibleSection>
+    </Panel>
+  );
+}
+
+function MacroSummaryCard({ title, values, remaining = false }: { title: string; values: MacroTotals; remaining?: boolean }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h4 className="font-black text-white">{title}</h4>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <MacroMini label="Calories" value={remaining ? formatRemaining(values.calories, "kcal") : `${values.calories} kcal`} />
+        <MacroMini label="Protein" value={remaining ? formatRemaining(values.protein, "g") : `${values.protein}g`} />
+        <MacroMini label="Carbs" value={remaining ? formatRemaining(values.carbs, "g") : `${values.carbs}g`} />
+        <MacroMini label="Fat" value={remaining ? formatRemaining(values.fat, "g") : `${values.fat}g`} />
+      </div>
+    </section>
+  );
+}
+
+function FoodEntryRow({ entry, editEntry, deleteEntry }: { entry: FoodEntry; editEntry: (entry: FoodEntry) => void; deleteEntry: (id: string) => void }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-black text-white">{entry.foodName}</p>
+          <p className="mt-1 text-xs font-bold leading-5 text-slate-400">{entry.amount} {getAmountUnitLabel(entry)} · {entry.calories} kcal · P {entry.protein}g · C {entry.carbs}g · F {entry.fat}g</p>
+          {entry.note ? <p className="mt-1 break-words text-xs text-slate-400">{entry.note}</p> : null}
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <button type="button" onClick={() => editEntry(entry)} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit</button>
+          <button type="button" onClick={() => deleteEntry(entry.id)} className="secondary-button min-h-9 border-red-300/25 px-3 py-2 text-xs text-red-100">Delete</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -4874,6 +5865,388 @@ function GetLeanProgressPanel({ activePlan, setActivePlan }: { activePlan: GetLe
           <p className="mt-3 text-sm leading-6 text-slate-300">{latestFeedback}</p>
           <p className="mt-3 text-sm leading-6 text-slate-400">General planning only. Adjust slowly. If you feel unwell, slow down and prioritize sleep, food quality, and recovery.</p>
         </section>
+      </div>
+    </Panel>
+  );
+}
+
+function GetLeanNutritionSummary({ activePlans, dailyFoodLogs }: { activePlans: ActivePlan[]; dailyFoodLogs: DailyFoodLogs }) {
+  const getLeanPlan = activePlans.find((plan): plan is GetLeanPlan => plan.type === "get_lean_shred");
+  if (!getLeanPlan) return null;
+  const normalizedPlan = normalizeGetLeanPlan(getLeanPlan);
+  const targets = getMacroTargets(normalizedPlan);
+  const loggedDays = Object.entries(dailyFoodLogs)
+    .map(([date, entries]) => ({ date, totals: getFoodTotals(entries) }))
+    .filter((day) => day.totals.calories > 0 || day.totals.protein > 0 || day.totals.carbs > 0 || day.totals.fat > 0);
+  const daysLogged = loggedDays.length;
+  const sums = loggedDays.reduce<MacroTotals>((total, day) => ({
+    calories: total.calories + day.totals.calories,
+    protein: total.protein + day.totals.protein,
+    carbs: total.carbs + day.totals.carbs,
+    fat: total.fat + day.totals.fat
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const average = {
+    calories: daysLogged ? Math.round(sums.calories / daysLogged) : 0,
+    protein: daysLogged ? Math.round(sums.protein / daysLogged) : 0,
+    carbs: daysLogged ? Math.round(sums.carbs / daysLogged) : 0,
+    fat: daysLogged ? Math.round(sums.fat / daysLogged) : 0
+  };
+  const calorieRange = Math.round(targets.calories * 0.1);
+  const daysCaloriesWithinTarget = loggedDays.filter((day) => Math.abs(day.totals.calories - targets.calories) <= calorieRange).length;
+  const daysProteinTargetHit = loggedDays.filter((day) => day.totals.protein >= targets.protein).length;
+
+  return (
+    <Panel>
+      <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Get Lean Nutrition Summary</p>
+      <h3 className="mt-2 text-2xl font-black text-white">Food log consistency</h3>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniMetric label="Days Logged" value={daysLogged} />
+        <MiniMetric label="Avg Calories" value={`${average.calories} kcal`} />
+        <MiniMetric label="Avg Protein" value={`${average.protein}g`} />
+        <MiniMetric label="Avg Carbs" value={`${average.carbs}g`} />
+        <MiniMetric label="Avg Fat" value={`${average.fat}g`} />
+        <MiniMetric label="Calories In Range" value={`${daysCaloriesWithinTarget}/${daysLogged || 0}`} />
+        <MiniMetric label="Protein Hit" value={`${daysProteinTargetHit}/${daysLogged || 0}`} />
+      </div>
+    </Panel>
+  );
+}
+
+function SleepEnergySetupPanel({
+  setup,
+  setSetup,
+  onSave,
+  onCancel
+}: {
+  setup: SleepEnergySetup;
+  setSetup: Dispatch<SetStateAction<SleepEnergySetup>>;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  function updateSetup(patch: Partial<SleepEnergySetup>) {
+    setSetup((current) => ({ ...current, ...patch }));
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Fix Sleep & Energy Setup</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Stabilize sleep, protect energy, and build a better night routine.</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">This is a personal routine tracker, not medical advice.</p>
+        </div>
+        <Badge tone="gold">Sleep rhythm</Badge>
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Field label="Normal wake time"><input type="time" value={timeToInputValue(setup.normalWakeTime)} onChange={(event) => updateSetup({ normalWakeTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <Field label="Target sleep time"><input type="time" value={timeToInputValue(setup.targetSleepTime)} onChange={(event) => updateSetup({ targetSleepTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <SelectField label="Target sleep duration" value={setup.targetSleepDuration} options={sleepDurationOptions} onChange={(targetSleepDuration) => updateSetup({ targetSleepDuration })} />
+        {setup.targetSleepDuration === "custom" ? <Field label="Custom sleep hours"><input type="number" value={setup.customSleepDuration || ""} onChange={(event) => updateSetup({ customSleepDuration: Number(event.target.value) || 8 })} className="form-control" /></Field> : null}
+        <SelectField label="Current sleep problem" value={setup.currentSleepProblem} options={sleepProblemOptions} onChange={(currentSleepProblem) => updateSetup({ currentSleepProblem })} />
+        <SelectField label="Caffeine habit" value={setup.caffeineHabit} options={caffeineHabitOptions} onChange={(caffeineHabit) => updateSetup({ caffeineHabit })} />
+        <Field label="Caffeine cutoff time"><input type="time" value={timeToInputValue(setup.caffeineCutoffTime)} onChange={(event) => updateSetup({ caffeineCutoffTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <SelectField label="Nap preference" value={setup.napPreference} options={napPreferenceOptions} onChange={(napPreference) => updateSetup({ napPreference })} />
+        <SelectField label="Night routine preference" value={setup.nightRoutinePreference} options={nightRoutineOptions} onChange={(nightRoutinePreference) => updateSetup({ nightRoutinePreference })} />
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white">
+          <input type="checkbox" checked={setup.includeNannoSleepBoost} onChange={(event) => updateSetup({ includeNannoSleepBoost: event.target.checked })} className="h-5 w-5 accent-emerald-400" />
+          Include Nanno&apos;s Sleep Boost
+        </label>
+      </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={onSave} className="primary-button justify-center">Save Fix Sleep & Energy Plan</button>
+        <button type="button" onClick={onCancel} className="secondary-button justify-center">Cancel</button>
+      </div>
+    </Panel>
+  );
+}
+
+function SleepEnergyPlanDetails({ activePlan, setActivePlan }: { activePlan: SleepEnergyPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>> }) {
+  const completed = activePlan.dailyTasks.filter((item) => !item.disabled && item.completed).length;
+  const total = activePlan.dailyTasks.filter((item) => !item.disabled).length;
+  return (
+    <div className="grid gap-5">
+      <Panel>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Details</p>
+            <h3 className="mt-2 text-2xl font-black text-white">Fix Sleep & Energy</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-400">Started {activePlan.startDate}. This is a personal routine tracker, not medical advice.</p>
+          </div>
+          <Badge tone="green">Active</Badge>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MiniMetric label="Wake Time" value={activePlan.setup.normalWakeTime} />
+          <MiniMetric label="Sleep Time" value={activePlan.setup.targetSleepTime} />
+          <MiniMetric label="Sleep Target" value={`${getSleepTargetHours(activePlan.setup)}h`} />
+          <MiniMetric label="Caffeine Cutoff" value={activePlan.setup.caffeineCutoffTime} />
+          <MiniMetric label="Night Shutdown" value={getNightShutdownTime(activePlan.setup.targetSleepTime, 720)} />
+          <MiniMetric label="Daily Sleep Tasks" value={`${completed}/${total}`} />
+        </div>
+        <div className="mt-5 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {activePlan.dailyTasks.map((item) => <SleepEnergyTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} />)}
+        </div>
+      </Panel>
+      <SleepEnergyProgressPanel activePlan={activePlan} setActivePlan={setActivePlan} />
+    </div>
+  );
+}
+
+function SleepEnergyTaskRow({ item, activePlan, setActivePlan, compact = false }: { item: EssentialsItem; activePlan: SleepEnergyPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>; compact?: boolean }) {
+  if (item.disabled && compact) return null;
+  const detail = getSleepTaskDetail(item.id, activePlan);
+  return (
+    <div className={`rounded-2xl border p-3 ${item.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : item.disabled ? "border-orange-300/25 bg-orange-400/[0.06] opacity-70" : "border-white/10 bg-white/[0.04]"}`}>
+      <div className="flex items-start gap-3">
+        <button type="button" onClick={() => updateSleepEnergyTask(activePlan, setActivePlan, item.id, { completed: !item.completed })} className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${item.completed ? "border-emerald-300 bg-emerald-400 text-slate-950" : "border-white/15 bg-black/20 text-slate-400"}`}>
+          {item.completed ? <Check size={16} /> : null}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-black text-white">{item.title}</p>
+          {detail ? <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{detail}</p> : null}
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge tone="dark">{item.category}</Badge>
+            {item.disabled ? <Badge tone="orange">Disabled</Badge> : null}
+          </div>
+        </div>
+        {!compact ? <button type="button" onClick={() => updateSleepEnergyTask(activePlan, setActivePlan, item.id, { disabled: !item.disabled })} className="secondary-button min-h-9 px-3 py-2 text-xs">{item.disabled ? "Enable" : "Disable"}</button> : null}
+      </div>
+    </div>
+  );
+}
+
+function SleepEnergyProgressPanel({ activePlan, setActivePlan }: { activePlan: SleepEnergyPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>> }) {
+  const todayKey = getDateKey(new Date());
+  const todayLog = activePlan.logs.find((log) => log.date === todayKey);
+  const [draft, setDraft] = useState<SleepEnergyLog>(todayLog ?? createDefaultSleepEnergyLog(todayKey, activePlan.setup));
+  const summary = getSleepEnergySummary(activePlan);
+
+  useEffect(() => {
+    setDraft(todayLog ?? createDefaultSleepEnergyLog(todayKey, activePlan.setup));
+  }, [activePlan.setup, todayKey, todayLog]);
+
+  function updateDraft(patch: Partial<SleepEnergyLog>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function saveLog() {
+    setActivePlan({ ...activePlan, logs: [...activePlan.logs.filter((log) => log.date !== draft.date), normalizeSleepEnergyLog(draft, activePlan.setup)].sort((a, b) => a.date.localeCompare(b.date)) });
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Sleep & Energy Progress</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Quick daily sleep log</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">This is a personal routine tracker, not medical advice.</p>
+        </div>
+        <Badge tone="dark">{activePlan.logs.length} logs</Badge>
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Field label="Sleep time"><input type="time" value={timeToInputValue(draft.sleepTime)} onChange={(event) => updateDraft({ sleepTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <Field label="Wake time"><input type="time" value={timeToInputValue(draft.wakeTime)} onChange={(event) => updateDraft({ wakeTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <Field label="Sleep hours"><input type="number" value={draft.sleepHours || ""} onChange={(event) => updateDraft({ sleepHours: Number(event.target.value) || 0 })} className="form-control" /></Field>
+        <Field label="Wake-ups count"><input type="number" value={draft.wakeUpsCount} onChange={(event) => updateDraft({ wakeUpsCount: Number(event.target.value) || 0 })} className="form-control" /></Field>
+        <Field label="Energy 1-10"><input type="number" min="1" max="10" value={draft.energy} onChange={(event) => updateDraft({ energy: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.caffeineAfterCutoff} onChange={(event) => updateDraft({ caffeineAfterCutoff: event.target.checked })} className="h-5 w-5 accent-orange-400" />Caffeine after cutoff?</label>
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.napTaken} onChange={(event) => updateDraft({ napTaken: event.target.checked })} className="h-5 w-5 accent-emerald-400" />Nap taken?</label>
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.nightRoutineCompleted} onChange={(event) => updateDraft({ nightRoutineCompleted: event.target.checked })} className="h-5 w-5 accent-emerald-400" />Night routine completed?</label>
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.targetSleepTimeSuccess} onChange={(event) => updateDraft({ targetSleepTimeSuccess: event.target.checked })} className="h-5 w-5 accent-emerald-400" />Slept on target time?</label>
+        <div className="md:col-span-2 xl:col-span-3"><Field label="Note"><textarea value={draft.notes} onChange={(event) => updateDraft({ notes: event.target.value })} className="form-control min-h-24" placeholder="Energy, phone use, caffeine, wake-ups, or routine notes." /></Field></div>
+      </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={saveLog} className="primary-button justify-center">Save Sleep Log</button>
+        <button type="button" onClick={() => setDraft(createDefaultSleepEnergyLog(todayKey, activePlan.setup))} className="secondary-button justify-center">Reset Today Log</button>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <MiniMetric label="Days Logged" value={summary.daysLogged} />
+        <MiniMetric label="Avg Sleep" value={`${summary.averageSleepHours}h`} />
+        <MiniMetric label="Avg Energy" value={summary.averageEnergy} />
+        <MiniMetric label="Caffeine Cutoff" value={`${summary.caffeineCutoffSuccessDays}/${summary.daysLogged}`} />
+        <MiniMetric label="Night Routine" value={`${summary.nightRoutineCompletedDays}/${summary.daysLogged}`} />
+        <MiniMetric label="Sleep Time Hit" value={`${summary.targetSleepTimeSuccessDays}/${summary.daysLogged}`} />
+      </div>
+      <div className="mt-5 rounded-2xl border border-teal-300/20 bg-teal-300/[0.06] p-4 text-sm leading-6 text-slate-300">
+        <p className="font-black text-white">Rule-based feedback</p>
+        <p className="mt-2">{getSleepEnergyFeedback(activePlan)}</p>
+      </div>
+    </Panel>
+  );
+}
+
+function BuildProjectSetupPanel({
+  setup,
+  setSetup,
+  onSave,
+  onCancel
+}: {
+  setup: ProjectSetup;
+  setSetup: Dispatch<SetStateAction<ProjectSetup>>;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  function updateSetup(patch: Partial<ProjectSetup>) {
+    setSetup((current) => ({ ...current, ...patch }));
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Build a Project Setup</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Turn an idea into daily building missions and weekly milestones.</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Use this for apps, tools, writing, study projects, business ideas, or anything useful you want to ship.</p>
+        </div>
+        <Badge tone="gold">{setup.projectSpeed}</Badge>
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Field label="Project name"><input value={setup.projectName} onChange={(event) => updateSetup({ projectName: event.target.value })} className="form-control" placeholder="KPM Sunny" /></Field>
+        <SelectField label="Project type" value={setup.projectType} options={projectTypeOptions} onChange={(projectType) => updateSetup({ projectType })} />
+        <SelectField label="Project goal" value={setup.projectGoal} options={projectGoalOptions} onChange={(projectGoal) => updateSetup({ projectGoal })} />
+        <SelectField label="Current stage" value={setup.currentStage} options={projectStageOptions} onChange={(currentStage) => updateSetup({ currentStage })} />
+        <SelectField label="Daily project time" value={setup.dailyProjectTime} options={projectDailyTimeOptions} onChange={(dailyProjectTime) => updateSetup({ dailyProjectTime })} />
+        {setup.dailyProjectTime === "custom" ? <Field label="Custom daily minutes"><input type="number" value={setup.customDailyMinutes || ""} onChange={(event) => updateSetup({ customDailyMinutes: Number(event.target.value) || 60 })} className="form-control" /></Field> : null}
+        <SelectField label="Project speed" value={setup.projectSpeed} options={projectSpeedOptions} onChange={(projectSpeed) => updateSetup({ projectSpeed })} />
+        <SelectField label="Deadline" value={setup.deadline} options={projectDeadlineOptions} onChange={(deadline) => updateSetup({ deadline })} />
+        {setup.deadline === "custom date" ? <Field label="Custom deadline"><input type="date" value={setup.customDeadline} onChange={(event) => updateSetup({ customDeadline: event.target.value })} className="form-control" /></Field> : null}
+        <SelectField label="Main bottleneck" value={setup.mainBottleneck} options={projectBottleneckOptions} onChange={(mainBottleneck) => updateSetup({ mainBottleneck })} />
+        <SelectField label="Build style" value={setup.buildStyle} options={projectBuildStyleOptions} onChange={(buildStyle) => updateSetup({ buildStyle })} />
+      </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={onSave} className="primary-button justify-center">Save Build a Project Plan</button>
+        <button type="button" onClick={onCancel} className="secondary-button justify-center">Cancel</button>
+      </div>
+    </Panel>
+  );
+}
+
+function BuildProjectPlanDetails({ activePlan, setActivePlan }: { activePlan: BuildProjectPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>> }) {
+  const completedDaily = activePlan.dailyTasks.filter((item) => !item.disabled && item.completed).length;
+  const totalDaily = activePlan.dailyTasks.filter((item) => !item.disabled).length;
+  const completedMilestones = activePlan.projectRoadmap.filter((item) => item.completed).length;
+  return (
+    <div className="grid gap-5">
+      <Panel>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Details</p>
+            <h3 className="mt-2 text-2xl font-black text-white">{getProjectDisplayTitle(activePlan)}</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-400">Started {activePlan.startDate}. Stage: {activePlan.setup.currentStage}.</p>
+          </div>
+          <Badge tone="green">Active</Badge>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MiniMetric label="Daily Time" value={`${getProjectDailyMinutes(activePlan.setup)} min`} />
+          <MiniMetric label="Speed" value={activePlan.setup.projectSpeed} />
+          <MiniMetric label="Stage" value={activePlan.setup.currentStage} />
+          <MiniMetric label="Milestones" value={`${completedMilestones}/${activePlan.projectRoadmap.length}`} />
+          <MiniMetric label="Daily Build" value={`${completedDaily}/${totalDaily}`} />
+          <MiniMetric label="Deadline" value={getProjectDeadlineLabel(activePlan.setup)} />
+        </div>
+      </Panel>
+
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Project Roadmap</p>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {activePlan.projectRoadmap.map((item) => <ProjectTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} list="projectRoadmap" />)}
+        </div>
+      </Panel>
+
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Daily Project Missions</p>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {activePlan.dailyTasks.map((item) => <ProjectTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} list="dailyTasks" />)}
+        </div>
+      </Panel>
+
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Weekly Project Tasks</p>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {activePlan.weeklyTasks.map((item) => <ProjectTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} list="weeklyTasks" />)}
+        </div>
+      </Panel>
+
+      <BuildProjectProgressPanel activePlan={activePlan} setActivePlan={setActivePlan} />
+    </div>
+  );
+}
+
+function ProjectTaskRow({ item, activePlan, setActivePlan, list, compact = false }: { item: ProjectTask; activePlan: BuildProjectPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>; list: "projectRoadmap" | "dailyTasks" | "weeklyTasks"; compact?: boolean }) {
+  if (item.disabled && compact) return null;
+  return (
+    <div className={`rounded-2xl border p-3 ${item.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : item.disabled ? "border-orange-300/25 bg-orange-400/[0.06] opacity-70" : "border-white/10 bg-white/[0.04]"}`}>
+      <div className="flex items-start gap-3">
+        <button type="button" onClick={() => updateProjectTask(activePlan, setActivePlan, list, item.id, { completed: !item.completed })} className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${item.completed ? "border-emerald-300 bg-emerald-400 text-slate-950" : "border-white/15 bg-black/20 text-slate-400"}`}>
+          {item.completed ? <Check size={16} /> : null}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-black text-white">{item.title}</p>
+          <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{item.detail}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge tone="dark">{getFocusPreset(item.timerPreset).shortLabel}</Badge>
+            {item.disabled ? <Badge tone="orange">Disabled</Badge> : null}
+          </div>
+        </div>
+        {!compact ? <button type="button" onClick={() => updateProjectTask(activePlan, setActivePlan, list, item.id, { disabled: !item.disabled })} className="secondary-button min-h-9 px-3 py-2 text-xs">{item.disabled ? "Enable" : "Disable"}</button> : null}
+      </div>
+    </div>
+  );
+}
+
+function BuildProjectProgressPanel({ activePlan, setActivePlan }: { activePlan: BuildProjectPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>> }) {
+  const todayKey = getDateKey(new Date());
+  const todayLog = activePlan.logs.find((log) => log.date === todayKey);
+  const [draft, setDraft] = useState<ProjectLog>(todayLog ?? createDefaultProjectLog(todayKey, activePlan));
+  const summary = getProjectSummary(activePlan);
+
+  useEffect(() => {
+    setDraft(todayLog ?? createDefaultProjectLog(todayKey, activePlan));
+  }, [activePlan, todayKey, todayLog]);
+
+  function updateDraft(patch: Partial<ProjectLog>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function saveLog() {
+    setActivePlan({ ...activePlan, logs: [...activePlan.logs.filter((log) => log.date !== draft.date), normalizeProjectLog(draft, activePlan)].sort((a, b) => a.date.localeCompare(b.date)) });
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Build Project Progress</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Daily project log</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Keep the next project step obvious. No complexity theater.</p>
+        </div>
+        <Badge tone="dark">{activePlan.logs.length} logs</Badge>
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Field label="What I worked on"><input value={draft.workedOn} onChange={(event) => updateDraft({ workedOn: event.target.value })} className="form-control" /></Field>
+        <Field label="Minutes worked"><input type="number" value={draft.minutesWorked || ""} onChange={(event) => updateDraft({ minutesWorked: Number(event.target.value) || 0 })} className="form-control" /></Field>
+        <Field label="Difficulty 1-10"><input type="number" min="1" max="10" value={draft.difficulty} onChange={(event) => updateDraft({ difficulty: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+        <Field label="Focus 1-10"><input type="number" min="1" max="10" value={draft.focus} onChange={(event) => updateDraft({ focus: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+        <Field label="Blocker"><input value={draft.blocker} onChange={(event) => updateDraft({ blocker: event.target.value })} className="form-control" placeholder="Optional" /></Field>
+        <Field label="Next step"><input value={draft.nextStep} onChange={(event) => updateDraft({ nextStep: event.target.value })} className="form-control" /></Field>
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.weeklyReviewCompleted} onChange={(event) => updateDraft({ weeklyReviewCompleted: event.target.checked })} className="h-5 w-5 accent-emerald-400" />Weekly review completed?</label>
+        <div className="md:col-span-2 xl:col-span-3"><Field label="Note"><textarea value={draft.note} onChange={(event) => updateDraft({ note: event.target.value })} className="form-control min-h-24" placeholder="What changed, what broke, what to do next." /></Field></div>
+      </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={saveLog} className="primary-button justify-center">Save Project Log</button>
+        <button type="button" onClick={() => setDraft(createDefaultProjectLog(todayKey, activePlan))} className="secondary-button justify-center">Reset Today Log</button>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <MiniMetric label="Days Worked" value={summary.daysWorked} />
+        <MiniMetric label="Total Minutes" value={summary.totalMinutes} />
+        <MiniMetric label="Stage" value={activePlan.setup.currentStage} />
+        <MiniMetric label="Milestones" value={`${summary.completedMilestones}/${activePlan.projectRoadmap.length}`} />
+        <MiniMetric label="Open Blockers" value={summary.openBlockers} />
+        <MiniMetric label="Weekly Reviews" value={summary.weeklyReviewCount} />
+      </div>
+      <div className="mt-5 rounded-2xl border border-teal-300/20 bg-teal-300/[0.06] p-4 text-sm leading-6 text-slate-300">
+        <p className="font-black text-white">Rule-based feedback</p>
+        <p className="mt-2">{getProjectFeedback(activePlan)}</p>
+        {summary.lastProgressNote ? <p className="mt-2 text-slate-400">Last note: {summary.lastProgressNote}</p> : null}
       </div>
     </Panel>
   );
@@ -5992,6 +7365,18 @@ function SettingsPanel({
               <li>V1.8 7-day real use test</li>
               <li>V1.9 Smart Mission Scheduler</li>
               <li>Storage + Backup Center</li>
+              <li>V2.0 Life OS foundation</li>
+              <li>V2.1 Everyday Essentials preset plan</li>
+              <li>V2.2 Get Lean / Shred preset plan</li>
+              <li>V2.3 Learn / Master Subject preset plan</li>
+              <li>V2.4 Multiple active plans</li>
+              <li>V2.5 Today Priority Control</li>
+              <li>V2.6 Wake time + target sleep Build Today</li>
+              <li>V2.7 Get Lean macro targets + food log</li>
+              <li>V2.8 Fix Sleep & Energy preset plan</li>
+              <li>V2.9 Build a Project preset plan</li>
+              <li>V2.10 Active Plan Control Center</li>
+              <li>V2.11 Stability + backup test pass</li>
             </ul>
           </div>
           <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -6218,12 +7603,12 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+function SelectField({ label, value, options, onChange, optionLabels }: { label: string; value: string; options: string[]; onChange: (value: string) => void; optionLabels?: Record<string, string> }) {
   return (
     <Field label={label}>
       <select value={value} onChange={(event) => onChange(event.target.value)} className="form-control">
         {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>{optionLabels?.[option] ?? option}</option>
         ))}
       </select>
     </Field>
@@ -6415,15 +7800,17 @@ function getMainMissionForDay(dayTasks: Task[]): Task | undefined {
   return dayTasks.find((task) => task.insertedGoal) || dayTasks.find((task) => task.priority === "S");
 }
 
-function getCurrentMission(dayTasks: Task[]): Task | undefined {
+function getCurrentMission(dayTasks: Task[], startTime = "5:30 AM"): Task | undefined {
   const incompleteTasks = dayTasks
     .filter((task) => !task.completed && !task.skipped)
-    .sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+    .sort((a, b) => relativeTaskMinutes(a.time, startTime) - relativeTaskMinutes(b.time, startTime));
   if (incompleteTasks.length === 0) return undefined;
 
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  return incompleteTasks.find((task) => timeToMinutes(task.time) >= nowMinutes) ?? incompleteTasks[0];
+  const startMinutes = timeToMinutes(startTime);
+  const nowRelativeMinutes = nowMinutes < startMinutes ? nowMinutes + 1440 - startMinutes : nowMinutes - startMinutes;
+  return incompleteTasks.find((task) => relativeTaskMinutes(task.time, startTime) >= nowRelativeMinutes) ?? incompleteTasks[0];
 }
 
 function getMainMissionStatus(task?: Task): "Not started" | "In progress" | "Done" {
@@ -6760,6 +8147,26 @@ function mergeGetLeanSetupWithProfile(setup: GetLeanSetup, profile: ProfileState
   };
 }
 
+function createSleepEnergySetupFromProfile(profile: ProfileState): SleepEnergySetup {
+  const normalized = normalizeProfile(profile);
+  return {
+    ...defaultSleepEnergySetup,
+    normalWakeTime: normalized.normalWakeTime || defaultSleepEnergySetup.normalWakeTime,
+    targetSleepDuration: sleepDurationOptions.includes(`${normalized.sleepTargetHours}h`) ? `${normalized.sleepTargetHours}h` : defaultSleepEnergySetup.targetSleepDuration,
+    customSleepDuration: normalized.sleepTargetHours || defaultSleepEnergySetup.customSleepDuration
+  };
+}
+
+function mergeSleepEnergySetupWithProfile(setup: SleepEnergySetup, profile: ProfileState): SleepEnergySetup {
+  const fromProfile = createSleepEnergySetupFromProfile(profile);
+  return {
+    ...setup,
+    normalWakeTime: setup.normalWakeTime || fromProfile.normalWakeTime,
+    targetSleepDuration: setup.targetSleepDuration || fromProfile.targetSleepDuration,
+    customSleepDuration: setup.customSleepDuration || fromProfile.customSleepDuration
+  };
+}
+
 function normalizePlanStatus(status: unknown): PlanStatus {
   return status === "paused" || status === "completed" || status === "archived" || status === "active" ? status : "active";
 }
@@ -6768,24 +8175,37 @@ function createPlanId(type: string): string {
   return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function normalizeActivePlan(plan: ActivePlan): ActivePlan {
-  if (plan.type === "everyday_essentials") return normalizeEverydayEssentialsPlan(plan);
-  if (plan.type === "get_lean_shred") return normalizeGetLeanPlan(plan);
-  return normalizeLearnMasterPlan(plan);
+function normalizeMaybeActivePlan(plan: unknown): ActivePlan | null {
+  if (!plan || typeof plan !== "object") return null;
+  const candidate = plan as Partial<ActivePlan> & { type?: string };
+  if (candidate.type === "everyday_essentials") return normalizeEverydayEssentialsPlan(candidate as EverydayEssentialsPlan);
+  if (candidate.type === "get_lean_shred") return normalizeGetLeanPlan(candidate as GetLeanPlan);
+  if (candidate.type === "fix_sleep_energy") return normalizeSleepEnergyPlan(candidate as SleepEnergyPlan);
+  if (candidate.type === "build_project") return normalizeBuildProjectPlan(candidate as BuildProjectPlan);
+  if (candidate.type === "learn_master_subject") return normalizeLearnMasterPlan(candidate as LearnMasterPlan);
+  return null;
 }
 
-function normalizeActivePlans(plans: ActivePlan[] = []): ActivePlan[] {
-  return plans.filter(Boolean).map(normalizeActivePlan);
+function normalizeActivePlan(plan: ActivePlan): ActivePlan {
+  return normalizeMaybeActivePlan(plan) ?? createEverydayEssentialsPlan(defaultEssentialsSetup);
+}
+
+function normalizeActivePlans(plans: unknown = []): ActivePlan[] {
+  if (!Array.isArray(plans)) return [];
+  return plans.map(normalizeMaybeActivePlan).filter((plan): plan is ActivePlan => Boolean(plan));
 }
 
 function getPlanDisplayName(plan: ActivePlan): string {
   if (plan.type === "learn_master_subject") return plan.subjectName ? `Learn / Master Subject: ${plan.subjectName}` : plan.name;
+  if (plan.type === "build_project") return getProjectDisplayTitle(normalizeBuildProjectPlan(plan));
   return plan.name;
 }
 
 function getPlanTaskSourceLabel(plan: ActivePlan): string {
   if (plan.type === "everyday_essentials") return "Everyday Essentials";
   if (plan.type === "get_lean_shred") return "Get Lean / Shred";
+  if (plan.type === "fix_sleep_energy") return "Fix Sleep & Energy";
+  if (plan.type === "build_project") return normalizeBuildProjectPlan(plan).setup.projectName ? `Build ${normalizeBuildProjectPlan(plan).setup.projectName}` : "Build a Project";
   if (plan.type === "learn_master_subject") return plan.subjectName ? `Learn ${plan.subjectName}` : "Learn / Master Subject";
   return "Other active plan";
 }
@@ -6799,6 +8219,8 @@ function getTaskSourceLabel(task: Task): string {
 function formatPlanType(type: ActivePlan["type"]): string {
   if (type === "everyday_essentials") return "Everyday Essentials";
   if (type === "get_lean_shred") return "Get Lean / Shred";
+  if (type === "fix_sleep_energy") return "Fix Sleep & Energy";
+  if (type === "build_project") return "Build a Project";
   return "Learn / Master Subject";
 }
 
@@ -6824,6 +8246,32 @@ function getPlanTodayTaskRows(plan: ActivePlan): PlanTaskRow[] {
         title: item.title,
         detail: getLeanTaskTargetDetail(item.id, normalized),
         badge: item.category,
+        completed: item.completed
+      }));
+  }
+
+  if (plan.type === "fix_sleep_energy") {
+    const normalized = normalizeSleepEnergyPlan(plan);
+    return normalized.dailyTasks
+      .filter((item) => !item.disabled)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        detail: getSleepTaskDetail(item.id, normalized),
+        badge: item.category,
+        completed: item.completed
+      }));
+  }
+
+  if (plan.type === "build_project") {
+    const normalized = normalizeBuildProjectPlan(plan);
+    return normalized.dailyTasks
+      .filter((item) => !item.disabled)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        detail: `${item.detail} · ${getProjectDailyMinutes(normalized.setup)} min`,
+        badge: normalized.setup.currentStage,
         completed: item.completed
       }));
   }
@@ -6868,6 +8316,8 @@ function getPlanTaskFilterGroup(plan: ActivePlan, row: PlanTaskRow): Exclude<Pla
   if (plan.type === "everyday_essentials") return "Essentials";
   if (plan.type === "learn_master_subject") return "Skill";
   if (plan.type === "get_lean_shred") return "Body";
+  if (plan.type === "fix_sleep_energy") return "Body";
+  if (plan.type === "build_project") return "Skill";
   if (text.includes("money") || text.includes("main") || text.includes("mission")) return "Main";
   if (text.includes("skill") || text.includes("study") || text.includes("practice") || text.includes("learn")) return "Skill";
   if (text.includes("health") || text.includes("sleep") || text.includes("water") || text.includes("walk")) return "Body";
@@ -6878,8 +8328,8 @@ function getPlanTaskRank(plan: ActivePlan, row: PlanTaskRow, filterGroup: Exclud
   const text = `${row.title} ${row.detail} ${row.badge}`.toLowerCase();
   if (text.includes("s-tier") || text.includes("priority s")) return 10;
   if (text.includes("main mission") || text.includes("main task")) return 20;
-  if (filterGroup === "Body" && /sleep|protein|water|walk|steps|calorie|workout|health/.test(text)) return 30;
-  if (filterGroup === "Skill" || plan.type === "learn_master_subject") return 40;
+  if (filterGroup === "Body" && /sleep|energy|caffeine|nap|night|nanno|screen|protein|water|walk|steps|calorie|workout|health/.test(text)) return 30;
+  if (filterGroup === "Skill" || plan.type === "learn_master_subject" || plan.type === "build_project") return 40;
   if (filterGroup === "Essentials" || plan.type === "everyday_essentials") return 50;
   if (text.includes("weekly") || text.includes("restock")) return 60;
   return 80;
@@ -6916,6 +8366,7 @@ function getPlanDuplicateKey(row: PrioritizedPlanTaskRow): string {
   if (/protein/.test(text)) return "protein";
   if (/calorie|kcal/.test(text)) return "calories";
   if (/practice|coding|project|study session/.test(text)) return "skill-practice";
+  if (/build|project|milestone|mvp|test|feature/.test(text)) return "project-build";
   if (/hygiene|brush teeth|wash face|shower|clean clothes/.test(text)) return "hygiene";
   return row.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
@@ -6987,19 +8438,249 @@ function getPlanCompletion(plan: ActivePlan) {
   };
 }
 
+function normalizePlanWeeklyReviews(reviews: unknown): PlanWeeklyReview[] {
+  if (!Array.isArray(reviews)) return [];
+  return reviews.map((item, index) => {
+    const review = item as Partial<PlanWeeklyReview>;
+    const specifics = review.specifics && typeof review.specifics === "object" && !Array.isArray(review.specifics) ? review.specifics : {};
+    const decision = review.decision === "adjust" || review.decision === "pause" ? review.decision : "continue";
+    return {
+      id: review.id || `weekly-review-${Date.now()}-${index}`,
+      date: review.date || getDateKey(new Date()),
+      wentWell: review.wentWell ?? "",
+      hard: review.hard ?? "",
+      completionRating: clampNumber(Number(review.completionRating) || 5, 1, 10),
+      decision,
+      nextWeekFocus: review.nextWeekFocus ?? "",
+      specifics: specifics as Record<string, string | number | boolean>
+    };
+  });
+}
+
+function getPlanWeeklyReviews(plan: ActivePlan): PlanWeeklyReview[] {
+  return normalizePlanWeeklyReviews(plan.weeklyReviews);
+}
+
+function createDefaultPlanWeeklyReview(plan: ActivePlan): PlanWeeklyReview {
+  return {
+    id: `weekly-review-${Date.now()}`,
+    date: getDateKey(new Date()),
+    wentWell: "",
+    hard: "",
+    completionRating: 5,
+    decision: "continue",
+    nextWeekFocus: "",
+    specifics: getDefaultPlanReviewSpecifics(plan)
+  };
+}
+
+function getDefaultPlanReviewSpecifics(plan: ActivePlan): Record<string, string | number | boolean> {
+  if (plan.type === "get_lean_shred") {
+    const normalized = normalizeGetLeanPlan(plan);
+    return {
+      currentWeight: normalized.setup.currentWeightKg || 0,
+      hunger: 5,
+      energy: 5,
+      caloriesConsistency: "",
+      proteinConsistency: ""
+    };
+  }
+  if (plan.type === "fix_sleep_energy") {
+    const normalized = normalizeSleepEnergyPlan(plan);
+    return {
+      averageSleep: getSleepTargetHours(normalized.setup),
+      energyAverage: 5,
+      caffeineCutoffSuccess: "",
+      nightRoutineConsistency: ""
+    };
+  }
+  if (plan.type === "build_project") {
+    const summary = getProjectSummary(normalizeBuildProjectPlan(plan));
+    return {
+      projectMinutes: summary.totalMinutes,
+      progressMade: summary.lastProgressNote,
+      blocker: "",
+      nextMilestone: ""
+    };
+  }
+  if (plan.type === "learn_master_subject") {
+    return {
+      studyDays: normalizeLearnMasterPlan(plan).logs.slice(-7).filter((log) => log.studyCompleted).length,
+      topicLearned: "",
+      difficulty: "Medium",
+      canExplain: ""
+    };
+  }
+  return {
+    missingItems: "",
+    restockNeeded: "",
+    lifeMaintenanceScore: 5
+  };
+}
+
 function getPlanWeeklyCompletionText(plan: ActivePlan): string {
   if (plan.type === "everyday_essentials") {
     const stats = getEssentialsProgress(normalizeEverydayEssentialsPlan(plan));
     return `${stats.weekly.completed}/${stats.weekly.total}`;
   }
   if (plan.type === "get_lean_shred") return `${normalizeGetLeanPlan(plan).logs.slice(-7).filter((log) => log.workoutCompleted || log.steps || log.weightKg).length}/7 logs`;
+  if (plan.type === "fix_sleep_energy") return `${normalizeSleepEnergyPlan(plan).logs.slice(-7).filter((log) => log.sleepHours || log.energy).length}/7 sleep logs`;
+  if (plan.type === "build_project") return `${normalizeBuildProjectPlan(plan).logs.slice(-7).filter((log) => log.minutesWorked || log.workedOn).length}/7 project logs`;
   return `${normalizeLearnMasterPlan(plan).logs.slice(-7).filter((log) => log.studyCompleted).length}/7 study days`;
 }
 
 function getPlanLastLogText(plan: ActivePlan): string {
   if (plan.type === "get_lean_shred") return normalizeGetLeanPlan(plan).logs.at(-1)?.date ?? "No log yet";
+  if (plan.type === "fix_sleep_energy") return normalizeSleepEnergyPlan(plan).logs.at(-1)?.date ?? "No log yet";
+  if (plan.type === "build_project") return normalizeBuildProjectPlan(plan).logs.at(-1)?.date ?? "No log yet";
   if (plan.type === "learn_master_subject") return normalizeLearnMasterPlan(plan).logs.at(-1)?.date ?? "No log yet";
   return "Checklist only";
+}
+
+function getPlanLogCount(plan: ActivePlan): number {
+  if (plan.type === "get_lean_shred") return normalizeGetLeanPlan(plan).logs.length;
+  if (plan.type === "fix_sleep_energy") return normalizeSleepEnergyPlan(plan).logs.length;
+  if (plan.type === "build_project") return normalizeBuildProjectPlan(plan).logs.length;
+  if (plan.type === "learn_master_subject") return normalizeLearnMasterPlan(plan).logs.length;
+  return 0;
+}
+
+function getPlanSetupRows(plan: ActivePlan): Array<{ label: string; value: string | number | boolean }> {
+  if (plan.type === "everyday_essentials") {
+    const setup = normalizeEverydayEssentialsPlan(plan).setup;
+    return [
+      { label: "Living situation", value: setup.livingSituation },
+      { label: "Budget level", value: setup.budgetLevel },
+      { label: "Skin / hair", value: setup.skinHairNeeds },
+      { label: "Food style", value: setup.foodStyle },
+      { label: "Laundry access", value: setup.laundryAccess },
+      { label: "Emergency level", value: setup.emergencyLevel },
+      { label: "Restock reminder", value: setup.restockReminder }
+    ];
+  }
+  if (plan.type === "get_lean_shred") {
+    const setup = normalizeGetLeanPlan(plan).setup;
+    return [
+      { label: "Current weight", value: `${setup.currentWeightKg || 0} kg` },
+      { label: "Goal weight", value: `${setup.goalWeightKg || 0} kg` },
+      { label: "Height", value: `${setup.heightCm || 0} cm` },
+      { label: "Sex", value: setup.sex || "Not set" },
+      { label: "Activity level", value: setup.activityLevel },
+      { label: "Exercise access", value: setup.exerciseAccess },
+      { label: "Diet style", value: setup.dietStyle },
+      { label: "Speed", value: setup.speed }
+    ];
+  }
+  if (plan.type === "fix_sleep_energy") {
+    const setup = normalizeSleepEnergyPlan(plan).setup;
+    return [
+      { label: "Normal wake time", value: setup.normalWakeTime },
+      { label: "Target sleep time", value: setup.targetSleepTime },
+      { label: "Target duration", value: `${getSleepTargetHours(setup)}h` },
+      { label: "Sleep problem", value: setup.currentSleepProblem },
+      { label: "Caffeine habit", value: setup.caffeineHabit },
+      { label: "Caffeine cutoff", value: setup.caffeineCutoffTime },
+      { label: "Nap preference", value: setup.napPreference },
+      { label: "Night routine", value: setup.nightRoutinePreference },
+      { label: "Nanno Sleep Boost", value: setup.includeNannoSleepBoost ? "Yes" : "No" }
+    ];
+  }
+  if (plan.type === "build_project") {
+    const setup = normalizeBuildProjectPlan(plan).setup;
+    return [
+      { label: "Project name", value: setup.projectName || "Untitled project" },
+      { label: "Project type", value: setup.projectType },
+      { label: "Goal", value: setup.projectGoal },
+      { label: "Stage", value: setup.currentStage },
+      { label: "Daily time", value: `${getProjectDailyMinutes(setup)} min` },
+      { label: "Speed", value: setup.projectSpeed },
+      { label: "Deadline", value: getProjectDeadlineLabel(setup) },
+      { label: "Bottleneck", value: setup.mainBottleneck },
+      { label: "Build style", value: setup.buildStyle }
+    ];
+  }
+  const normalized = normalizeLearnMasterPlan(plan);
+  return [
+    { label: "Subject", value: normalized.subjectName || "Not set" },
+    { label: "Current level", value: normalized.currentLevel },
+    { label: "Goal type", value: normalized.goalType },
+    { label: "Daily study time", value: `${normalized.dailyMinutes} min` },
+    { label: "Speed", value: normalized.speed },
+    { label: "Deadline", value: normalized.deadline },
+    { label: "Study style", value: normalized.studyStyle },
+    { label: "Main resource", value: normalized.mainResource }
+  ];
+}
+
+function getPlanTargetRows(plan: ActivePlan): Array<{ label: string; value: string | number | boolean }> {
+  if (plan.type === "everyday_essentials") {
+    const progress = getEssentialsProgress(normalizeEverydayEssentialsPlan(plan));
+    return [
+      { label: "Daily essentials", value: `${progress.daily.completed}/${progress.daily.total}` },
+      { label: "Weekly restock", value: `${progress.weekly.completed}/${progress.weekly.total}` },
+      { label: "Monthly inventory", value: `${progress.monthly.completed}/${progress.monthly.total}` }
+    ];
+  }
+  if (plan.type === "get_lean_shred") {
+    const calculations = normalizeGetLeanPlan(plan).calculations;
+    return [
+      { label: "Target calories", value: `${calculations.targetCalories} kcal` },
+      { label: "Protein target", value: `${calculations.proteinTarget}g` },
+      { label: "Carb target", value: `${calculations.carbTarget}g` },
+      { label: "Fat target", value: `${calculations.fatTarget}g` },
+      { label: "Step target", value: `${calculations.stepTarget} steps` },
+      { label: "Water target", value: `${calculations.waterTarget}L` },
+      { label: "Sleep target", value: `${calculations.sleepTarget}h` }
+    ];
+  }
+  if (plan.type === "fix_sleep_energy") {
+    const normalized = normalizeSleepEnergyPlan(plan);
+    return [
+      { label: "Sleep target", value: `${getSleepTargetHours(normalized.setup)}h` },
+      { label: "Night shutdown", value: getNightShutdownTime(normalized.setup.targetSleepTime, 720) },
+      { label: "Caffeine cutoff", value: normalized.setup.caffeineCutoffTime },
+      { label: "Sleep logs", value: normalized.logs.length },
+      { label: "Feedback", value: getSleepEnergyFeedback(normalized) }
+    ];
+  }
+  if (plan.type === "build_project") {
+    const normalized = normalizeBuildProjectPlan(plan);
+    const summary = getProjectSummary(normalized);
+    return [
+      { label: "Daily project time", value: `${getProjectDailyMinutes(normalized.setup)} min` },
+      { label: "Days worked", value: summary.daysWorked },
+      { label: "Total minutes", value: summary.totalMinutes },
+      { label: "Completed milestones", value: `${summary.completedMilestones}/${normalized.projectRoadmap.length}` },
+      { label: "Open blockers", value: summary.openBlockers },
+      { label: "Feedback", value: getProjectFeedback(normalized) }
+    ];
+  }
+  const normalized = normalizeLearnMasterPlan(plan);
+  return [
+    { label: "Study loop", value: normalized.studyLoop.join(" -> ") },
+    { label: "Study logs", value: normalized.logs.length },
+    { label: "Completed study days", value: normalized.logs.filter((log) => log.studyCompleted).length },
+    { label: "Feedback", value: getLearnFeedback(normalized) }
+  ];
+}
+
+function getPlanWeeklyRows(plan: ActivePlan): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = [
+    { label: "Weekly progress", value: getPlanWeeklyCompletionText(plan) },
+    { label: "Last log / review", value: getPlanLastLogText(plan) }
+  ];
+  if (plan.type === "everyday_essentials") {
+    normalizeEverydayEssentialsPlan(plan).weeklyTasks.filter((item) => !item.disabled).slice(0, 5).forEach((item) => {
+      rows.push({ label: item.title, value: item.completed ? "Done" : "Open" });
+    });
+  }
+  if (plan.type === "build_project") {
+    normalizeBuildProjectPlan(plan).weeklyTasks.filter((item) => !item.disabled).slice(0, 5).forEach((item) => {
+      rows.push({ label: item.title, value: item.completed ? "Done" : "Open" });
+    });
+  }
+  rows.push({ label: "Weekly reviews", value: String(getPlanWeeklyReviews(plan).length) });
+  return rows;
 }
 
 function togglePlanTask(plan: ActivePlan, taskId: string, updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void) {
@@ -7011,7 +8692,245 @@ function togglePlanTask(plan: ActivePlan, taskId: string, updateActivePlan: (pla
     if (target.type === "get_lean_shred") {
       return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
     }
+    if (target.type === "fix_sleep_energy") {
+      return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
+    }
+    if (target.type === "build_project") {
+      return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
+    }
     return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
+  });
+}
+
+function createSleepEnergyPlan(setup: SleepEnergySetup): SleepEnergyPlan {
+  const normalizedSetup = normalizeSleepEnergySetup(setup);
+  return {
+    id: createPlanId("fix_sleep_energy"),
+    type: "fix_sleep_energy",
+    name: "Fix Sleep & Energy",
+    status: "active",
+    startDate: getDateKey(new Date()),
+    setup: normalizedSetup,
+    dailyTasks: createSleepEnergyTasks(normalizedSetup),
+    weeklyTasks: [],
+    logs: [],
+    weeklyReviews: []
+  };
+}
+
+function normalizeSleepEnergyPlan(plan: SleepEnergyPlan): SleepEnergyPlan {
+  const setup = normalizeSleepEnergySetup(plan.setup);
+  return {
+    id: plan.id || createPlanId("fix_sleep_energy"),
+    type: "fix_sleep_energy",
+    name: "Fix Sleep & Energy",
+    status: normalizePlanStatus(plan.status),
+    startDate: plan.startDate || getDateKey(new Date()),
+    setup,
+    dailyTasks: normalizeEssentialsItems(plan.dailyTasks, createSleepEnergyTasks(setup).map((item) => [item.id, item.title, item.category])),
+    weeklyTasks: normalizeEssentialsItems(plan.weeklyTasks, []),
+    logs: Array.isArray(plan.logs) ? plan.logs.map((log) => normalizeSleepEnergyLog(log, setup)) : [],
+    weeklyReviews: normalizePlanWeeklyReviews(plan.weeklyReviews)
+  };
+}
+
+function normalizeSleepEnergySetup(setup: Partial<SleepEnergySetup>): SleepEnergySetup {
+  return {
+    normalWakeTime: setup.normalWakeTime || defaultSleepEnergySetup.normalWakeTime,
+    targetSleepTime: setup.targetSleepTime || defaultSleepEnergySetup.targetSleepTime,
+    targetSleepDuration: sleepDurationOptions.includes(setup.targetSleepDuration ?? "") ? setup.targetSleepDuration ?? "8h" : "8h",
+    customSleepDuration: Number(setup.customSleepDuration) || 8,
+    currentSleepProblem: sleepProblemOptions.includes(setup.currentSleepProblem ?? "") ? setup.currentSleepProblem ?? "Sleep too late" : "Sleep too late",
+    caffeineHabit: caffeineHabitOptions.includes(setup.caffeineHabit ?? "") ? setup.caffeineHabit ?? "coffee" : "coffee",
+    caffeineCutoffTime: setup.caffeineCutoffTime || defaultSleepEnergySetup.caffeineCutoffTime,
+    napPreference: napPreferenceOptions.includes(setup.napPreference ?? "") ? setup.napPreference ?? "no nap" : "no nap",
+    nightRoutinePreference: nightRoutineOptions.includes(setup.nightRoutinePreference ?? "") ? setup.nightRoutinePreference ?? "normal" : "normal",
+    includeNannoSleepBoost: setup.includeNannoSleepBoost !== false
+  };
+}
+
+function createSleepEnergyTasks(setup: SleepEnergySetup): EssentialsItem[] {
+  const normalized = normalizeSleepEnergySetup(setup);
+  const base: EssentialsItem[] = [
+    sleepTask("morning-light", "Morning light / fresh air", "Health"),
+    sleepTask("wake-water", "Drink water after waking", "Health"),
+    sleepTask("caffeine-rule", "Caffeine rule", "Health"),
+    sleepTask("energy-check", "Energy check", "Health"),
+    sleepTask("night-shutdown", "Start Night Shutdown", "Sleep"),
+    sleepTask("reduce-screen", "Reduce screen / stimulation", "Sleep"),
+    sleepTask("sleep-target", "Sleep on target time", "Sleep")
+  ];
+  if (normalized.napPreference !== "no nap") base.splice(4, 0, sleepTask("optional-nap", `Optional nap (${normalized.napPreference})`, "Health"));
+  if (normalized.includeNannoSleepBoost) base.splice(base.length - 1, 0, sleepTask("nanno-sleep-boost", "Nanno's Sleep Boost", "Sleep"));
+  return base;
+}
+
+function sleepTask(id: string, title: string, category: EssentialsCategory): EssentialsItem {
+  return { id, title, category, completed: false, disabled: false };
+}
+
+function getSleepTargetHours(setup: SleepEnergySetup): number {
+  if (setup.targetSleepDuration === "custom") return Number(setup.customSleepDuration) || 8;
+  return Number(setup.targetSleepDuration.replace("h", "")) || 8;
+}
+
+function getSleepTaskDetail(taskId: string, activePlan: SleepEnergyPlan): string {
+  const setup = normalizeSleepEnergySetup(activePlan.setup);
+  if (taskId === "morning-light") return `Target: 5-10 minutes after waking at ${setup.normalWakeTime}`;
+  if (taskId === "wake-water") return "Target: 300-500ml";
+  if (taskId === "caffeine-rule") return `Target: no caffeine after ${setup.caffeineCutoffTime}`;
+  if (taskId === "energy-check") return "Target: rate energy 1-10";
+  if (taskId === "optional-nap") return `Target: ${setup.napPreference}`;
+  if (taskId === "night-shutdown") return `Target: start around ${getNightShutdownTime(setup.targetSleepTime, 720)}`;
+  if (taskId === "reduce-screen") return "Target: 30-60 minutes before sleep";
+  if (taskId === "nanno-sleep-boost") return "Soak feet with warm water before final sleep routine";
+  if (taskId === "sleep-target") return `Target: sleep by ${setup.targetSleepTime}`;
+  return "";
+}
+
+function updateSleepEnergyTask(activePlan: SleepEnergyPlan, setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>, id: string, patch: Partial<EssentialsItem>) {
+  setActivePlan({
+    ...activePlan,
+    dailyTasks: activePlan.dailyTasks.map((item) => (item.id === id ? { ...item, ...patch } : item))
+  });
+}
+
+function createBuildProjectPlan(setup: ProjectSetup): BuildProjectPlan {
+  const normalizedSetup = normalizeProjectSetup(setup);
+  return {
+    id: createPlanId("build_project"),
+    type: "build_project",
+    name: "Build a Project",
+    status: "active",
+    startDate: getDateKey(new Date()),
+    setup: normalizedSetup,
+    projectRoadmap: createProjectRoadmap(normalizedSetup),
+    dailyTasks: createProjectDailyTasks(normalizedSetup),
+    weeklyTasks: createProjectWeeklyTasks(normalizedSetup),
+    logs: [],
+    weeklyReviews: []
+  };
+}
+
+function normalizeBuildProjectPlan(plan: BuildProjectPlan): BuildProjectPlan {
+  const setup = normalizeProjectSetup(plan.setup);
+  return {
+    id: plan.id || createPlanId("build_project"),
+    type: "build_project",
+    name: "Build a Project",
+    status: normalizePlanStatus(plan.status),
+    startDate: plan.startDate || getDateKey(new Date()),
+    setup,
+    projectRoadmap: normalizeProjectTasks(plan.projectRoadmap, createProjectRoadmap(setup)),
+    dailyTasks: normalizeProjectTasks(plan.dailyTasks, createProjectDailyTasks(setup)),
+    weeklyTasks: normalizeProjectTasks(plan.weeklyTasks, createProjectWeeklyTasks(setup)),
+    logs: Array.isArray(plan.logs) ? plan.logs.map((log) => normalizeProjectLog(log, plan)) : [],
+    weeklyReviews: normalizePlanWeeklyReviews(plan.weeklyReviews)
+  };
+}
+
+function normalizeProjectSetup(setup: Partial<ProjectSetup>): ProjectSetup {
+  return {
+    projectName: setup.projectName ?? "",
+    projectType: projectTypeOptions.includes(setup.projectType ?? "") ? setup.projectType ?? "App / Website" : "App / Website",
+    projectGoal: projectGoalOptions.includes(setup.projectGoal ?? "") ? setup.projectGoal ?? "Finish MVP" : "Finish MVP",
+    currentStage: projectStageOptions.includes(setup.currentStage ?? "") ? setup.currentStage ?? "Idea only" : "Idea only",
+    dailyProjectTime: projectDailyTimeOptions.includes(setup.dailyProjectTime ?? "") ? setup.dailyProjectTime ?? "60 min" : "60 min",
+    customDailyMinutes: Number(setup.customDailyMinutes) || 60,
+    projectSpeed: projectSpeedOptions.includes(setup.projectSpeed ?? "") ? setup.projectSpeed ?? "Moderate" : "Moderate",
+    deadline: projectDeadlineOptions.includes(setup.deadline ?? "") ? setup.deadline ?? "No deadline" : "No deadline",
+    customDeadline: setup.customDeadline ?? "",
+    mainBottleneck: projectBottleneckOptions.includes(setup.mainBottleneck ?? "") ? setup.mainBottleneck ?? "I do not know the next step" : "I do not know the next step",
+    buildStyle: projectBuildStyleOptions.includes(setup.buildStyle ?? "") ? setup.buildStyle ?? "Small daily progress" : "Small daily progress"
+  };
+}
+
+function createProjectRoadmap(setup: ProjectSetup): ProjectTask[] {
+  const stage = normalizeProjectSetup(setup).currentStage;
+  const roadmapByStage: Record<string, string[]> = {
+    "Idea only": ["Define project purpose", "List core features", "Choose MVP features", "Create first build plan", "Start first small version"],
+    Planning: ["Confirm MVP", "Break into milestones", "Build first feature", "Test first feature", "Improve based on use"],
+    "First version started": ["Fix broken parts", "Finish core loop", "Test daily use", "Add missing must-have features", "Prepare stable version"],
+    "Working MVP": ["Use app/project daily", "Find friction", "Improve highest-value issue", "Polish core flow", "Backup/export/stability"],
+    "Improving existing project": ["Audit current project", "Pick one improvement", "Build it", "Test it", "Record lesson"],
+    "Testing / polishing": ["Test core flow", "Fix rough edges", "Polish important screens", "Backup stable version", "Prepare next release"]
+  };
+  return (roadmapByStage[stage] ?? roadmapByStage["Idea only"]).map((title, index) => projectTask(`roadmap-${index + 1}`, title, "Milestone", "normal-focus"));
+}
+
+function createProjectDailyTasks(setup: ProjectSetup): ProjectTask[] {
+  const minutes = getProjectDailyMinutes(setup);
+  if (minutes <= 30) {
+    return [
+      projectTask("choose-tiny-task", "Choose one tiny project task", "Keep scope tiny enough to finish today.", "normal-focus"),
+      projectTask("build-25", "Build or fix for 25 min", "Use Normal Focus 25/5.", "normal-focus"),
+      projectTask("write-changed", "Write what changed", "Record one sentence and next step.", "quick-reset")
+    ];
+  }
+  if (minutes <= 60) {
+    return [
+      projectTask("review-goal", "Review current project goal", "Reconnect with the purpose before building.", "quick-reset"),
+      projectTask("build-45", "Build for 45 min", "Use one Deep Work session.", "deep-work"),
+      projectTask("test-10", "Test for 10 min", "Try the thing you changed.", "routine"),
+      projectTask("write-next-step", "Write next step", "Make tomorrow easier to start.", "quick-reset")
+    ];
+  }
+  if (minutes <= 90) {
+    return [
+      projectTask("choose-main-mission", "Choose main project mission", "Pick the highest-value build task.", "quick-reset"),
+      projectTask("deep-work-50", "Deep work 50 min", "Build the main mission.", "deep-work"),
+      projectTask("test-fix-20", "Test/fix 20 min", "Find friction and repair one issue.", "normal-focus"),
+      projectTask("record-progress-10", "Record progress 10 min", "Write what changed.", "routine"),
+      projectTask("decide-next-task", "Decide next task 10 min", "Leave a clear starting point.", "routine")
+    ];
+  }
+  return [
+    projectTask("plan-mission-10", "Plan project mission 10 min", "Define the build target.", "routine"),
+    projectTask("deep-work-50", "Deep work 50 min", "Build without switching tasks.", "deep-work"),
+    projectTask("break-10", "Break 10 min", "Step away before the second block.", "routine"),
+    projectTask("build-test-40", "Build/test 40 min", "Ship or verify one useful piece.", "deep-work"),
+    projectTask("record-progress-10", "Record progress 10 min", "Write next action and lesson.", "routine")
+  ];
+}
+
+function createProjectWeeklyTasks(_setup: ProjectSetup): ProjectTask[] {
+  return [
+    projectTask("weekly-review", "Weekly project review", "Review what shipped and what got stuck.", "normal-focus"),
+    projectTask("choose-next-milestone", "Choose next milestone", "Pick the next useful outcome.", "routine"),
+    projectTask("remove-unnecessary", "Remove unnecessary features", "Protect the MVP from bloat.", "normal-focus"),
+    projectTask("backup-notes", "Backup/export project notes", "Save notes, repo, or stable files.", "routine"),
+    projectTask("next-week-main", "Decide next week's main project mission", "Make the next week obvious.", "routine")
+  ];
+}
+
+function projectTask(id: string, title: string, detail: string, timerPreset: FocusPresetId): ProjectTask {
+  return { id, title, detail, completed: false, disabled: false, timerPreset };
+}
+
+function normalizeProjectTasks(savedTasks: ProjectTask[] = [], template: ProjectTask[]): ProjectTask[] {
+  const safeTasks = Array.isArray(savedTasks) ? savedTasks : [];
+  const savedById = new Map(safeTasks.map((task) => [task.id, task]));
+  return template.map((task) => ({ ...task, ...savedById.get(task.id), id: task.id, title: savedById.get(task.id)?.title ?? task.title, detail: savedById.get(task.id)?.detail ?? task.detail }));
+}
+
+function getProjectDailyMinutes(setup: ProjectSetup): number {
+  if (setup.dailyProjectTime === "custom") return Number(setup.customDailyMinutes) || 60;
+  return Number(setup.dailyProjectTime.replace(/[^0-9]/g, "")) || 60;
+}
+
+function getProjectDeadlineLabel(setup: ProjectSetup): string {
+  if (setup.deadline === "custom date") return setup.customDeadline || "Custom date";
+  return setup.deadline;
+}
+
+function getProjectDisplayTitle(activePlan: BuildProjectPlan): string {
+  return activePlan.setup.projectName ? `Build Project: ${activePlan.setup.projectName}` : "Build a Project";
+}
+
+function updateProjectTask(activePlan: BuildProjectPlan, setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>, list: "projectRoadmap" | "dailyTasks" | "weeklyTasks", id: string, patch: Partial<ProjectTask>) {
+  setActivePlan({
+    ...activePlan,
+    [list]: activePlan[list].map((item) => (item.id === id ? { ...item, ...patch } : item))
   });
 }
 
@@ -7029,7 +8948,8 @@ function createGetLeanPlan(setup: GetLeanSetup, sleepTargetHours = 8): GetLeanPl
     calculations: calculateGetLean(normalizedSetup, sleepTargetHours),
     dailyTasks: createEssentialsItems(getLeanDailyTaskTemplates),
     weeklyReviewDay: "Sunday",
-    logs: []
+    logs: [],
+    weeklyReviews: []
   };
 }
 
@@ -7044,10 +8964,11 @@ function normalizeGetLeanPlan(plan: GetLeanPlan): GetLeanPlan {
     startDate: plan.startDate || getDateKey(new Date()),
     targetDate: plan.targetDate ?? "",
     setup,
-    calculations: { ...calculateGetLean(setup, plan.calculations?.sleepTarget || 8), ...plan.calculations },
+    calculations: { ...plan.calculations, ...calculateGetLean(setup, plan.calculations?.sleepTarget || 8) },
     dailyTasks: normalizeEssentialsItems(plan.dailyTasks, getLeanDailyTaskTemplates),
     weeklyReviewDay: "Sunday",
-    logs: Array.isArray(plan.logs) ? plan.logs.map(normalizeFitnessLog) : []
+    logs: Array.isArray(plan.logs) ? plan.logs.map(normalizeFitnessLog) : [],
+    weeklyReviews: normalizePlanWeeklyReviews(plan.weeklyReviews)
   };
 }
 
@@ -7091,12 +9012,17 @@ function calculateGetLean(setup: GetLeanSetup, sleepTargetHours = 8): GetLeanCal
   const activityMultiplier = getLeanActivityMultiplier(normalized.activityLevel);
   const maintenanceCalories = Math.max(0, bmr * activityMultiplier);
   const targetCalories = Math.max(0, maintenanceCalories * (1 - getLeanDeficit(normalized.speed)));
+  const roundedTargetCalories = Math.round(targetCalories);
+  const proteinTarget = Math.round(weight * 1.8);
+  const macroTargets = calculateMacroTargets(roundedTargetCalories, proteinTarget);
   return {
     age,
     bmr: Math.round(Math.max(0, bmr)),
     maintenanceCalories: Math.round(maintenanceCalories),
-    targetCalories: Math.round(targetCalories),
-    proteinTarget: Math.round(weight * 1.8),
+    targetCalories: roundedTargetCalories,
+    proteinTarget,
+    carbTarget: macroTargets.carbs,
+    fatTarget: macroTargets.fat,
     stepTarget: getLeanStepTarget(normalized.activityLevel),
     workoutDaysPerWeek: getLeanWorkoutDays(normalized.exerciseAccess),
     waterTarget: weight ? `${Math.max(2, Math.round(weight * 0.035 * 10) / 10)} L` : "2 L",
@@ -7199,7 +9125,8 @@ function createLearnMasterPlan(setup: LearnMasterSetup): LearnMasterPlan {
     studyLoop: learnStudyLoop,
     dailyTasks: createStudyTasks(learnDailyTaskTemplates),
     weeklyReviewDay: "Sunday",
-    logs: []
+    logs: [],
+    weeklyReviews: []
   };
 }
 
@@ -7221,7 +9148,8 @@ function normalizeLearnMasterPlan(plan: LearnMasterPlan): LearnMasterPlan {
     studyLoop: Array.isArray(plan.studyLoop) && plan.studyLoop.length ? plan.studyLoop : learnStudyLoop,
     dailyTasks: normalizeStudyTasks(plan.dailyTasks),
     weeklyReviewDay: "Sunday",
-    logs: Array.isArray(plan.logs) ? plan.logs.map(normalizeStudyLog) : []
+    logs: Array.isArray(plan.logs) ? plan.logs.map(normalizeStudyLog) : [],
+    weeklyReviews: normalizePlanWeeklyReviews(plan.weeklyReviews)
   };
 }
 
@@ -7236,7 +9164,8 @@ function createStudyTasks(items: Array<[string, string, string]>): StudyTask[] {
 }
 
 function normalizeStudyTasks(savedItems: StudyTask[] = []): StudyTask[] {
-  const savedById = new Map(savedItems.map((item) => [item.id, item]));
+  const safeItems = Array.isArray(savedItems) ? savedItems : [];
+  const savedById = new Map(safeItems.map((item) => [item.id, item]));
   return createStudyTasks(learnDailyTaskTemplates).map((item) => ({
     ...item,
     ...savedById.get(item.id),
@@ -7302,15 +9231,17 @@ function normalizeEverydayEssentialsPlan(plan: EverydayEssentialsPlan): Everyday
     setup: { ...defaultEssentialsSetup, ...plan.setup },
     dailyTasks: normalizeEssentialsItems(plan.dailyTasks, everydayEssentialsTemplates.dailyTasks),
     weeklyTasks: normalizeEssentialsItems(plan.weeklyTasks, everydayEssentialsTemplates.weeklyTasks),
-    monthlyTasks: normalizeEssentialsItems(plan.monthlyTasks, everydayEssentialsTemplates.monthlyTasks)
+    monthlyTasks: normalizeEssentialsItems(plan.monthlyTasks, everydayEssentialsTemplates.monthlyTasks),
+    weeklyReviews: normalizePlanWeeklyReviews(plan.weeklyReviews)
   };
 }
 
 function normalizeEssentialsItems(savedItems: EssentialsItem[] = [], template: readonly (readonly [string, string, EssentialsCategory])[]): EssentialsItem[] {
-  const savedById = new Map(savedItems.map((item) => [item.id, item]));
+  const safeItems = Array.isArray(savedItems) ? savedItems : [];
+  const savedById = new Map(safeItems.map((item) => [item.id, item]));
   const baseItems = createEssentialsItems(template).map((item) => ({ ...item, ...savedById.get(item.id), id: item.id, title: savedById.get(item.id)?.title ?? item.title, category: savedById.get(item.id)?.category ?? item.category }));
   const baseIds = new Set(baseItems.map((item) => item.id));
-  const customItems = savedItems.filter((item) => item.custom && !baseIds.has(item.id));
+  const customItems = safeItems.filter((item) => item.custom && !baseIds.has(item.id));
   return [...baseItems, ...customItems];
 }
 
@@ -7363,6 +9294,163 @@ function updateLearnTask(
   });
 }
 
+const mealTypes: MealType[] = ["Breakfast", "Lunch", "Dinner", "Snack / Drinks"];
+const measurementTypes: FoodMeasurementType[] = ["per 100g", "per 100ml", "per piece", "per serving", "per egg"];
+
+function calculateMacroTargets(targetCalories: number, proteinGrams: number): Pick<MacroTargets, "calories" | "protein" | "carbs" | "fat"> {
+  const calories = Math.round(targetCalories || 0);
+  const protein = Math.round(proteinGrams || 0);
+  const proteinCalories = protein * 4;
+  const fatCalories = calories * 0.25;
+  const fat = Math.max(0, Math.round(fatCalories / 9));
+  const carbCalories = Math.max(0, calories - proteinCalories - fatCalories);
+  const carbs = Math.max(0, Math.round(carbCalories / 4));
+  return { calories, protein, carbs, fat };
+}
+
+function getMacroTargets(activePlan: GetLeanPlan): MacroTargets {
+  const calculations = { ...calculateGetLean(activePlan.setup), ...activePlan.calculations };
+  const macroTargets = calculateMacroTargets(calculations.targetCalories, calculations.proteinTarget);
+  return {
+    ...macroTargets,
+    water: formatWaterTarget(calculations.waterTarget, activePlan.setup.currentWeightKg) || "Water target not set",
+    steps: calculations.stepTarget || 0,
+    sleep: calculations.sleepTarget || 8
+  };
+}
+
+function createDefaultFoodLibrary(): FoodItem[] {
+  return [
+    foodItem("rice-white-cooked", "Cooked white rice", "per 100g", "per 100g", 130, 2.7, 28, 0.3),
+    foodItem("chicken-thigh-skinless", "Steamed chicken thigh, skinless", "per 100g", "per 100g", 190, 25, 0, 9),
+    foodItem("chicken-thigh-skin", "Chicken thigh with skin", "per 100g", "per 100g", 235, 24, 0, 16),
+    foodItem("boiled-egg", "Boiled egg", "per piece", "per piece", 75, 6, 0.5, 5),
+    foodItem("fried-egg", "Fried egg", "per piece", "per piece", 105, 6, 0.5, 8),
+    foodItem("omelette", "Omelette", "per egg", "per egg", 110, 6, 1, 8),
+    foodItem("banana", "Banana", "per medium banana", "per piece", 105, 1.3, 27, 0.3),
+    foodItem("sweet-potato-cooked", "Cooked sweet potato", "per 100g", "per 100g", 90, 1.6, 21, 0.1),
+    foodItem("soy-milk-unsweetened", "Unsweetened soy milk", "per 100ml", "per 100ml", 40, 3.5, 2, 2),
+    foodItem("soy-milk-sweetened", "Sweetened soy milk", "per 100ml", "per 100ml", 60, 3, 8, 2),
+    foodItem("beef-cooked", "Cooked beef", "per 100g", "per 100g", 240, 26, 0, 15),
+    foodItem("pork-cooked", "Cooked pork", "per 100g", "per 100g", 260, 25, 0, 18),
+    foodItem("chicken-liver-cooked", "Cooked chicken liver", "per 100g", "per 100g", 175, 25, 1, 6)
+  ];
+}
+
+function foodItem(id: string, name: string, unit: string, measurementType: FoodMeasurementType, calories: number, protein: number, carbs: number, fat: number): FoodItem {
+  return { id, name, unit, measurementType, calories, protein, carbs, fat };
+}
+
+function normalizeFoodLibrary(library: FoodItem[]): FoodItem[] {
+  const defaultLibrary = createDefaultFoodLibrary();
+  const normalized = Array.isArray(library) ? library.map(normalizeFoodItem).filter((food) => food.name.trim()) : [];
+  const byId = new Map(defaultLibrary.map((food) => [food.id, food]));
+  normalized.forEach((food) => byId.set(food.id, food));
+  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function normalizeFoodItem(food: Partial<FoodItem>): FoodItem {
+  const measurementType = measurementTypes.includes(food.measurementType as FoodMeasurementType) ? food.measurementType as FoodMeasurementType : "per 100g";
+  return {
+    id: food.id || `food-${Date.now()}`,
+    name: food.name || "",
+    unit: food.unit || measurementType,
+    measurementType,
+    calories: roundMacro(food.calories),
+    protein: roundMacro(food.protein),
+    carbs: roundMacro(food.carbs),
+    fat: roundMacro(food.fat),
+    custom: food.custom === true
+  };
+}
+
+function normalizeDailyFoodLogs(logs: DailyFoodLogs): DailyFoodLogs {
+  if (!logs || typeof logs !== "object") return {};
+  return Object.entries(logs).reduce<DailyFoodLogs>((nextLogs, [date, entries]) => {
+    nextLogs[date] = normalizeFoodEntries(Array.isArray(entries) ? entries : [], createDefaultFoodLibrary());
+    return nextLogs;
+  }, {});
+}
+
+function normalizeFoodEntries(entries: FoodEntry[], library: FoodItem[]): FoodEntry[] {
+  return entries.map((entry) => normalizeFoodEntry(entry, library)).filter((entry) => entry.amount > 0);
+}
+
+function normalizeFoodEntry(entry: Partial<FoodEntry>, library: FoodItem[]): FoodEntry {
+  const food = library.find((item) => item.id === entry.foodId);
+  const amount = Number(entry.amount) || 0;
+  const nutrition = food ? calculateFoodEntryNutrition(food, amount) : {
+    calories: Math.round(Number(entry.calories) || 0),
+    protein: roundMacro(entry.protein),
+    carbs: roundMacro(entry.carbs),
+    fat: roundMacro(entry.fat)
+  };
+  const meal = mealTypes.includes(entry.meal as MealType) ? entry.meal as MealType : "Breakfast";
+  return {
+    id: entry.id || `food-entry-${Date.now()}`,
+    foodId: entry.foodId || food?.id || "",
+    foodName: food?.name || entry.foodName || "Food",
+    meal,
+    amount,
+    unit: food?.unit || entry.unit || "",
+    measurementType: food?.measurementType || entry.measurementType || "per 100g",
+    ...nutrition,
+    note: entry.note || ""
+  };
+}
+
+function createBlankFoodItem(): FoodItem {
+  return { id: `food-${Date.now()}`, name: "", unit: "per 100g", measurementType: "per 100g", calories: 0, protein: 0, carbs: 0, fat: 0, custom: true };
+}
+
+function createDefaultFoodEntryDraft(library: FoodItem[]): { foodId: string; meal: MealType; amount: number; note: string } {
+  return { foodId: library[0]?.id ?? "", meal: "Breakfast", amount: 100, note: "" };
+}
+
+function calculateFoodEntryNutrition(food: FoodItem, amount: number): MacroTotals {
+  const multiplier = food.measurementType === "per 100g" || food.measurementType === "per 100ml" ? amount / 100 : amount;
+  return {
+    calories: Math.round(food.calories * multiplier),
+    protein: roundMacro(food.protein * multiplier),
+    carbs: roundMacro(food.carbs * multiplier),
+    fat: roundMacro(food.fat * multiplier)
+  };
+}
+
+function getFoodTotals(entries: FoodEntry[]): MacroTotals {
+  return entries.reduce<MacroTotals>((totals, entry) => ({
+    calories: totals.calories + Math.round(entry.calories || 0),
+    protein: roundMacro(totals.protein + (entry.protein || 0)),
+    carbs: roundMacro(totals.carbs + (entry.carbs || 0)),
+    fat: roundMacro(totals.fat + (entry.fat || 0))
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+}
+
+function getRemainingMacros(targets: MacroTargets, totals: MacroTotals): MacroTotals {
+  return {
+    calories: targets.calories - totals.calories,
+    protein: roundMacro(targets.protein - totals.protein),
+    carbs: roundMacro(targets.carbs - totals.carbs),
+    fat: roundMacro(targets.fat - totals.fat)
+  };
+}
+
+function formatRemaining(value: number, unit: string): string {
+  return value >= 0 ? `${value}${unit === "g" ? "g" : ` ${unit}`}` : `Over by ${Math.abs(value)}${unit === "g" ? "g" : ` ${unit}`}`;
+}
+
+function roundMacro(value: unknown): number {
+  return Math.round((Number(value) || 0) * 10) / 10;
+}
+
+function getAmountUnitLabel(entry: FoodEntry): string {
+  if (entry.measurementType === "per 100g") return "g";
+  if (entry.measurementType === "per 100ml") return "ml";
+  if (entry.measurementType === "per egg") return entry.amount === 1 ? "egg" : "eggs";
+  if (entry.measurementType === "per piece") return entry.amount === 1 ? "piece" : "pieces";
+  return "servings";
+}
+
 function createDefaultFitnessLog(date: string): FitnessLog {
   return {
     date,
@@ -7373,6 +9461,38 @@ function createDefaultFitnessLog(date: string): FitnessLog {
     steps: null,
     workoutCompleted: false,
     notes: ""
+  };
+}
+
+function createDefaultSleepEnergyLog(date: string, setup: SleepEnergySetup): SleepEnergyLog {
+  const normalized = normalizeSleepEnergySetup(setup);
+  return {
+    date,
+    sleepTime: normalized.targetSleepTime,
+    wakeTime: normalized.normalWakeTime,
+    sleepHours: getSleepTargetHours(normalized),
+    wakeUpsCount: 0,
+    energy: 5,
+    caffeineAfterCutoff: false,
+    napTaken: false,
+    nightRoutineCompleted: false,
+    targetSleepTimeSuccess: false,
+    notes: ""
+  };
+}
+
+function createDefaultProjectLog(date: string, activePlan: BuildProjectPlan): ProjectLog {
+  const nextTask = activePlan.dailyTasks.find((task) => !task.completed && !task.disabled) ?? activePlan.dailyTasks.find((task) => !task.disabled);
+  return {
+    date,
+    workedOn: nextTask?.title ?? "",
+    minutesWorked: getProjectDailyMinutes(activePlan.setup),
+    difficulty: 5,
+    focus: 5,
+    blocker: "",
+    nextStep: "",
+    weeklyReviewCompleted: false,
+    note: ""
   };
 }
 
@@ -7388,6 +9508,38 @@ function createDefaultStudyLog(date: string, plannedMinutes: number): StudyLog {
   };
 }
 
+function normalizeSleepEnergyLog(log: Partial<SleepEnergyLog>, setup: SleepEnergySetup): SleepEnergyLog {
+  const fallback = createDefaultSleepEnergyLog(getDateKey(new Date()), setup);
+  return {
+    date: log.date || fallback.date,
+    sleepTime: log.sleepTime || fallback.sleepTime,
+    wakeTime: log.wakeTime || fallback.wakeTime,
+    sleepHours: Math.max(0, Number(log.sleepHours) || fallback.sleepHours),
+    wakeUpsCount: Math.max(0, Number(log.wakeUpsCount) || 0),
+    energy: clampNumber(Number(log.energy) || 5, 1, 10),
+    caffeineAfterCutoff: Boolean(log.caffeineAfterCutoff),
+    napTaken: Boolean(log.napTaken),
+    nightRoutineCompleted: Boolean(log.nightRoutineCompleted),
+    targetSleepTimeSuccess: Boolean(log.targetSleepTimeSuccess),
+    notes: log.notes ?? ""
+  };
+}
+
+function normalizeProjectLog(log: Partial<ProjectLog>, activePlan: BuildProjectPlan): ProjectLog {
+  const fallback = createDefaultProjectLog(getDateKey(new Date()), activePlan);
+  return {
+    date: log.date || fallback.date,
+    workedOn: log.workedOn ?? fallback.workedOn,
+    minutesWorked: Math.max(0, Number(log.minutesWorked) || 0),
+    difficulty: clampNumber(Number(log.difficulty) || 5, 1, 10),
+    focus: clampNumber(Number(log.focus) || 5, 1, 10),
+    blocker: log.blocker ?? "",
+    nextStep: log.nextStep ?? "",
+    weeklyReviewCompleted: Boolean(log.weeklyReviewCompleted),
+    note: log.note ?? ""
+  };
+}
+
 function normalizeFitnessLog(log: Partial<FitnessLog>): FitnessLog {
   return {
     date: log.date || getDateKey(new Date()),
@@ -7399,6 +9551,61 @@ function normalizeFitnessLog(log: Partial<FitnessLog>): FitnessLog {
     workoutCompleted: Boolean(log.workoutCompleted),
     notes: log.notes ?? ""
   };
+}
+
+function getSleepEnergySummary(activePlan: SleepEnergyPlan) {
+  const logs = activePlan.logs;
+  const daysLogged = logs.length;
+  const averageSleepHours = daysLogged ? Math.round((logs.reduce((total, log) => total + log.sleepHours, 0) / daysLogged) * 10) / 10 : 0;
+  const averageEnergy = daysLogged ? Math.round((logs.reduce((total, log) => total + log.energy, 0) / daysLogged) * 10) / 10 : 0;
+  return {
+    daysLogged,
+    averageSleepHours,
+    averageEnergy,
+    caffeineCutoffSuccessDays: logs.filter((log) => !log.caffeineAfterCutoff).length,
+    nightRoutineCompletedDays: logs.filter((log) => log.nightRoutineCompleted).length,
+    targetSleepTimeSuccessDays: logs.filter((log) => log.targetSleepTimeSuccess).length,
+    highWakeUpsDays: logs.filter((log) => log.wakeUpsCount >= 3).length
+  };
+}
+
+function getSleepEnergyFeedback(activePlan: SleepEnergyPlan): string {
+  const summary = getSleepEnergySummary(activePlan);
+  const target = getSleepTargetHours(activePlan.setup);
+  const recent = activePlan.logs.slice(-7);
+  if (summary.daysLogged === 0) return "Log a few nights to unlock useful feedback.";
+  if (summary.averageSleepHours && summary.averageSleepHours < target) return "Average sleep is below target. Try starting Night Shutdown earlier or using a lighter task load.";
+  if (recent.slice(-3).length >= 3 && recent.slice(-3).every((log) => log.energy <= 4)) return "Energy has been low for 3+ days. Consider Recovery Mode or a lighter day.";
+  const caffeineFails = recent.filter((log) => log.caffeineAfterCutoff).length;
+  if (caffeineFails >= 3) return "Caffeine cutoff failed several times. Try moving caffeine earlier or reducing the late dose.";
+  if (summary.highWakeUpsDays >= 2) return "Wake-ups are high. Try a calmer night routine and avoid phone stimulation before sleep.";
+  return "Sleep rhythm is being tracked. Keep the routine simple and consistent.";
+}
+
+function getProjectSummary(activePlan: BuildProjectPlan) {
+  const logs = activePlan.logs;
+  const daysWorked = logs.filter((log) => log.minutesWorked > 0 || log.workedOn.trim()).length;
+  const totalMinutes = logs.reduce((total, log) => total + log.minutesWorked, 0);
+  return {
+    daysWorked,
+    totalMinutes,
+    completedMilestones: activePlan.projectRoadmap.filter((task) => task.completed).length,
+    openBlockers: logs.filter((log) => log.blocker.trim()).length,
+    lastProgressNote: logs.at(-1)?.note || logs.at(-1)?.workedOn || "",
+    weeklyReviewCount: logs.filter((log) => log.weeklyReviewCompleted).length
+  };
+}
+
+function getProjectFeedback(activePlan: BuildProjectPlan): string {
+  const logs = activePlan.logs;
+  if (logs.length === 0) return "Log one project session to unlock useful feedback.";
+  const recent = logs.slice(-7);
+  const lastThree = logs.slice(-3);
+  if (lastThree.length >= 3 && lastThree.every((log) => !log.minutesWorked && !log.workedOn.trim())) return "No work was logged for 3 days. Reduce daily project time or choose a smaller task.";
+  if (lastThree.length >= 3 && lastThree.every((log) => log.difficulty >= 8)) return "Difficulty has been high for 3+ logs. Break the project into smaller steps.";
+  if (recent.filter((log) => log.blocker.trim()).length >= 3) return "There are several blockers. Focus on one blocker only before adding new work.";
+  if (!logs.at(-1)?.nextStep.trim()) return "Project is active but the next step is unclear. Create one tiny next action.";
+  return "Project rhythm is active. Keep building, testing, and recording the next step.";
 }
 
 function normalizeStudyLog(log: Partial<StudyLog>): StudyLog {
@@ -7494,10 +9701,19 @@ function calculateAge(dateOfBirth: string): number {
 
 function normalizeDayMeta(meta: Partial<DayMeta>): DayMeta {
   const dayTypes: Array<DayMeta["dayType"]> = ["Default Day", "Normal Day", "Late Wake Day", "Night Shift Day", "Recovery Day", "Appointment / Busy Day", "Custom Day"];
+  const dayLengthTypes: DayLengthType[] = ["Normal", "Compact", "Short", "Night Shift"];
+  const targetSleepTime = meta.targetSleepTime || "11:00 PM";
+  const startTime = meta.startTime || meta.wakeTime || "5:30 AM";
+  const dayLengthMinutes = Number.isFinite(meta.dayLengthMinutes) ? Number(meta.dayLengthMinutes) : getAvailableDayMinutes(startTime, targetSleepTime);
   return {
     dayType: meta.dayType && dayTypes.includes(meta.dayType) ? meta.dayType : "Default Day",
     wakeTime: meta.wakeTime || "5:30 AM",
-    startTime: meta.startTime || meta.wakeTime || "5:30 AM",
+    startTime,
+    targetSleepTime,
+    dayLengthMinutes,
+    dayLengthLabel: meta.dayLengthLabel || formatDayLength(dayLengthMinutes),
+    dayLengthType: meta.dayLengthType && dayLengthTypes.includes(meta.dayLengthType) ? meta.dayLengthType : getDayLengthType(startTime, targetSleepTime, dayLengthMinutes, meta.dayType),
+    nightShutdownTime: meta.nightShutdownTime || getNightShutdownTime(targetSleepTime, dayLengthMinutes),
     todayMode: meta.todayMode && dailyModes.includes(meta.todayMode) ? meta.todayMode : "Full Day",
     mainMission: meta.mainMission || ""
   };
@@ -7681,12 +9897,17 @@ function buildSchedule(template: TemplateTask[], shiftEarlier: boolean): Task[] 
 function buildTodayPlan(draft: BuildTodayDraft, defaultTasks: Task[]): BuildTodayPreview {
   const dayType = draft.dayType;
   const startTime = dayType === "Normal Day" ? draft.wakeTime : draft.startTime || draft.wakeTime;
+  const targetSleepTime = draft.sleepTime || "11:00 PM";
+  const dayLengthMinutes = getAvailableDayMinutes(startTime, targetSleepTime);
+  const dayLengthType = getDayLengthType(startTime, targetSleepTime, dayLengthMinutes, dayType);
+  const nightShutdownTime = getNightShutdownTime(targetSleepTime, dayLengthMinutes);
   const mainMission = draft.mainMission.trim();
   let todayMode: DailyMode = draft.todayMode;
   let tasks: Task[];
 
   if (dayType === "Normal Day") {
-    tasks = applyMainMissionTitle(shiftFlexibleTasks(buildModeSchedule(defaultTasks, todayMode), draft.wakeTime), mainMission);
+    const shiftedTasks = applyMainMissionTitle(shiftFlexibleTasks(buildModeSchedule(defaultTasks, todayMode), draft.wakeTime), mainMission);
+    tasks = compressTasksForDayLength(shiftedTasks, draft, dayLengthType, dayLengthMinutes);
   } else if (dayType === "Late Wake Day") {
     todayMode = "Low Energy";
     tasks = buildLateWakeSchedule(draft);
@@ -7704,14 +9925,160 @@ function buildTodayPlan(draft: BuildTodayDraft, defaultTasks: Task[]): BuildToda
     tasks = buildCustomDaySchedule(draft);
   }
 
+  tasks = finalizeTasksForSleepWindow(tasks, startTime, targetSleepTime, dayLengthMinutes, dayLengthType);
+
   return {
     dayType,
     wakeTime: draft.wakeTime || startTime,
     startTime,
+    targetSleepTime,
+    dayLengthMinutes,
+    dayLengthLabel: formatDayLength(dayLengthMinutes),
+    dayLengthType,
+    nightShutdownTime,
     todayMode,
     mainMission: mainMission || getMainMissionForDay(tasks)?.title || "",
-    tasks: tasks.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time))
+    tasks: sortTasksByDayStart(tasks, startTime)
   };
+}
+
+function getAvailableDayMinutes(startTime: string, targetSleepTime: string): number {
+  const start = timeToMinutes(startTime);
+  let end = timeToMinutes(targetSleepTime);
+  if (end <= start) end += 1440;
+  return Math.max(0, end - start);
+}
+
+function getDayLengthType(startTime: string, targetSleepTime: string, dayLengthMinutes: number, dayType?: BuildDayType | "Default Day"): DayLengthType {
+  if (dayType === "Night Shift Day" || timeToMinutes(targetSleepTime) <= timeToMinutes(startTime)) return "Night Shift";
+  if (dayLengthMinutes >= 720) return "Normal";
+  if (dayLengthMinutes >= 480) return "Compact";
+  return "Short";
+}
+
+function formatDayLength(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+function getNightShutdownTime(targetSleepTime: string, dayLengthMinutes: number): string {
+  const offset = dayLengthMinutes < 480 ? -35 : dayLengthMinutes < 720 ? -50 : -70;
+  return shiftTime(targetSleepTime, offset);
+}
+
+function compressTasksForDayLength(dayTasks: Task[], draft: BuildTodayDraft, dayLengthType: DayLengthType, dayLengthMinutes: number): Task[] {
+  if (dayLengthType === "Normal") return dayTasks;
+  if (dayLengthType === "Night Shift" && dayLengthMinutes < 720) return buildShortDaySchedule({ ...draft, startTime: draft.startTime || draft.wakeTime });
+  if (dayLengthType === "Night Shift") return dayTasks;
+  if (dayLengthType === "Short") return buildShortDaySchedule(draft);
+
+  const keepKeywords = [
+    "wake",
+    "water",
+    "toilet",
+    "brush",
+    "wash face",
+    "shower",
+    "breakfast",
+    "lunch",
+    "dinner",
+    "meal",
+    "main",
+    "useful",
+    "work",
+    "learning",
+    "skill",
+    "walk",
+    "sunlight",
+    "clean",
+    "money",
+    "spending",
+    "plan tomorrow",
+    "screen",
+    "soak feet",
+    "sleep"
+  ];
+
+  return dayTasks.filter((task) => {
+    const title = task.title.toLowerCase();
+    if (task.priority === "S") return true;
+    if (task.priority === "C") return false;
+    return keepKeywords.some((keyword) => title.includes(keyword));
+  });
+}
+
+function buildShortDaySchedule(draft: BuildTodayDraft): Task[] {
+  const start = draft.startTime || draft.wakeTime;
+  const main = draft.mainMission.trim() || "Main mission";
+  return [
+    buildDayTask("short-day", start, 0, "Wake/reset routine", "Sunny", "A", 12),
+    buildDayTask("short-day", start, 10, "Drink water", "Sunny", "A", 8),
+    buildDayTask("short-day", start, 20, "Brush teeth / wash face", "Sunny", "A", 10),
+    buildDayTask("short-day", start, 40, "Food / water reset", "Sunny", "A", 12),
+    buildDayTask("short-day", start, 65, main, "Plan", "S", 35, "Short day main mission"),
+    buildDayTask("short-day", start, 140, "Essential plan tasks", "Plan", "A", 18),
+    buildDayTask("short-day", start, 180, "Night shutdown", "Sunny", "A", 15)
+  ];
+}
+
+function finalizeTasksForSleepWindow(dayTasks: Task[], startTime: string, targetSleepTime: string, dayLengthMinutes: number, dayLengthType: DayLengthType): Task[] {
+  const shutdownTasks = buildTargetSleepShutdownTasks(targetSleepTime, dayLengthMinutes, dayLengthType);
+  const withoutOldShutdown = dayTasks.filter((task) => !isReplaceableShutdownTask(task));
+  const insideWindow = withoutOldShutdown.filter((task) => isTaskInsideDayWindow(task.time, startTime, dayLengthMinutes));
+  const nextTasks = [...insideWindow, ...shutdownTasks].filter((task) => isTaskInsideDayWindow(task.time, startTime, dayLengthMinutes));
+  return sortTasksByDayStart(dedupeTasksByTitleAndTime(nextTasks), startTime);
+}
+
+function buildTargetSleepShutdownTasks(targetSleepTime: string, dayLengthMinutes: number, dayLengthType: DayLengthType): Task[] {
+  const tasks: Task[] = [];
+  if (dayLengthMinutes >= 120 && dayLengthType !== "Short") {
+    tasks.push(buildDayTask("sleep-window", targetSleepTime, -70, "Reduce screen brightness / calm down", "Sunny", "B", 10));
+  }
+  if (dayLengthMinutes >= 150) {
+    tasks.push(buildDayTask("sleep-window", targetSleepTime, -45, "Soak feet with warm water", "Sunny", "A", 15, "A calm night routine recommended by Nanno.", "Nanno’s Sleep Boost"));
+  }
+  if (dayLengthMinutes >= 80) {
+    tasks.push(buildDayTask("sleep-window", targetSleepTime, -25, "Sleep routine", "Sunny", "A", 15));
+  }
+  tasks.push(buildDayTask("sleep-window", targetSleepTime, 0, "Sleep", "Sunny", "S", 25));
+  return tasks;
+}
+
+function isReplaceableShutdownTask(task: Task): boolean {
+  const title = `${task.title} ${task.displayLabel ?? ""}`.toLowerCase();
+  return title.includes("reduce screen brightness")
+    || title.includes("calm down")
+    || title.includes("soak feet")
+    || title.includes("sleep boost")
+    || title.includes("bedtime routine")
+    || title.includes("sleep routine")
+    || title === "sleep";
+}
+
+function isTaskInsideDayWindow(time: string, startTime: string, dayLengthMinutes: number): boolean {
+  return relativeTaskMinutes(time, startTime) <= dayLengthMinutes;
+}
+
+function relativeTaskMinutes(time: string, startTime: string): number {
+  const start = timeToMinutes(startTime);
+  let minutes = timeToMinutes(time);
+  if (minutes < start) minutes += 1440;
+  return minutes - start;
+}
+
+function sortTasksByDayStart(dayTasks: Task[], startTime: string): Task[] {
+  return [...dayTasks].sort((a, b) => relativeTaskMinutes(a.time, startTime) - relativeTaskMinutes(b.time, startTime));
+}
+
+function dedupeTasksByTitleAndTime(dayTasks: Task[]): Task[] {
+  const seen = new Set<string>();
+  return dayTasks.filter((task) => {
+    const key = `${task.time}-${task.title.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function shiftFlexibleTasks(dayTasks: Task[], wakeTime: string): Task[] {
