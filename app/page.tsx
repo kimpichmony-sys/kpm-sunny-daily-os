@@ -426,6 +426,91 @@ type BuildProjectPlan = {
   weeklyReviews?: PlanWeeklyReview[];
 };
 
+type MoneySetup = {
+  mainMoneyGoal: string;
+  targetAmount: number;
+  customTargetAmount: number;
+  targetDeadline: string;
+  customDeadline: string;
+  currentMonthlyIncome: number;
+  currentMonthlyFixedExpenses: number;
+  currentSavings: number;
+  currency: string;
+  incomePath: string;
+  dailyMoneyTime: string;
+  customDailyMinutes: number;
+  currentBottleneck: string;
+  savingStyle: string;
+  spendingCategories: string[];
+};
+
+type MoneyCalculations = {
+  monthlyLeftover: number;
+  remainingSavingNeeded: number;
+  daysUntilDeadline: number | null;
+  neededSavingPerDay: number | null;
+  neededSavingPerWeek: number | null;
+  neededSavingPerMonth: number | null;
+  progressPercent: number;
+  targetDeadlineDate: string;
+};
+
+type MoneyTask = {
+  id: string;
+  title: string;
+  detail: string;
+  completed: boolean;
+  disabled: boolean;
+  kind: "income" | "saving";
+};
+
+type MoneySpendingLog = {
+  id: string;
+  date: string;
+  category: string;
+  amount: number;
+  note: string;
+  necessary: boolean;
+};
+
+type MoneyIncomeLog = {
+  id: string;
+  date: string;
+  source: string;
+  amount: number;
+  note: string;
+};
+
+type MoneySavingLog = {
+  id: string;
+  date: string;
+  amountSaved: number;
+  note: string;
+};
+
+type MoneyOpportunityLog = {
+  id: string;
+  type: string;
+  title: string;
+  status: string;
+  date: string;
+  note: string;
+};
+
+type MoneyPlan = {
+  id: string;
+  type: "money_plan";
+  name: "Money Plan";
+  status: PlanStatus;
+  startDate: string;
+  setup: MoneySetup;
+  calculations: MoneyCalculations;
+  dailyTasks: MoneyTask[];
+  weeklyTasks: MoneyTask[];
+  logs: MoneyOpportunityLog[];
+  weeklyReviews?: PlanWeeklyReview[];
+};
+
 type LearnMasterSetup = {
   subjectName: string;
   currentLevel: string;
@@ -440,7 +525,7 @@ type LearnMasterSetup = {
   customResource: string;
 };
 
-type ActivePlan = EverydayEssentialsPlan | GetLeanPlan | LearnMasterPlan | SleepEnergyPlan | BuildProjectPlan;
+type ActivePlan = EverydayEssentialsPlan | GetLeanPlan | LearnMasterPlan | SleepEnergyPlan | BuildProjectPlan | MoneyPlan;
 
 type PlanTaskRow = {
   id: string;
@@ -653,6 +738,10 @@ const ACTIVE_PLAN_KEY = "kpm-sunny-active-plan";
 const ACTIVE_PLANS_KEY = "kpm-sunny-active-plans";
 const FOOD_LIBRARY_KEY = "kpm-sunny-food-library";
 const DAILY_FOOD_LOGS_KEY = "kpm-sunny-daily-food-logs";
+const MONEY_SPENDING_LOGS_KEY = "kpm-sunny-money-spending-logs";
+const MONEY_INCOME_LOGS_KEY = "kpm-sunny-money-income-logs";
+const MONEY_SAVING_LOGS_KEY = "kpm-sunny-money-saving-logs";
+const MONEY_OPPORTUNITY_LOGS_KEY = "kpm-sunny-money-opportunity-logs";
 const PLAN_KEY = "kpm-sunny-plan";
 const REVIEW_KEY = "kpm-sunny-review";
 const DAILY_NOTES_KEY_PREFIX = "kpm-sunny-daily-notes";
@@ -664,7 +753,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V2.11";
+const APP_VERSION = "V3.0";
 const APP_LAST_UPDATED = "June 19, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -785,6 +874,34 @@ const projectSpeedOptions = ["Slow", "Moderate", "Intensive"];
 const projectDeadlineOptions = ["No deadline", "7 days", "14 days", "30 days", "90 days", "custom date"];
 const projectBottleneckOptions = ["I do not know what to build", "I do not know the next step", "Too many ideas", "Coding difficulty", "Design difficulty", "Testing difficulty", "Low energy", "Consistency"];
 const projectBuildStyleOptions = ["Small daily progress", "Deep work blocks", "Weekend sprint", "Fix one issue at a time"];
+
+const defaultMoneySetup: MoneySetup = {
+  mainMoneyGoal: "Save a target amount",
+  targetAmount: 200,
+  customTargetAmount: 200,
+  targetDeadline: "30 days",
+  customDeadline: "",
+  currentMonthlyIncome: 0,
+  currentMonthlyFixedExpenses: 0,
+  currentSavings: 0,
+  currency: "USD",
+  incomePath: "Job",
+  dailyMoneyTime: "30 min",
+  customDailyMinutes: 30,
+  currentBottleneck: "no job leads",
+  savingStyle: "fixed daily saving",
+  spendingCategories: ["Food", "Transport", "Phone / internet", "Health", "Tools / apps", "Game", "Family", "Emergency", "Other"]
+};
+
+const moneyGoalOptions = ["Get emergency money", "Save a target amount", "Increase monthly income", "Build skill to earn", "Build project to earn", "Control spending", "Other"];
+const moneyTargetAmountOptions = ["100", "200", "500", "1000", "custom"];
+const moneyDeadlineOptions = ["7 days", "14 days", "30 days", "90 days", "1 year", "custom date", "no deadline"];
+const moneyIncomePathOptions = ["Job", "Freelance", "Online work", "Sell service", "Build app/project", "Content", "Small local business", "Not sure yet"];
+const moneyDailyTimeOptions = ["15 min", "30 min", "60 min", "90 min", "120 min", "custom"];
+const moneyBottleneckOptions = ["no skill", "no portfolio", "no clients", "no job leads", "no idea what to offer", "low confidence", "low energy", "too many ideas", "spending too much"];
+const moneySavingStyleOptions = ["fixed daily saving", "fixed weekly saving", "fixed monthly saving", "percentage of income", "save whatever remains", "custom"];
+const moneyOpportunityTypes = ["job application", "freelance message", "project task", "content", "local business", "other"];
+const moneyOpportunityStatuses = ["planned", "sent", "replied", "rejected", "won", "follow-up"];
 
 const everydayEssentialsTemplates = {
   dailyTasks: [
@@ -1049,6 +1166,10 @@ function HomeApp() {
   const [activePlans, setActivePlans] = useLocalStorage<ActivePlan[]>(ACTIVE_PLANS_KEY, []);
   const [foodLibrary, setFoodLibrary] = useLocalStorage<FoodItem[]>(FOOD_LIBRARY_KEY, createDefaultFoodLibrary());
   const [dailyFoodLogs, setDailyFoodLogs] = useLocalStorage<DailyFoodLogs>(DAILY_FOOD_LOGS_KEY, {});
+  const [moneySpendingLogs, setMoneySpendingLogs] = useLocalStorage<MoneySpendingLog[]>(MONEY_SPENDING_LOGS_KEY, []);
+  const [moneyIncomeLogs, setMoneyIncomeLogs] = useLocalStorage<MoneyIncomeLog[]>(MONEY_INCOME_LOGS_KEY, []);
+  const [moneySavingLogs, setMoneySavingLogs] = useLocalStorage<MoneySavingLog[]>(MONEY_SAVING_LOGS_KEY, []);
+  const [moneyOpportunityLogs, setMoneyOpportunityLogs] = useLocalStorage<MoneyOpportunityLog[]>(MONEY_OPPORTUNITY_LOGS_KEY, []);
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
   const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
   const tomorrowKey = getNextDateKey(todayKey);
@@ -1287,6 +1408,10 @@ function HomeApp() {
   const normalizedActivePlans = useMemo(() => normalizeActivePlans(activePlans), [activePlans]);
   const normalizedFoodLibrary = useMemo(() => normalizeFoodLibrary(foodLibrary), [foodLibrary]);
   const normalizedDailyFoodLogs = useMemo(() => normalizeDailyFoodLogs(dailyFoodLogs), [dailyFoodLogs]);
+  const normalizedMoneySpendingLogs = useMemo(() => normalizeMoneySpendingLogs(moneySpendingLogs), [moneySpendingLogs]);
+  const normalizedMoneyIncomeLogs = useMemo(() => normalizeMoneyIncomeLogs(moneyIncomeLogs), [moneyIncomeLogs]);
+  const normalizedMoneySavingLogs = useMemo(() => normalizeMoneySavingLogs(moneySavingLogs), [moneySavingLogs]);
+  const normalizedMoneyOpportunityLogs = useMemo(() => normalizeMoneyOpportunityLogs(moneyOpportunityLogs), [moneyOpportunityLogs]);
   const activeTodayPlans = useMemo(() => normalizedActivePlans.filter((plan) => plan.status === "active"), [normalizedActivePlans]);
   const todayPlanRows = useMemo(() => getPrioritizedPlanTaskRows(activeTodayPlans), [activeTodayPlans]);
   const todayFocusItems = useMemo(() => getTodayFocusItems(tasks, mainMission, todayPlanRows), [tasks, mainMission, todayPlanRows]);
@@ -1722,6 +1847,10 @@ function HomeApp() {
                     updateActivePlan={updateActivePlan}
                     foodLogs={normalizedDailyFoodLogs}
                     todayKey={todayKey}
+                    moneySpendingLogs={normalizedMoneySpendingLogs}
+                    moneyIncomeLogs={normalizedMoneyIncomeLogs}
+                    moneySavingLogs={normalizedMoneySavingLogs}
+                    moneyOpportunityLogs={normalizedMoneyOpportunityLogs}
                   />
                 )}
               </div>
@@ -1771,6 +1900,14 @@ function HomeApp() {
                 setFoodLibrary={setFoodLibrary}
                 dailyFoodLogs={normalizedDailyFoodLogs}
                 setDailyFoodLogs={setDailyFoodLogs}
+                moneySpendingLogs={normalizedMoneySpendingLogs}
+                setMoneySpendingLogs={setMoneySpendingLogs}
+                moneyIncomeLogs={normalizedMoneyIncomeLogs}
+                setMoneyIncomeLogs={setMoneyIncomeLogs}
+                moneySavingLogs={normalizedMoneySavingLogs}
+                setMoneySavingLogs={setMoneySavingLogs}
+                moneyOpportunityLogs={normalizedMoneyOpportunityLogs}
+                setMoneyOpportunityLogs={setMoneyOpportunityLogs}
                 todayKey={todayKey}
               />
             )}
@@ -1789,6 +1926,10 @@ function HomeApp() {
                 activePlans={normalizedActivePlans}
                 updateActivePlan={updateActivePlan}
                 dailyFoodLogs={normalizedDailyFoodLogs}
+                moneySpendingLogs={normalizedMoneySpendingLogs}
+                moneyIncomeLogs={normalizedMoneyIncomeLogs}
+                moneySavingLogs={normalizedMoneySavingLogs}
+                moneyOpportunityLogs={normalizedMoneyOpportunityLogs}
               />
             )}
             {activeSection === "Profile" && (
@@ -2562,7 +2703,11 @@ function TodayCommand({
   activePlans,
   updateActivePlan,
   foodLogs,
-  todayKey
+  todayKey,
+  moneySpendingLogs,
+  moneyIncomeLogs,
+  moneySavingLogs,
+  moneyOpportunityLogs
 }: {
   stats: Stats;
   currentMission?: Task;
@@ -2579,6 +2724,10 @@ function TodayCommand({
   updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
   foodLogs: DailyFoodLogs;
   todayKey: string;
+  moneySpendingLogs: MoneySpendingLog[];
+  moneyIncomeLogs: MoneyIncomeLog[];
+  moneySavingLogs: MoneySavingLog[];
+  moneyOpportunityLogs: MoneyOpportunityLog[];
 }) {
   const nextMissions = tasks
     .filter((task) => !task.completed && !task.skipped && task.id !== currentMission?.id)
@@ -2730,7 +2879,7 @@ function TodayCommand({
             <MiniMetric label="KPM" value={stats.points} compact />
           </div>
         </Panel>
-        {activePlans.length > 0 ? <ActivePlanTasksSection activePlans={activePlans} updateActivePlan={updateActivePlan} foodLogs={foodLogs} todayKey={todayKey} /> : null}
+        {activePlans.length > 0 ? <ActivePlanTasksSection activePlans={activePlans} updateActivePlan={updateActivePlan} foodLogs={foodLogs} todayKey={todayKey} moneySpendingLogs={moneySpendingLogs} moneyIncomeLogs={moneyIncomeLogs} moneySavingLogs={moneySavingLogs} moneyOpportunityLogs={moneyOpportunityLogs} /> : null}
       </aside>
     </section>
   );
@@ -3797,6 +3946,14 @@ function PlanFoundation({
   setFoodLibrary,
   dailyFoodLogs,
   setDailyFoodLogs,
+  moneySpendingLogs,
+  setMoneySpendingLogs,
+  moneyIncomeLogs,
+  setMoneyIncomeLogs,
+  moneySavingLogs,
+  setMoneySavingLogs,
+  moneyOpportunityLogs,
+  setMoneyOpportunityLogs,
   todayKey
 }: {
   plan: Plan;
@@ -3819,6 +3976,14 @@ function PlanFoundation({
   setFoodLibrary: Dispatch<SetStateAction<FoodItem[]>>;
   dailyFoodLogs: DailyFoodLogs;
   setDailyFoodLogs: Dispatch<SetStateAction<DailyFoodLogs>>;
+  moneySpendingLogs: MoneySpendingLog[];
+  setMoneySpendingLogs: Dispatch<SetStateAction<MoneySpendingLog[]>>;
+  moneyIncomeLogs: MoneyIncomeLog[];
+  setMoneyIncomeLogs: Dispatch<SetStateAction<MoneyIncomeLog[]>>;
+  moneySavingLogs: MoneySavingLog[];
+  setMoneySavingLogs: Dispatch<SetStateAction<MoneySavingLog[]>>;
+  moneyOpportunityLogs: MoneyOpportunityLog[];
+  setMoneyOpportunityLogs: Dispatch<SetStateAction<MoneyOpportunityLog[]>>;
   todayKey: string;
 }) {
   const activeCount = activePlans.filter((item) => item.status === "active").length;
@@ -3831,18 +3996,20 @@ function PlanFoundation({
   const [showLearnSetup, setShowLearnSetup] = useState(false);
   const [showSleepSetup, setShowSleepSetup] = useState(false);
   const [showProjectSetup, setShowProjectSetup] = useState(false);
+  const [showMoneySetup, setShowMoneySetup] = useState(false);
   const [essentialsSetup, setEssentialsSetup] = useState<EssentialsSetup>(defaultEssentialsSetup);
   const [getLeanSetup, setGetLeanSetup] = useState<GetLeanSetup>(() => createGetLeanSetupFromProfile(profile));
   const [learnSetup, setLearnSetup] = useState<LearnMasterSetup>(defaultLearnMasterSetup);
   const [sleepSetup, setSleepSetup] = useState<SleepEnergySetup>(() => createSleepEnergySetupFromProfile(profile));
   const [projectSetup, setProjectSetup] = useState<ProjectSetup>(defaultProjectSetup);
+  const [moneySetup, setMoneySetup] = useState<MoneySetup>(defaultMoneySetup);
   const presetPlans = [
     { name: "Everyday Essentials", purpose: "Make sure I have the basic things I need for daily life." },
     { name: "Get Lean / Shred", purpose: "Create a simple rule-based fat-loss plan using my profile data." },
     { name: "Learn / Master Subject", purpose: "Turn one subject into daily practice, review, and weekly proof." },
     { name: "Fix Sleep & Energy", purpose: "Stabilize wake time, sunlight, meals, wind-down, and recovery." },
     { name: "Build a Project", purpose: "Ship one project through small daily build, test, and review blocks." },
-    { name: "Increase Income", purpose: "Prioritize job search, opportunities, business tasks, and money review." },
+    { name: "Money Plan", purpose: "Build income actions and protect savings." },
     { name: "Life Reset", purpose: "Clean the baseline: body, room, money, admin, relationships, and rhythm." }
   ];
 
@@ -3881,6 +4048,13 @@ function PlanFoundation({
     setShowProjectSetup(false);
   }
 
+  function setupMoneyPlan() {
+    const nextPlan = createMoneyPlan(moneySetup);
+    addActivePlan(nextPlan);
+    setProfile((current) => ({ ...normalizeProfile(current), activePlan: nextPlan.name }));
+    setShowMoneySetup(false);
+  }
+
   function openPresetSetup(name: string) {
     if (name === "Everyday Essentials") {
       setShowEssentialsSetup((current) => !current);
@@ -3888,6 +4062,7 @@ function PlanFoundation({
       setShowLearnSetup(false);
       setShowSleepSetup(false);
       setShowProjectSetup(false);
+      setShowMoneySetup(false);
       return;
     }
     if (name === "Get Lean / Shred") {
@@ -3897,6 +4072,7 @@ function PlanFoundation({
       setShowLearnSetup(false);
       setShowSleepSetup(false);
       setShowProjectSetup(false);
+      setShowMoneySetup(false);
       return;
     }
     if (name === "Learn / Master Subject") {
@@ -3905,6 +4081,7 @@ function PlanFoundation({
       setShowGetLeanSetup(false);
       setShowSleepSetup(false);
       setShowProjectSetup(false);
+      setShowMoneySetup(false);
       return;
     }
     if (name === "Fix Sleep & Energy") {
@@ -3914,6 +4091,7 @@ function PlanFoundation({
       setShowGetLeanSetup(false);
       setShowLearnSetup(false);
       setShowProjectSetup(false);
+      setShowMoneySetup(false);
       return;
     }
     if (name === "Build a Project") {
@@ -3922,6 +4100,16 @@ function PlanFoundation({
       setShowGetLeanSetup(false);
       setShowLearnSetup(false);
       setShowSleepSetup(false);
+      setShowMoneySetup(false);
+      return;
+    }
+    if (name === "Money Plan") {
+      setShowMoneySetup((current) => !current);
+      setShowEssentialsSetup(false);
+      setShowGetLeanSetup(false);
+      setShowLearnSetup(false);
+      setShowSleepSetup(false);
+      setShowProjectSetup(false);
     }
   }
 
@@ -3963,7 +4151,7 @@ function PlanFoundation({
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {presetPlans.map((preset) => {
-            const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred" || preset.name === "Learn / Master Subject" || preset.name === "Fix Sleep & Energy" || preset.name === "Build a Project";
+            const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred" || preset.name === "Learn / Master Subject" || preset.name === "Fix Sleep & Energy" || preset.name === "Build a Project" || preset.name === "Money Plan";
             const isActive = activePlans.some((plan) => plan.name === preset.name && plan.status === "active");
             return (
               <article key={preset.name} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
@@ -4043,6 +4231,15 @@ function PlanFoundation({
         />
       ) : null}
 
+      {showMoneySetup ? (
+        <MoneyPlanSetupPanel
+          setup={moneySetup}
+          setSetup={setMoneySetup}
+          onSave={setupMoneyPlan}
+          onCancel={() => setShowMoneySetup(false)}
+        />
+      ) : null}
+
       {activePlans.length > 0 ? (
         <CollapsibleSection title="Active plan details" subtitle="Open this when you want the full checklist or plan controls." defaultOpen={false}>
           <div className="grid gap-5">
@@ -4067,6 +4264,24 @@ function PlanFoundation({
               if (item.type === "learn_master_subject") return <div key={item.id} id={`plan-details-${item.id}`}><LearnMasterPlanDetails activePlan={normalizeLearnMasterPlan(item)} setActivePlan={planSetter} /></div>;
               if (item.type === "fix_sleep_energy") return <div key={item.id} id={`plan-details-${item.id}`}><SleepEnergyPlanDetails activePlan={normalizeSleepEnergyPlan(item)} setActivePlan={planSetter} /></div>;
               if (item.type === "build_project") return <div key={item.id} id={`plan-details-${item.id}`}><BuildProjectPlanDetails activePlan={normalizeBuildProjectPlan(item)} setActivePlan={planSetter} /></div>;
+              if (item.type === "money_plan") {
+                return (
+                  <div key={item.id} id={`plan-details-${item.id}`}>
+                    <MoneyPlanDetails
+                      activePlan={normalizeMoneyPlan(item)}
+                      setActivePlan={planSetter}
+                      spendingLogs={moneySpendingLogs}
+                      setSpendingLogs={setMoneySpendingLogs}
+                      incomeLogs={moneyIncomeLogs}
+                      setIncomeLogs={setMoneyIncomeLogs}
+                      savingLogs={moneySavingLogs}
+                      setSavingLogs={setMoneySavingLogs}
+                      opportunityLogs={moneyOpportunityLogs}
+                      setOpportunityLogs={setMoneyOpportunityLogs}
+                    />
+                  </div>
+                );
+              }
               return null;
             })}
           </div>
@@ -4371,6 +4586,19 @@ function PlanSpecificSetupFields({ plan, setPlan }: { plan: ActivePlan; setPlan:
       </>
     );
   }
+  if (plan.type === "money_plan") {
+    const setup = plan.setup;
+    return (
+      <>
+        <SelectField label="Main money goal" value={setup.mainMoneyGoal} options={moneyGoalOptions} onChange={(mainMoneyGoal) => setPlan({ ...plan, setup: { ...setup, mainMoneyGoal } })} />
+        <Field label="Target amount"><input type="number" value={setup.targetAmount || ""} onChange={(event) => setPlan({ ...plan, setup: { ...setup, targetAmount: Number(event.target.value) || 0 } })} className="form-control" /></Field>
+        <SelectField label="Deadline" value={setup.targetDeadline} options={moneyDeadlineOptions} onChange={(targetDeadline) => setPlan({ ...plan, setup: { ...setup, targetDeadline } })} />
+        <SelectField label="Income path" value={setup.incomePath} options={moneyIncomePathOptions} onChange={(incomePath) => setPlan({ ...plan, setup: { ...setup, incomePath } })} />
+        <SelectField label="Daily money time" value={setup.dailyMoneyTime} options={moneyDailyTimeOptions} onChange={(dailyMoneyTime) => setPlan({ ...plan, setup: { ...setup, dailyMoneyTime } })} />
+        <SelectField label="Bottleneck" value={setup.currentBottleneck} options={moneyBottleneckOptions} onChange={(currentBottleneck) => setPlan({ ...plan, setup: { ...setup, currentBottleneck } })} />
+      </>
+    );
+  }
   const setup = plan.setup;
   return (
     <>
@@ -4464,6 +4692,18 @@ function PlanSpecificReviewFields({ plan, draft, updateSpecific }: { plan: Activ
       </>
     );
   }
+  if (plan.type === "money_plan") {
+    return (
+      <>
+        <Field label="Total income this week"><input type="number" value={Number(s.totalIncomeThisWeek) || ""} onChange={(event) => updateSpecific("totalIncomeThisWeek", Number(event.target.value) || 0)} className="form-control" /></Field>
+        <Field label="Total spending this week"><input type="number" value={Number(s.totalSpendingThisWeek) || ""} onChange={(event) => updateSpecific("totalSpendingThisWeek", Number(event.target.value) || 0)} className="form-control" /></Field>
+        <Field label="Amount saved this week"><input type="number" value={Number(s.amountSavedThisWeek) || ""} onChange={(event) => updateSpecific("amountSavedThisWeek", Number(event.target.value) || 0)} className="form-control" /></Field>
+        <Field label="Money actions completed"><input type="number" value={Number(s.moneyActionsCompleted) || ""} onChange={(event) => updateSpecific("moneyActionsCompleted", Number(event.target.value) || 0)} className="form-control" /></Field>
+        <Field label="What worked"><input value={String(s.whatWorked ?? "")} onChange={(event) => updateSpecific("whatWorked", event.target.value)} className="form-control" /></Field>
+        <Field label="What wasted money"><input value={String(s.whatWastedMoney ?? "")} onChange={(event) => updateSpecific("whatWastedMoney", event.target.value)} className="form-control" /></Field>
+      </>
+    );
+  }
   return (
     <>
       <Field label="Missing items"><input value={String(s.missingItems ?? "")} onChange={(event) => updateSpecific("missingItems", event.target.value)} className="form-control" /></Field>
@@ -4486,7 +4726,11 @@ function ProgressFoundation({
   streaks,
   activePlans,
   updateActivePlan,
-  dailyFoodLogs
+  dailyFoodLogs,
+  moneySpendingLogs,
+  moneyIncomeLogs,
+  moneySavingLogs,
+  moneyOpportunityLogs
 }: {
   review: Review;
   setReview: Dispatch<SetStateAction<Review>>;
@@ -4501,6 +4745,10 @@ function ProgressFoundation({
   activePlans: ActivePlan[];
   updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
   dailyFoodLogs: DailyFoodLogs;
+  moneySpendingLogs: MoneySpendingLog[];
+  moneyIncomeLogs: MoneyIncomeLog[];
+  moneySavingLogs: MoneySavingLog[];
+  moneyOpportunityLogs: MoneyOpportunityLog[];
 }) {
   const activeProgressPlans = activePlans;
   const activePlanCount = activeProgressPlans.filter((plan) => plan.status === "active").length;
@@ -4539,11 +4787,14 @@ function ProgressFoundation({
         </Panel>
       ) : null}
 
-      {activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project") ? (
+      {activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project" || plan.type === "money_plan") ? (
         <CollapsibleSection title="Daily Logs" subtitle="Fitness, sleep, project, and study logs for active plans." defaultOpen={false}>
           <div className="grid gap-5">
             {activeProgressPlans.some((plan) => plan.type === "get_lean_shred") ? (
               <GetLeanNutritionSummary activePlans={activeProgressPlans} dailyFoodLogs={dailyFoodLogs} />
+            ) : null}
+            {activeProgressPlans.some((plan) => plan.type === "money_plan") ? (
+              <MoneyPlanProgressSummary activePlans={activeProgressPlans} spendingLogs={moneySpendingLogs} incomeLogs={moneyIncomeLogs} savingLogs={moneySavingLogs} opportunityLogs={moneyOpportunityLogs} />
             ) : null}
             {activeProgressPlans.map((plan) => {
               const planSetter: Dispatch<SetStateAction<ActivePlan | null>> = (updater) => updateActivePlan(plan.id, updater);
@@ -4995,6 +5246,7 @@ function ProfileVersionSection() {
           <li>V2.9 Build a Project preset plan</li>
           <li>V2.10 Active Plan Control Center</li>
           <li>V2.11 Stability + backup test pass</li>
+          <li>V3.0 Money Plan - Increase Income + Saving Plan</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -5012,12 +5264,20 @@ function ActivePlanTasksSection({
   activePlans,
   updateActivePlan,
   foodLogs,
-  todayKey
+  todayKey,
+  moneySpendingLogs,
+  moneyIncomeLogs,
+  moneySavingLogs,
+  moneyOpportunityLogs
 }: {
   activePlans: ActivePlan[];
   updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
   foodLogs: DailyFoodLogs;
   todayKey: string;
+  moneySpendingLogs: MoneySpendingLog[];
+  moneyIncomeLogs: MoneyIncomeLog[];
+  moneySavingLogs: MoneySavingLog[];
+  moneyOpportunityLogs: MoneyOpportunityLog[];
 }) {
   const [filter, setFilter] = useState<PlanTaskFilter>("All");
   const [showMore, setShowMore] = useState(false);
@@ -5028,6 +5288,7 @@ function ActivePlanTasksSection({
   const getLeanPlan = activePlans.find((plan): plan is GetLeanPlan => plan.type === "get_lean_shred");
   const sleepPlan = activePlans.find((plan): plan is SleepEnergyPlan => plan.type === "fix_sleep_energy");
   const projectPlan = activePlans.find((plan): plan is BuildProjectPlan => plan.type === "build_project");
+  const moneyPlan = activePlans.find((plan): plan is MoneyPlan => plan.type === "money_plan");
 
   return (
     <Panel compact>
@@ -5047,6 +5308,8 @@ function ActivePlanTasksSection({
       {sleepPlan ? <CompactSleepEnergySummary activePlan={normalizeSleepEnergyPlan(sleepPlan)} /> : null}
 
       {projectPlan ? <CompactProjectSummary activePlan={normalizeBuildProjectPlan(projectPlan)} /> : null}
+
+      {moneyPlan ? <CompactMoneySummary activePlan={normalizeMoneyPlan(moneyPlan)} spendingLogs={moneySpendingLogs} incomeLogs={moneyIncomeLogs} savingLogs={moneySavingLogs} opportunityLogs={moneyOpportunityLogs} /> : null}
 
       <div className="mt-5 flex flex-wrap gap-2">
         {(["All", "Main", "Body", "Skill", "Essentials"] as PlanTaskFilter[]).map((option) => (
@@ -5283,6 +5546,397 @@ function EssentialsItemRow({
             {item.disabled ? "Enable" : "Disable"}
           </button>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MoneyPlanSetupPanel({
+  setup,
+  setSetup,
+  onSave,
+  onCancel
+}: {
+  setup: MoneySetup;
+  setSetup: Dispatch<SetStateAction<MoneySetup>>;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const calculations = calculateMoneyPlan(setup);
+
+  function updateSetup(patch: Partial<MoneySetup>) {
+    setSetup((current) => ({ ...current, ...patch }));
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Money Plan Setup</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Increase income, control spending, and save toward a goal.</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">This is a personal money planning tool, not financial advice.</p>
+        </div>
+        <Badge tone="gold">{setup.incomePath}</Badge>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <SelectField label="Main money goal" value={setup.mainMoneyGoal} options={moneyGoalOptions} onChange={(mainMoneyGoal) => updateSetup({ mainMoneyGoal })} />
+        <SelectField label="Target amount" value={moneyTargetAmountOptions.includes(String(setup.targetAmount)) ? String(setup.targetAmount) : "custom"} options={moneyTargetAmountOptions} onChange={(value) => updateSetup({ targetAmount: value === "custom" ? setup.customTargetAmount : Number(value) || 0 })} />
+        <Field label="Custom target amount"><input type="number" value={setup.customTargetAmount || ""} onChange={(event) => updateSetup({ customTargetAmount: Number(event.target.value) || 0, targetAmount: Number(event.target.value) || setup.targetAmount })} className="form-control" /></Field>
+        <SelectField label="Target deadline" value={setup.targetDeadline} options={moneyDeadlineOptions} onChange={(targetDeadline) => updateSetup({ targetDeadline })} />
+        {setup.targetDeadline === "custom date" ? <Field label="Custom deadline"><input type="date" value={setup.customDeadline} onChange={(event) => updateSetup({ customDeadline: event.target.value })} className="form-control" /></Field> : null}
+        <Field label="Current monthly income"><input type="number" value={setup.currentMonthlyIncome || ""} onChange={(event) => updateSetup({ currentMonthlyIncome: Number(event.target.value) || 0 })} className="form-control" /></Field>
+        <Field label="Current monthly fixed expenses"><input type="number" value={setup.currentMonthlyFixedExpenses || ""} onChange={(event) => updateSetup({ currentMonthlyFixedExpenses: Number(event.target.value) || 0 })} className="form-control" /></Field>
+        <Field label="Current savings"><input type="number" value={setup.currentSavings || ""} onChange={(event) => updateSetup({ currentSavings: Number(event.target.value) || 0 })} className="form-control" /></Field>
+        <Field label="Currency"><input value={setup.currency} onChange={(event) => updateSetup({ currency: event.target.value || "USD" })} className="form-control" /></Field>
+        <SelectField label="Income path" value={setup.incomePath} options={moneyIncomePathOptions} onChange={(incomePath) => updateSetup({ incomePath })} />
+        <SelectField label="Daily money time" value={setup.dailyMoneyTime} options={moneyDailyTimeOptions} onChange={(dailyMoneyTime) => updateSetup({ dailyMoneyTime })} />
+        {setup.dailyMoneyTime === "custom" ? <Field label="Custom daily minutes"><input type="number" value={setup.customDailyMinutes || ""} onChange={(event) => updateSetup({ customDailyMinutes: Number(event.target.value) || 30 })} className="form-control" /></Field> : null}
+        <SelectField label="Current bottleneck" value={setup.currentBottleneck} options={moneyBottleneckOptions} onChange={(currentBottleneck) => updateSetup({ currentBottleneck })} />
+        <SelectField label="Saving style" value={setup.savingStyle} options={moneySavingStyleOptions} onChange={(savingStyle) => updateSetup({ savingStyle })} />
+        <div className="md:col-span-2 xl:col-span-3">
+          <Field label="Spending categories to track">
+            <textarea value={setup.spendingCategories.join(", ")} onChange={(event) => updateSetup({ spendingCategories: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) })} className="form-control min-h-24" />
+          </Field>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniMetric label="Monthly Leftover" value={formatMoney(calculations.monthlyLeftover, setup.currency)} />
+        <MiniMetric label="Remaining Needed" value={formatMoney(calculations.remainingSavingNeeded, setup.currency)} />
+        <MiniMetric label="Daily Saving" value={calculations.neededSavingPerDay === null ? "No deadline" : formatMoney(calculations.neededSavingPerDay, setup.currency)} />
+        <MiniMetric label="Progress" value={`${calculations.progressPercent}%`} />
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={onSave} className="primary-button justify-center">Save Money Plan</button>
+        <button type="button" onClick={onCancel} className="secondary-button justify-center">Cancel</button>
+      </div>
+    </Panel>
+  );
+}
+
+function CompactMoneySummary({
+  activePlan,
+  spendingLogs,
+  incomeLogs,
+  savingLogs,
+  opportunityLogs
+}: {
+  activePlan: MoneyPlan;
+  spendingLogs: MoneySpendingLog[];
+  incomeLogs: MoneyIncomeLog[];
+  savingLogs: MoneySavingLog[];
+  opportunityLogs: MoneyOpportunityLog[];
+}) {
+  const summary = getMoneySummary(activePlan, spendingLogs, incomeLogs, savingLogs, opportunityLogs);
+  const action = getTodayMoneyAction(activePlan);
+  return (
+    <div className="mt-5 rounded-2xl border border-amber-200/20 bg-amber-300/[0.06] p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-100">Money Plan</p>
+          <h4 className="mt-1 text-lg font-black text-white">Goal: Save {formatMoney(activePlan.setup.targetAmount, activePlan.setup.currency)}</h4>
+          <p className="mt-1 text-sm leading-6 text-slate-300">Progress: {formatMoney(summary.currentSavings, activePlan.setup.currency)} / {formatMoney(activePlan.setup.targetAmount, activePlan.setup.currency)}</p>
+        </div>
+        <Badge tone="gold">{activePlan.setup.incomePath}</Badge>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <MacroMini label="Today saving target" value={activePlan.calculations.neededSavingPerDay === null ? "No deadline" : formatMoney(activePlan.calculations.neededSavingPerDay, activePlan.setup.currency)} />
+        <MacroMini label="Money action" value={action} />
+        <MacroMini label="Week spending" value={formatMoney(summary.weekSpending, activePlan.setup.currency)} />
+        <MacroMini label="Month income" value={formatMoney(summary.monthIncome, activePlan.setup.currency)} />
+      </div>
+    </div>
+  );
+}
+
+function MoneyPlanDetails({
+  activePlan,
+  setActivePlan,
+  spendingLogs,
+  setSpendingLogs,
+  incomeLogs,
+  setIncomeLogs,
+  savingLogs,
+  setSavingLogs,
+  opportunityLogs,
+  setOpportunityLogs
+}: {
+  activePlan: MoneyPlan;
+  setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>;
+  spendingLogs: MoneySpendingLog[];
+  setSpendingLogs: Dispatch<SetStateAction<MoneySpendingLog[]>>;
+  incomeLogs: MoneyIncomeLog[];
+  setIncomeLogs: Dispatch<SetStateAction<MoneyIncomeLog[]>>;
+  savingLogs: MoneySavingLog[];
+  setSavingLogs: Dispatch<SetStateAction<MoneySavingLog[]>>;
+  opportunityLogs: MoneyOpportunityLog[];
+  setOpportunityLogs: Dispatch<SetStateAction<MoneyOpportunityLog[]>>;
+}) {
+  const [spendingDraft, setSpendingDraft] = useState<MoneySpendingLog>(() => createDefaultSpendingLog(activePlan));
+  const [incomeDraft, setIncomeDraft] = useState<MoneyIncomeLog>(() => createDefaultIncomeLog());
+  const [savingDraft, setSavingDraft] = useState<MoneySavingLog>(() => createDefaultSavingLog(activePlan));
+  const [opportunityDraft, setOpportunityDraft] = useState<MoneyOpportunityLog>(() => createDefaultOpportunityLog(activePlan));
+  const summary = getMoneySummary(activePlan, spendingLogs, incomeLogs, savingLogs, opportunityLogs);
+
+  function saveSpendingLog() {
+    setSpendingLogs((current) => upsertMoneyLog(current, normalizeMoneySpendingLog(spendingDraft)));
+    setSpendingDraft(createDefaultSpendingLog(activePlan));
+  }
+
+  function saveIncomeLog() {
+    setIncomeLogs((current) => upsertMoneyLog(current, normalizeMoneyIncomeLog(incomeDraft)));
+    setIncomeDraft(createDefaultIncomeLog());
+  }
+
+  function saveSavingLog() {
+    setSavingLogs((current) => upsertMoneyLog(current, normalizeMoneySavingLog(savingDraft)));
+    setSavingDraft(createDefaultSavingLog(activePlan));
+  }
+
+  function saveOpportunityLog() {
+    const normalized = normalizeMoneyOpportunityLog(opportunityDraft);
+    setOpportunityLogs((current) => upsertMoneyLog(current, normalized));
+    setActivePlan({ ...activePlan, logs: upsertMoneyLog(activePlan.logs, normalized) });
+    setOpportunityDraft(createDefaultOpportunityLog(activePlan));
+  }
+
+  return (
+    <div className="grid gap-5">
+      <Panel>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Details</p>
+            <h3 className="mt-2 text-2xl font-black text-white">Money Plan</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-400">Increase income, control spending, and save toward a goal. This is not financial advice.</p>
+          </div>
+          <Badge tone="green">Active</Badge>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MiniMetric label="Target" value={formatMoney(activePlan.setup.targetAmount, activePlan.setup.currency)} />
+          <MiniMetric label="Current Savings" value={formatMoney(summary.currentSavings, activePlan.setup.currency)} />
+          <MiniMetric label="Remaining" value={formatMoney(summary.remainingNeeded, activePlan.setup.currency)} />
+          <MiniMetric label="Progress" value={`${summary.progressPercent}%`} />
+          <MiniMetric label="Daily Saving" value={activePlan.calculations.neededSavingPerDay === null ? "No deadline" : formatMoney(activePlan.calculations.neededSavingPerDay, activePlan.setup.currency)} />
+          <MiniMetric label="Weekly Saving" value={activePlan.calculations.neededSavingPerWeek === null ? "No deadline" : formatMoney(activePlan.calculations.neededSavingPerWeek, activePlan.setup.currency)} />
+          <MiniMetric label="Monthly Leftover" value={formatMoney(activePlan.calculations.monthlyLeftover, activePlan.setup.currency)} />
+          <MiniMetric label="Income Path" value={activePlan.setup.incomePath} />
+        </div>
+      </Panel>
+
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Daily Money Tasks</p>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {activePlan.dailyTasks.map((item) => <MoneyTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} list="dailyTasks" />)}
+        </div>
+      </Panel>
+
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Money Logs</p>
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <MoneySpendingLogForm draft={spendingDraft} setDraft={setSpendingDraft} categories={activePlan.setup.spendingCategories} onSave={saveSpendingLog} />
+          <MoneyIncomeLogForm draft={incomeDraft} setDraft={setIncomeDraft} onSave={saveIncomeLog} />
+          <MoneySavingLogForm draft={savingDraft} setDraft={setSavingDraft} onSave={saveSavingLog} />
+          <MoneyOpportunityLogForm draft={opportunityDraft} setDraft={setOpportunityDraft} onSave={saveOpportunityLog} />
+        </div>
+      </Panel>
+
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Recent Money Records</p>
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
+          <MoneySpendingLogList logs={spendingLogs} currency={activePlan.setup.currency} editLog={setSpendingDraft} deleteLog={(id) => {
+            if (window.confirm("Delete this spending log?")) setSpendingLogs((current) => current.filter((log) => log.id !== id));
+          }} />
+          <MoneyIncomeLogList logs={incomeLogs} currency={activePlan.setup.currency} editLog={setIncomeDraft} deleteLog={(id) => {
+            if (window.confirm("Delete this income log?")) setIncomeLogs((current) => current.filter((log) => log.id !== id));
+          }} />
+          <MoneySavingLogList logs={savingLogs} currency={activePlan.setup.currency} editLog={setSavingDraft} deleteLog={(id) => {
+            if (window.confirm("Delete this saving log?")) setSavingLogs((current) => current.filter((log) => log.id !== id));
+          }} />
+          <MoneyOpportunityLogList
+            logs={opportunityLogs}
+            editLog={setOpportunityDraft}
+            deleteLog={(id) => {
+              if (!window.confirm("Delete this opportunity log?")) return;
+              setOpportunityLogs((current) => current.filter((log) => log.id !== id));
+              setActivePlan({ ...activePlan, logs: activePlan.logs.filter((log) => log.id !== id) });
+            }}
+            updateStatus={(id, status) => {
+              setOpportunityLogs((current) => current.map((log) => log.id === id ? { ...log, status } : log));
+              setActivePlan({ ...activePlan, logs: activePlan.logs.map((log) => log.id === id ? { ...log, status } : log) });
+            }}
+          />
+        </div>
+      </Panel>
+
+      <MoneyPlanProgressSummary activePlans={[activePlan]} spendingLogs={spendingLogs} incomeLogs={incomeLogs} savingLogs={savingLogs} opportunityLogs={opportunityLogs} />
+    </div>
+  );
+}
+
+function MoneyTaskRow({ item, activePlan, setActivePlan, list, compact = false }: { item: MoneyTask; activePlan: MoneyPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>; list: "dailyTasks" | "weeklyTasks"; compact?: boolean }) {
+  if (item.disabled && compact) return null;
+  return (
+    <div className={`rounded-2xl border p-3 ${item.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : item.disabled ? "border-orange-300/25 bg-orange-400/[0.06] opacity-70" : "border-white/10 bg-white/[0.04]"}`}>
+      <div className="flex items-start gap-3">
+        <button type="button" onClick={() => updateMoneyTask(activePlan, setActivePlan, list, item.id, { completed: !item.completed })} className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${item.completed ? "border-emerald-300 bg-emerald-400 text-slate-950" : "border-white/15 bg-black/20 text-slate-400"}`}>
+          {item.completed ? <Check size={16} /> : null}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-black text-white">{item.title}</p>
+          <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{item.detail}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge tone="dark">{item.kind}</Badge>
+            {item.disabled ? <Badge tone="orange">Disabled</Badge> : null}
+          </div>
+        </div>
+        {!compact ? <button type="button" onClick={() => updateMoneyTask(activePlan, setActivePlan, list, item.id, { disabled: !item.disabled })} className="secondary-button min-h-9 px-3 py-2 text-xs">{item.disabled ? "Enable" : "Disable"}</button> : null}
+      </div>
+    </div>
+  );
+}
+
+function MoneySpendingLogForm({ draft, setDraft, categories, onSave }: { draft: MoneySpendingLog; setDraft: Dispatch<SetStateAction<MoneySpendingLog>>; categories: string[]; onSave: () => void }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h4 className="font-black text-white">Spending Log</h4>
+      <div className="mt-4 grid gap-3">
+        <Field label="Date"><input type="date" value={draft.date} onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))} className="form-control" /></Field>
+        <SelectField label="Category" value={draft.category} options={categories.length ? categories : defaultMoneySetup.spendingCategories} onChange={(category) => setDraft((current) => ({ ...current, category }))} />
+        <Field label="Amount"><input type="number" value={draft.amount || ""} onChange={(event) => setDraft((current) => ({ ...current, amount: Number(event.target.value) || 0 }))} className="form-control" /></Field>
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.necessary} onChange={(event) => setDraft((current) => ({ ...current, necessary: event.target.checked }))} className="h-5 w-5 accent-emerald-400" />Necessary?</label>
+        <Field label="Note"><input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} className="form-control" /></Field>
+        <button type="button" onClick={onSave} className="primary-button justify-center">Save Spending</button>
+      </div>
+    </section>
+  );
+}
+
+function MoneyIncomeLogForm({ draft, setDraft, onSave }: { draft: MoneyIncomeLog; setDraft: Dispatch<SetStateAction<MoneyIncomeLog>>; onSave: () => void }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h4 className="font-black text-white">Income Log</h4>
+      <div className="mt-4 grid gap-3">
+        <Field label="Date"><input type="date" value={draft.date} onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))} className="form-control" /></Field>
+        <Field label="Source"><input value={draft.source} onChange={(event) => setDraft((current) => ({ ...current, source: event.target.value }))} className="form-control" /></Field>
+        <Field label="Amount"><input type="number" value={draft.amount || ""} onChange={(event) => setDraft((current) => ({ ...current, amount: Number(event.target.value) || 0 }))} className="form-control" /></Field>
+        <Field label="Note"><input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} className="form-control" /></Field>
+        <button type="button" onClick={onSave} className="primary-button justify-center">Save Income</button>
+      </div>
+    </section>
+  );
+}
+
+function MoneySavingLogForm({ draft, setDraft, onSave }: { draft: MoneySavingLog; setDraft: Dispatch<SetStateAction<MoneySavingLog>>; onSave: () => void }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h4 className="font-black text-white">Saving Log</h4>
+      <div className="mt-4 grid gap-3">
+        <Field label="Date"><input type="date" value={draft.date} onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))} className="form-control" /></Field>
+        <Field label="Amount saved"><input type="number" value={draft.amountSaved || ""} onChange={(event) => setDraft((current) => ({ ...current, amountSaved: Number(event.target.value) || 0 }))} className="form-control" /></Field>
+        <Field label="Note"><input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} className="form-control" /></Field>
+        <button type="button" onClick={onSave} className="primary-button justify-center">Save Savings</button>
+      </div>
+    </section>
+  );
+}
+
+function MoneyOpportunityLogForm({ draft, setDraft, onSave }: { draft: MoneyOpportunityLog; setDraft: Dispatch<SetStateAction<MoneyOpportunityLog>>; onSave: () => void }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h4 className="font-black text-white">Opportunity Tracker</h4>
+      <div className="mt-4 grid gap-3">
+        <SelectField label="Type" value={draft.type} options={moneyOpportunityTypes} onChange={(type) => setDraft((current) => ({ ...current, type }))} />
+        <Field label="Title"><input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} className="form-control" /></Field>
+        <SelectField label="Status" value={draft.status} options={moneyOpportunityStatuses} onChange={(status) => setDraft((current) => ({ ...current, status }))} />
+        <Field label="Date"><input type="date" value={draft.date} onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))} className="form-control" /></Field>
+        <Field label="Note"><input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} className="form-control" /></Field>
+        <button type="button" onClick={onSave} className="primary-button justify-center">Save Opportunity</button>
+      </div>
+    </section>
+  );
+}
+
+function MoneySpendingLogList({ logs, currency, editLog, deleteLog }: { logs: MoneySpendingLog[]; currency: string; editLog: (log: MoneySpendingLog) => void; deleteLog: (id: string) => void }) {
+  return (
+    <MoneyLogSection title="Spending">
+      {logs.slice(-5).reverse().map((log) => (
+        <MoneyLogRow key={log.id} title={`${log.category} · ${formatMoney(log.amount, currency)}`} detail={`${log.date}${log.necessary ? " · necessary" : " · optional"}${log.note ? ` · ${log.note}` : ""}`} onEdit={() => editLog(log)} onDelete={() => deleteLog(log.id)} />
+      ))}
+      {logs.length === 0 ? <p className="text-sm text-slate-400">No spending logs yet.</p> : null}
+    </MoneyLogSection>
+  );
+}
+
+function MoneyIncomeLogList({ logs, currency, editLog, deleteLog }: { logs: MoneyIncomeLog[]; currency: string; editLog: (log: MoneyIncomeLog) => void; deleteLog: (id: string) => void }) {
+  return (
+    <MoneyLogSection title="Income">
+      {logs.slice(-5).reverse().map((log) => (
+        <MoneyLogRow key={log.id} title={`${log.source || "Income"} · ${formatMoney(log.amount, currency)}`} detail={`${log.date}${log.note ? ` · ${log.note}` : ""}`} onEdit={() => editLog(log)} onDelete={() => deleteLog(log.id)} />
+      ))}
+      {logs.length === 0 ? <p className="text-sm text-slate-400">No income logs yet.</p> : null}
+    </MoneyLogSection>
+  );
+}
+
+function MoneySavingLogList({ logs, currency, editLog, deleteLog }: { logs: MoneySavingLog[]; currency: string; editLog: (log: MoneySavingLog) => void; deleteLog: (id: string) => void }) {
+  return (
+    <MoneyLogSection title="Savings">
+      {logs.slice(-5).reverse().map((log) => (
+        <MoneyLogRow key={log.id} title={`Saved ${formatMoney(log.amountSaved, currency)}`} detail={`${log.date}${log.note ? ` · ${log.note}` : ""}`} onEdit={() => editLog(log)} onDelete={() => deleteLog(log.id)} />
+      ))}
+      {logs.length === 0 ? <p className="text-sm text-slate-400">No saving logs yet.</p> : null}
+    </MoneyLogSection>
+  );
+}
+
+function MoneyOpportunityLogList({ logs, editLog, deleteLog, updateStatus }: { logs: MoneyOpportunityLog[]; editLog: (log: MoneyOpportunityLog) => void; deleteLog: (id: string) => void; updateStatus: (id: string, status: string) => void }) {
+  return (
+    <MoneyLogSection title="Opportunities">
+      {logs.slice(-5).reverse().map((log) => (
+        <div key={log.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="break-words text-sm font-black text-white">{log.title}</p>
+              <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{log.type} · {log.date}{log.note ? ` · ${log.note}` : ""}</p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <select value={log.status} onChange={(event) => updateStatus(log.id, event.target.value)} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs font-black text-white outline-none">
+                {moneyOpportunityStatuses.map((status) => <option key={status}>{status}</option>)}
+              </select>
+              <button type="button" onClick={() => editLog(log)} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit</button>
+              <button type="button" onClick={() => deleteLog(log.id)} className="danger-button min-h-9 px-3 py-2 text-xs">Delete</button>
+            </div>
+          </div>
+        </div>
+      ))}
+      {logs.length === 0 ? <p className="text-sm text-slate-400">No opportunity logs yet.</p> : null}
+    </MoneyLogSection>
+  );
+}
+
+function MoneyLogSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h4 className="font-black text-white">{title}</h4>
+      <div className="mt-3 grid gap-2">{children}</div>
+    </section>
+  );
+}
+
+function MoneyLogRow({ title, detail, onEdit, onDelete }: { title: string; detail: string; onEdit: () => void; onDelete: () => void }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-black text-white">{title}</p>
+          <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{detail}</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <button type="button" onClick={onEdit} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit</button>
+          <button type="button" onClick={onDelete} className="danger-button min-h-9 px-3 py-2 text-xs">Delete</button>
+        </div>
       </div>
     </div>
   );
@@ -7377,6 +8031,7 @@ function SettingsPanel({
               <li>V2.9 Build a Project preset plan</li>
               <li>V2.10 Active Plan Control Center</li>
               <li>V2.11 Stability + backup test pass</li>
+              <li>V3.0 Money Plan - Increase Income + Saving Plan</li>
             </ul>
           </div>
           <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -8182,6 +8837,7 @@ function normalizeMaybeActivePlan(plan: unknown): ActivePlan | null {
   if (candidate.type === "get_lean_shred") return normalizeGetLeanPlan(candidate as GetLeanPlan);
   if (candidate.type === "fix_sleep_energy") return normalizeSleepEnergyPlan(candidate as SleepEnergyPlan);
   if (candidate.type === "build_project") return normalizeBuildProjectPlan(candidate as BuildProjectPlan);
+  if (candidate.type === "money_plan") return normalizeMoneyPlan(candidate as MoneyPlan);
   if (candidate.type === "learn_master_subject") return normalizeLearnMasterPlan(candidate as LearnMasterPlan);
   return null;
 }
@@ -8206,6 +8862,7 @@ function getPlanTaskSourceLabel(plan: ActivePlan): string {
   if (plan.type === "get_lean_shred") return "Get Lean / Shred";
   if (plan.type === "fix_sleep_energy") return "Fix Sleep & Energy";
   if (plan.type === "build_project") return normalizeBuildProjectPlan(plan).setup.projectName ? `Build ${normalizeBuildProjectPlan(plan).setup.projectName}` : "Build a Project";
+  if (plan.type === "money_plan") return "Money Plan";
   if (plan.type === "learn_master_subject") return plan.subjectName ? `Learn ${plan.subjectName}` : "Learn / Master Subject";
   return "Other active plan";
 }
@@ -8221,6 +8878,7 @@ function formatPlanType(type: ActivePlan["type"]): string {
   if (type === "get_lean_shred") return "Get Lean / Shred";
   if (type === "fix_sleep_energy") return "Fix Sleep & Energy";
   if (type === "build_project") return "Build a Project";
+  if (type === "money_plan") return "Money Plan";
   return "Learn / Master Subject";
 }
 
@@ -8276,6 +8934,19 @@ function getPlanTodayTaskRows(plan: ActivePlan): PlanTaskRow[] {
       }));
   }
 
+  if (plan.type === "money_plan") {
+    const normalized = normalizeMoneyPlan(plan);
+    return normalized.dailyTasks
+      .filter((item) => !item.disabled)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        detail: item.detail,
+        badge: item.kind === "income" ? "Income" : "Saving",
+        completed: item.completed
+      }));
+  }
+
   const normalized = normalizeLearnMasterPlan(plan);
   return normalized.dailyTasks
     .filter((item) => !item.disabled)
@@ -8318,6 +8989,7 @@ function getPlanTaskFilterGroup(plan: ActivePlan, row: PlanTaskRow): Exclude<Pla
   if (plan.type === "get_lean_shred") return "Body";
   if (plan.type === "fix_sleep_energy") return "Body";
   if (plan.type === "build_project") return "Skill";
+  if (plan.type === "money_plan") return "Main";
   if (text.includes("money") || text.includes("main") || text.includes("mission")) return "Main";
   if (text.includes("skill") || text.includes("study") || text.includes("practice") || text.includes("learn")) return "Skill";
   if (text.includes("health") || text.includes("sleep") || text.includes("water") || text.includes("walk")) return "Body";
@@ -8329,6 +9001,7 @@ function getPlanTaskRank(plan: ActivePlan, row: PlanTaskRow, filterGroup: Exclud
   if (text.includes("s-tier") || text.includes("priority s")) return 10;
   if (text.includes("main mission") || text.includes("main task")) return 20;
   if (filterGroup === "Body" && /sleep|energy|caffeine|nap|night|nanno|screen|protein|water|walk|steps|calorie|workout|health/.test(text)) return 30;
+  if (plan.type === "money_plan" || /income|money|saving|spending|job|client|application|offer/.test(text)) return 35;
   if (filterGroup === "Skill" || plan.type === "learn_master_subject" || plan.type === "build_project") return 40;
   if (filterGroup === "Essentials" || plan.type === "everyday_essentials") return 50;
   if (text.includes("weekly") || text.includes("restock")) return 60;
@@ -8511,6 +9184,16 @@ function getDefaultPlanReviewSpecifics(plan: ActivePlan): Record<string, string 
       canExplain: ""
     };
   }
+  if (plan.type === "money_plan") {
+    return {
+      totalIncomeThisWeek: 0,
+      totalSpendingThisWeek: 0,
+      amountSavedThisWeek: 0,
+      moneyActionsCompleted: normalizeMoneyPlan(plan).dailyTasks.filter((task) => task.completed).length,
+      whatWorked: "",
+      whatWastedMoney: ""
+    };
+  }
   return {
     missingItems: "",
     restockNeeded: "",
@@ -8526,6 +9209,7 @@ function getPlanWeeklyCompletionText(plan: ActivePlan): string {
   if (plan.type === "get_lean_shred") return `${normalizeGetLeanPlan(plan).logs.slice(-7).filter((log) => log.workoutCompleted || log.steps || log.weightKg).length}/7 logs`;
   if (plan.type === "fix_sleep_energy") return `${normalizeSleepEnergyPlan(plan).logs.slice(-7).filter((log) => log.sleepHours || log.energy).length}/7 sleep logs`;
   if (plan.type === "build_project") return `${normalizeBuildProjectPlan(plan).logs.slice(-7).filter((log) => log.minutesWorked || log.workedOn).length}/7 project logs`;
+  if (plan.type === "money_plan") return `${normalizeMoneyPlan(plan).dailyTasks.filter((task) => task.completed).length}/${normalizeMoneyPlan(plan).dailyTasks.length} daily`;
   return `${normalizeLearnMasterPlan(plan).logs.slice(-7).filter((log) => log.studyCompleted).length}/7 study days`;
 }
 
@@ -8533,6 +9217,7 @@ function getPlanLastLogText(plan: ActivePlan): string {
   if (plan.type === "get_lean_shred") return normalizeGetLeanPlan(plan).logs.at(-1)?.date ?? "No log yet";
   if (plan.type === "fix_sleep_energy") return normalizeSleepEnergyPlan(plan).logs.at(-1)?.date ?? "No log yet";
   if (plan.type === "build_project") return normalizeBuildProjectPlan(plan).logs.at(-1)?.date ?? "No log yet";
+  if (plan.type === "money_plan") return normalizeMoneyPlan(plan).logs.at(-1)?.date ?? "No opportunity yet";
   if (plan.type === "learn_master_subject") return normalizeLearnMasterPlan(plan).logs.at(-1)?.date ?? "No log yet";
   return "Checklist only";
 }
@@ -8541,6 +9226,7 @@ function getPlanLogCount(plan: ActivePlan): number {
   if (plan.type === "get_lean_shred") return normalizeGetLeanPlan(plan).logs.length;
   if (plan.type === "fix_sleep_energy") return normalizeSleepEnergyPlan(plan).logs.length;
   if (plan.type === "build_project") return normalizeBuildProjectPlan(plan).logs.length;
+  if (plan.type === "money_plan") return normalizeMoneyPlan(plan).logs.length;
   if (plan.type === "learn_master_subject") return normalizeLearnMasterPlan(plan).logs.length;
   return 0;
 }
@@ -8599,6 +9285,21 @@ function getPlanSetupRows(plan: ActivePlan): Array<{ label: string; value: strin
       { label: "Build style", value: setup.buildStyle }
     ];
   }
+  if (plan.type === "money_plan") {
+    const setup = normalizeMoneyPlan(plan).setup;
+    return [
+      { label: "Money goal", value: setup.mainMoneyGoal },
+      { label: "Target amount", value: formatMoney(setup.targetAmount, setup.currency) },
+      { label: "Deadline", value: getMoneyDeadlineLabel(setup) },
+      { label: "Monthly income", value: formatMoney(setup.currentMonthlyIncome, setup.currency) },
+      { label: "Fixed expenses", value: formatMoney(setup.currentMonthlyFixedExpenses, setup.currency) },
+      { label: "Current savings", value: formatMoney(setup.currentSavings, setup.currency) },
+      { label: "Income path", value: setup.incomePath },
+      { label: "Daily money time", value: `${getMoneyDailyMinutes(setup)} min` },
+      { label: "Bottleneck", value: setup.currentBottleneck },
+      { label: "Saving style", value: setup.savingStyle }
+    ];
+  }
   const normalized = normalizeLearnMasterPlan(plan);
   return [
     { label: "Subject", value: normalized.subjectName || "Not set" },
@@ -8655,6 +9356,19 @@ function getPlanTargetRows(plan: ActivePlan): Array<{ label: string; value: stri
       { label: "Feedback", value: getProjectFeedback(normalized) }
     ];
   }
+  if (plan.type === "money_plan") {
+    const normalized = normalizeMoneyPlan(plan);
+    const calculations = normalized.calculations;
+    return [
+      { label: "Monthly leftover", value: formatMoney(calculations.monthlyLeftover, normalized.setup.currency) },
+      { label: "Remaining saving needed", value: formatMoney(calculations.remainingSavingNeeded, normalized.setup.currency) },
+      { label: "Daily saving needed", value: calculations.neededSavingPerDay === null ? "No deadline" : formatMoney(calculations.neededSavingPerDay, normalized.setup.currency) },
+      { label: "Weekly saving needed", value: calculations.neededSavingPerWeek === null ? "No deadline" : formatMoney(calculations.neededSavingPerWeek, normalized.setup.currency) },
+      { label: "Progress", value: `${calculations.progressPercent}%` },
+      { label: "Today income action", value: getTodayMoneyAction(normalized) },
+      { label: "Feedback", value: getMoneyFeedback(normalized, [], [], [], normalized.logs) }
+    ];
+  }
   const normalized = normalizeLearnMasterPlan(plan);
   return [
     { label: "Study loop", value: normalized.studyLoop.join(" -> ") },
@@ -8679,6 +9393,11 @@ function getPlanWeeklyRows(plan: ActivePlan): Array<{ label: string; value: stri
       rows.push({ label: item.title, value: item.completed ? "Done" : "Open" });
     });
   }
+  if (plan.type === "money_plan") {
+    normalizeMoneyPlan(plan).weeklyTasks.filter((item) => !item.disabled).slice(0, 5).forEach((item) => {
+      rows.push({ label: item.title, value: item.completed ? "Done" : "Open" });
+    });
+  }
   rows.push({ label: "Weekly reviews", value: String(getPlanWeeklyReviews(plan).length) });
   return rows;
 }
@@ -8698,7 +9417,194 @@ function togglePlanTask(plan: ActivePlan, taskId: string, updateActivePlan: (pla
     if (target.type === "build_project") {
       return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
     }
+    if (target.type === "money_plan") {
+      return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
+    }
     return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
+  });
+}
+
+function createMoneyPlan(setup: MoneySetup): MoneyPlan {
+  const normalizedSetup = normalizeMoneySetup(setup);
+  return {
+    id: createPlanId("money_plan"),
+    type: "money_plan",
+    name: "Money Plan",
+    status: "active",
+    startDate: getDateKey(new Date()),
+    setup: normalizedSetup,
+    calculations: calculateMoneyPlan(normalizedSetup),
+    dailyTasks: createMoneyDailyTasks(normalizedSetup),
+    weeklyTasks: createMoneyWeeklyTasks(normalizedSetup),
+    logs: [],
+    weeklyReviews: []
+  };
+}
+
+function normalizeMoneyPlan(plan: MoneyPlan): MoneyPlan {
+  const setup = normalizeMoneySetup(plan.setup);
+  return {
+    id: plan.id || createPlanId("money_plan"),
+    type: "money_plan",
+    name: "Money Plan",
+    status: normalizePlanStatus(plan.status),
+    startDate: plan.startDate || getDateKey(new Date()),
+    setup,
+    calculations: calculateMoneyPlan(setup),
+    dailyTasks: normalizeMoneyTasks(plan.dailyTasks, createMoneyDailyTasks(setup)),
+    weeklyTasks: normalizeMoneyTasks(plan.weeklyTasks, createMoneyWeeklyTasks(setup)),
+    logs: normalizeMoneyOpportunityLogs(plan.logs),
+    weeklyReviews: normalizePlanWeeklyReviews(plan.weeklyReviews)
+  };
+}
+
+function normalizeMoneySetup(setup: Partial<MoneySetup>): MoneySetup {
+  const targetAmount = Number(setup.targetAmount) || Number(setup.customTargetAmount) || defaultMoneySetup.targetAmount;
+  return {
+    mainMoneyGoal: moneyGoalOptions.includes(setup.mainMoneyGoal ?? "") ? setup.mainMoneyGoal ?? defaultMoneySetup.mainMoneyGoal : defaultMoneySetup.mainMoneyGoal,
+    targetAmount,
+    customTargetAmount: Number(setup.customTargetAmount) || targetAmount,
+    targetDeadline: moneyDeadlineOptions.includes(setup.targetDeadline ?? "") ? setup.targetDeadline ?? defaultMoneySetup.targetDeadline : defaultMoneySetup.targetDeadline,
+    customDeadline: setup.customDeadline ?? "",
+    currentMonthlyIncome: Number(setup.currentMonthlyIncome) || 0,
+    currentMonthlyFixedExpenses: Number(setup.currentMonthlyFixedExpenses) || 0,
+    currentSavings: Number(setup.currentSavings) || 0,
+    currency: setup.currency?.trim() || "USD",
+    incomePath: moneyIncomePathOptions.includes(setup.incomePath ?? "") ? setup.incomePath ?? defaultMoneySetup.incomePath : defaultMoneySetup.incomePath,
+    dailyMoneyTime: moneyDailyTimeOptions.includes(setup.dailyMoneyTime ?? "") ? setup.dailyMoneyTime ?? defaultMoneySetup.dailyMoneyTime : defaultMoneySetup.dailyMoneyTime,
+    customDailyMinutes: Number(setup.customDailyMinutes) || 30,
+    currentBottleneck: moneyBottleneckOptions.includes(setup.currentBottleneck ?? "") ? setup.currentBottleneck ?? defaultMoneySetup.currentBottleneck : defaultMoneySetup.currentBottleneck,
+    savingStyle: moneySavingStyleOptions.includes(setup.savingStyle ?? "") ? setup.savingStyle ?? defaultMoneySetup.savingStyle : defaultMoneySetup.savingStyle,
+    spendingCategories: Array.isArray(setup.spendingCategories) && setup.spendingCategories.length ? setup.spendingCategories.filter(Boolean) : defaultMoneySetup.spendingCategories
+  };
+}
+
+function calculateMoneyPlan(setup: MoneySetup): MoneyCalculations {
+  const normalized = normalizeMoneySetup(setup);
+  const monthlyLeftover = normalized.currentMonthlyIncome - normalized.currentMonthlyFixedExpenses;
+  const remainingSavingNeeded = Math.max(0, normalized.targetAmount - normalized.currentSavings);
+  const targetDeadlineDate = getMoneyDeadlineDate(normalized);
+  const daysUntilDeadline = targetDeadlineDate ? Math.max(1, daysBetween(getDateKey(new Date()), targetDeadlineDate)) : null;
+  const monthsUntilDeadline = daysUntilDeadline ? Math.max(daysUntilDeadline / 30, 1 / 30) : null;
+  const neededSavingPerDay = daysUntilDeadline ? remainingSavingNeeded / daysUntilDeadline : null;
+  const neededSavingPerWeek = neededSavingPerDay === null ? null : neededSavingPerDay * 7;
+  const neededSavingPerMonth = monthsUntilDeadline ? remainingSavingNeeded / monthsUntilDeadline : null;
+  const progressPercent = normalized.targetAmount > 0 ? clampNumber(Math.round((normalized.currentSavings / normalized.targetAmount) * 100), 0, 100) : 0;
+  return {
+    monthlyLeftover,
+    remainingSavingNeeded,
+    daysUntilDeadline,
+    neededSavingPerDay,
+    neededSavingPerWeek,
+    neededSavingPerMonth,
+    progressPercent,
+    targetDeadlineDate: targetDeadlineDate || ""
+  };
+}
+
+function getMoneyDeadlineDate(setup: MoneySetup): string {
+  if (setup.targetDeadline === "no deadline") return "";
+  if (setup.targetDeadline === "custom date") return setup.customDeadline;
+  const days = setup.targetDeadline === "7 days" ? 7 : setup.targetDeadline === "14 days" ? 14 : setup.targetDeadline === "30 days" ? 30 : setup.targetDeadline === "90 days" ? 90 : setup.targetDeadline === "1 year" ? 365 : 0;
+  if (!days) return "";
+  return getDateKey(addDays(new Date(), days));
+}
+
+function getMoneyDeadlineLabel(setup: MoneySetup): string {
+  if (setup.targetDeadline === "custom date") return setup.customDeadline || "Custom date";
+  return setup.targetDeadline;
+}
+
+function getMoneyDailyMinutes(setup: MoneySetup): number {
+  if (setup.dailyMoneyTime === "custom") return Number(setup.customDailyMinutes) || 30;
+  return Number(setup.dailyMoneyTime.replace(/[^0-9]/g, "")) || 30;
+}
+
+function createMoneyDailyTasks(setup: MoneySetup): MoneyTask[] {
+  const normalized = normalizeMoneySetup(setup);
+  return [...getIncomeTasksForPath(normalized), ...getSavingTasks(normalized)].map((task) => ({ ...task, completed: false, disabled: false }));
+}
+
+function createMoneyWeeklyTasks(_setup: MoneySetup): MoneyTask[] {
+  return [
+    moneyTask("weekly-review-income", "Review weekly income actions", "Count applications, messages, replies, project progress, or offers.", "income"),
+    moneyTask("weekly-review-spending", "Review weekly spending", "Find one category to reduce next week.", "saving"),
+    moneyTask("weekly-saving-check", "Check savings progress", "Compare target saving vs actual saving.", "saving")
+  ];
+}
+
+function getIncomeTasksForPath(setup: MoneySetup): MoneyTask[] {
+  const minutes = getMoneyDailyMinutes(setup);
+  const path = setup.incomePath;
+  if (path === "Job") return [
+    moneyTask("job-find-posts", "Find 3 job posts", "Save 3 realistic job leads.", "income"),
+    moneyTask("job-apply-one", "Apply to 1 job", "Send one application today.", "income"),
+    moneyTask("job-improve-cv", "Improve CV/profile", `Work on CV/profile for ${Math.min(minutes, 30)} min.`, "income"),
+    moneyTask("job-track-application", "Track application", "Record where you applied and the next follow-up.", "income")
+  ];
+  if (path === "Freelance") return [
+    moneyTask("freelance-skill", "Improve one useful skill", `Practice for ${minutes} min.`, "income"),
+    moneyTask("freelance-portfolio", "Improve one portfolio sample", "Make one proof-of-work piece clearer.", "income"),
+    moneyTask("freelance-message", "Send 3 client messages/applications", "Reach out to 3 possible clients or gigs.", "income"),
+    moneyTask("freelance-follow-up", "Follow up with old lead", "Send one polite follow-up.", "income")
+  ];
+  if (path === "Online work") return [
+    moneyTask("online-search", "Search 3 online work opportunities", "Find realistic online tasks or gigs.", "income"),
+    moneyTask("online-apply", "Apply/message 1-3 opportunities", "Send at least one real message.", "income"),
+    moneyTask("online-profile", "Improve profile/portfolio", "Make your profile more trustworthy.", "income")
+  ];
+  if (path === "Sell service") return [
+    moneyTask("service-define", "Define one simple service offer", "Make the offer clear enough to explain in one sentence.", "income"),
+    moneyTask("service-message", "Message 3 possible customers", "Contact 3 people who may need the service.", "income"),
+    moneyTask("service-sample", "Improve service sample", "Make one small proof/example.", "income")
+  ];
+  if (path === "Build app/project") return [
+    moneyTask("project-work", `Work on project ${minutes} min`, "Build one useful piece that could create value.", "income"),
+    moneyTask("project-money-feature", "Identify one money/useful feature", "Choose one feature that helps usefulness or earning potential.", "income"),
+    moneyTask("project-monetization", "Write one monetization idea", "Record one realistic way this could earn or save money.", "income")
+  ];
+  if (path === "Content") return [
+    moneyTask("content-idea", "Create one small content idea", "Pick one useful post, video, or script idea.", "income"),
+    moneyTask("content-draft", "Draft or publish one post/video/script", "Create one small content asset.", "income"),
+    moneyTask("content-track", "Track views/responses", "Record what got attention.", "income")
+  ];
+  if (path === "Small local business") return [
+    moneyTask("local-list", "List one item/service to sell", "Choose one small local offer.", "income"),
+    moneyTask("local-profit", "Check cost/profit", "Estimate cost, price, and profit.", "income"),
+    moneyTask("local-contact", "Contact one buyer/customer", "Reach out to one possible customer.", "income")
+  ];
+  return [
+    moneyTask("unclear-compare", "Compare income options", "Spend 15-30 min comparing realistic income paths.", "income"),
+    moneyTask("unclear-experiment", "Pick one tiny money experiment", "Choose one action you can test this week.", "income"),
+    moneyTask("unclear-record", "Record what seems realistic", "Write what felt possible and what felt too hard.", "income")
+  ];
+}
+
+function getSavingTasks(setup: MoneySetup): MoneyTask[] {
+  const calculations = calculateMoneyPlan(setup);
+  return [
+    moneyTask("spending-record", "Record today's spending", "Log food, transport, apps, games, emergency, or other spending.", "saving"),
+    moneyTask("spending-limit", "Check daily spending limit", "Notice if spending is higher than planned.", "saving"),
+    moneyTask("saving-target", "Save today's target amount if possible", calculations.neededSavingPerDay === null ? "No deadline: choose a small realistic amount." : `Target: ${formatMoney(calculations.neededSavingPerDay, setup.currency)} today.`, "saving"),
+    moneyTask("avoid-purchase", "Avoid one unnecessary purchase", "Protect savings by skipping one low-value spend.", "saving"),
+    moneyTask("review-remaining", "Review remaining money", "Check what is left and what must be protected.", "saving")
+  ];
+}
+
+function moneyTask(id: string, title: string, detail: string, kind: "income" | "saving"): MoneyTask {
+  return { id, title, detail, kind, completed: false, disabled: false };
+}
+
+function normalizeMoneyTasks(savedTasks: MoneyTask[] = [], template: MoneyTask[]): MoneyTask[] {
+  const safeTasks = Array.isArray(savedTasks) ? savedTasks : [];
+  const savedById = new Map(safeTasks.map((task) => [task.id, task]));
+  return template.map((task) => ({ ...task, ...savedById.get(task.id), id: task.id, title: savedById.get(task.id)?.title ?? task.title, detail: savedById.get(task.id)?.detail ?? task.detail, kind: savedById.get(task.id)?.kind ?? task.kind }));
+}
+
+function updateMoneyTask(activePlan: MoneyPlan, setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>, list: "dailyTasks" | "weeklyTasks", id: string, patch: Partial<MoneyTask>) {
+  setActivePlan({
+    ...activePlan,
+    [list]: activePlan[list].map((item) => (item.id === id ? { ...item, ...patch } : item))
   });
 }
 
@@ -9449,6 +10355,174 @@ function getAmountUnitLabel(entry: FoodEntry): string {
   if (entry.measurementType === "per egg") return entry.amount === 1 ? "egg" : "eggs";
   if (entry.measurementType === "per piece") return entry.amount === 1 ? "piece" : "pieces";
   return "servings";
+}
+
+function normalizeMoneySpendingLogs(logs: MoneySpendingLog[]): MoneySpendingLog[] {
+  return Array.isArray(logs) ? logs.map(normalizeMoneySpendingLog).filter((log) => log.amount > 0).sort((a, b) => a.date.localeCompare(b.date)) : [];
+}
+
+function normalizeMoneyIncomeLogs(logs: MoneyIncomeLog[]): MoneyIncomeLog[] {
+  return Array.isArray(logs) ? logs.map(normalizeMoneyIncomeLog).filter((log) => log.amount > 0).sort((a, b) => a.date.localeCompare(b.date)) : [];
+}
+
+function normalizeMoneySavingLogs(logs: MoneySavingLog[]): MoneySavingLog[] {
+  return Array.isArray(logs) ? logs.map(normalizeMoneySavingLog).filter((log) => log.amountSaved > 0).sort((a, b) => a.date.localeCompare(b.date)) : [];
+}
+
+function normalizeMoneyOpportunityLogs(logs: MoneyOpportunityLog[]): MoneyOpportunityLog[] {
+  return Array.isArray(logs) ? logs.map(normalizeMoneyOpportunityLog).filter((log) => log.title.trim()).sort((a, b) => a.date.localeCompare(b.date)) : [];
+}
+
+function normalizeMoneySpendingLog(log: Partial<MoneySpendingLog>): MoneySpendingLog {
+  return {
+    id: log.id || `spending-${Date.now()}`,
+    date: log.date || getDateKey(new Date()),
+    category: log.category || "Other",
+    amount: Math.max(0, Number(log.amount) || 0),
+    note: log.note ?? "",
+    necessary: log.necessary !== false
+  };
+}
+
+function normalizeMoneyIncomeLog(log: Partial<MoneyIncomeLog>): MoneyIncomeLog {
+  return {
+    id: log.id || `income-${Date.now()}`,
+    date: log.date || getDateKey(new Date()),
+    source: log.source || "Income",
+    amount: Math.max(0, Number(log.amount) || 0),
+    note: log.note ?? ""
+  };
+}
+
+function normalizeMoneySavingLog(log: Partial<MoneySavingLog>): MoneySavingLog {
+  return {
+    id: log.id || `saving-${Date.now()}`,
+    date: log.date || getDateKey(new Date()),
+    amountSaved: Math.max(0, Number(log.amountSaved) || 0),
+    note: log.note ?? ""
+  };
+}
+
+function normalizeMoneyOpportunityLog(log: Partial<MoneyOpportunityLog>): MoneyOpportunityLog {
+  return {
+    id: log.id || `opportunity-${Date.now()}`,
+    type: moneyOpportunityTypes.includes(log.type ?? "") ? log.type ?? "other" : "other",
+    title: log.title || "",
+    status: moneyOpportunityStatuses.includes(log.status ?? "") ? log.status ?? "planned" : "planned",
+    date: log.date || getDateKey(new Date()),
+    note: log.note ?? ""
+  };
+}
+
+function createDefaultSpendingLog(activePlan: MoneyPlan): MoneySpendingLog {
+  return { id: `spending-${Date.now()}`, date: getDateKey(new Date()), category: activePlan.setup.spendingCategories[0] ?? "Food", amount: 0, note: "", necessary: true };
+}
+
+function createDefaultIncomeLog(): MoneyIncomeLog {
+  return { id: `income-${Date.now()}`, date: getDateKey(new Date()), source: "", amount: 0, note: "" };
+}
+
+function createDefaultSavingLog(activePlan: MoneyPlan): MoneySavingLog {
+  return { id: `saving-${Date.now()}`, date: getDateKey(new Date()), amountSaved: Math.round((activePlan.calculations.neededSavingPerDay ?? 0) * 100) / 100, note: "" };
+}
+
+function createDefaultOpportunityLog(activePlan: MoneyPlan): MoneyOpportunityLog {
+  return { id: `opportunity-${Date.now()}`, type: getDefaultOpportunityType(activePlan.setup.incomePath), title: getTodayMoneyAction(activePlan), status: "planned", date: getDateKey(new Date()), note: "" };
+}
+
+function getDefaultOpportunityType(incomePath: string): string {
+  if (incomePath === "Job") return "job application";
+  if (incomePath === "Freelance" || incomePath === "Online work" || incomePath === "Sell service") return "freelance message";
+  if (incomePath === "Build app/project") return "project task";
+  if (incomePath === "Content") return "content";
+  if (incomePath === "Small local business") return "local business";
+  return "other";
+}
+
+function upsertMoneyLog<T extends { id: string; date: string }>(logs: T[], nextLog: T): T[] {
+  return [...logs.filter((log) => log.id !== nextLog.id), nextLog].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function getMoneySummary(activePlan: MoneyPlan, spendingLogs: MoneySpendingLog[], incomeLogs: MoneyIncomeLog[], savingLogs: MoneySavingLog[], opportunityLogs: MoneyOpportunityLog[]) {
+  const currentSavings = activePlan.setup.currentSavings + savingLogs.reduce((total, log) => total + log.amountSaved, 0);
+  const remainingNeeded = Math.max(0, activePlan.setup.targetAmount - currentSavings);
+  const progressPercent = activePlan.setup.targetAmount > 0 ? clampNumber(Math.round((currentSavings / activePlan.setup.targetAmount) * 100), 0, 100) : 0;
+  const weekSpending = sumMoneyLogs(spendingLogs.filter((log) => isWithinLastDays(log.date, 7)), "amount");
+  const monthIncome = sumMoneyLogs(incomeLogs.filter((log) => isSameMonth(log.date, getDateKey(new Date()))), "amount");
+  const weekSaving = sumMoneyLogs(savingLogs.filter((log) => isWithinLastDays(log.date, 7)), "amountSaved");
+  const incomeActionsCompleted = activePlan.dailyTasks.filter((task) => task.kind === "income" && task.completed).length;
+  const sentActions = opportunityLogs.filter((log) => log.status === "sent" || log.status === "replied" || log.status === "won").length;
+  const replies = opportunityLogs.filter((log) => log.status === "replied" || log.status === "won").length;
+  const unnecessarySpending = spendingLogs.filter((log) => !log.necessary).length;
+  return { currentSavings, remainingNeeded, progressPercent, weekSpending, monthIncome, weekSaving, incomeActionsCompleted, sentActions, replies, unnecessarySpending };
+}
+
+function sumMoneyLogs<T extends Record<string, unknown>>(logs: T[], key: keyof T): number {
+  return logs.reduce((total, log) => total + (Number(log[key]) || 0), 0);
+}
+
+function isWithinLastDays(date: string, days: number): boolean {
+  const diff = daysBetween(date, getDateKey(new Date()));
+  return diff >= 0 && diff < days;
+}
+
+function isSameMonth(date: string, today: string): boolean {
+  return date.slice(0, 7) === today.slice(0, 7);
+}
+
+function getTodayMoneyAction(activePlan: MoneyPlan): string {
+  return activePlan.dailyTasks.find((task) => task.kind === "income" && !task.completed && !task.disabled)?.title
+    ?? activePlan.dailyTasks.find((task) => task.kind === "income" && !task.disabled)?.title
+    ?? "Choose one money action";
+}
+
+function formatMoney(amount: number, currency: string): string {
+  const rounded = Math.round((Number(amount) || 0) * 100) / 100;
+  const symbol = currency.toUpperCase() === "USD" ? "$" : `${currency} `;
+  return `${symbol}${rounded.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
+function getMoneyFeedback(activePlan: MoneyPlan, spendingLogs: MoneySpendingLog[], incomeLogs: MoneyIncomeLog[], savingLogs: MoneySavingLog[], opportunityLogs: MoneyOpportunityLog[]): string {
+  const summary = getMoneySummary(activePlan, spendingLogs, incomeLogs, savingLogs, opportunityLogs);
+  if (summary.weekSpending > Math.max(activePlan.calculations.neededSavingPerWeek ?? 0, activePlan.calculations.monthlyLeftover / 4)) return "Spending is higher than planned. Track food, transport, games, and app costs first.";
+  if ((activePlan.calculations.neededSavingPerWeek ?? 0) > 0 && summary.weekSaving < (activePlan.calculations.neededSavingPerWeek ?? 0) * 0.5) return "Saving target looks missed. Try a smaller daily target or a longer deadline.";
+  if (activePlan.dailyTasks.filter((task) => task.kind === "income" && task.completed).length === 0 && opportunityLogs.filter((log) => isWithinLastDays(log.date, 3)).length === 0) return "No income actions recently. Do one 15-minute money action today.";
+  if (summary.sentActions >= 5 && summary.replies === 0) return "Applications/messages are going out but replies are low. Improve your offer, profile, or portfolio proof.";
+  if (activePlan.setup.incomePath === "Not sure yet") return "Pick one path for 7 days only. Clarity comes from a tiny experiment, not endless comparing.";
+  return "Keep the loop simple: income action, spending log, savings check, and one follow-up.";
+}
+
+function MoneyPlanProgressSummary({ activePlans, spendingLogs, incomeLogs, savingLogs, opportunityLogs }: { activePlans: ActivePlan[]; spendingLogs: MoneySpendingLog[]; incomeLogs: MoneyIncomeLog[]; savingLogs: MoneySavingLog[]; opportunityLogs: MoneyOpportunityLog[] }) {
+  const moneyPlan = activePlans.find((plan): plan is MoneyPlan => plan.type === "money_plan");
+  if (!moneyPlan) return null;
+  const activePlan = normalizeMoneyPlan(moneyPlan);
+  const summary = getMoneySummary(activePlan, spendingLogs, incomeLogs, savingLogs, opportunityLogs);
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Money Plan Progress</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Income, spending, and savings summary</h3>
+        </div>
+        <Badge tone="gold">{summary.progressPercent}% saved</Badge>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniMetric label="Current Savings" value={formatMoney(summary.currentSavings, activePlan.setup.currency)} />
+        <MiniMetric label="Target Progress" value={`${summary.progressPercent}%`} />
+        <MiniMetric label="Spending This Week" value={formatMoney(summary.weekSpending, activePlan.setup.currency)} />
+        <MiniMetric label="Income This Month" value={formatMoney(summary.monthIncome, activePlan.setup.currency)} />
+        <MiniMetric label="Income Actions Done" value={summary.incomeActionsCompleted} />
+        <MiniMetric label="Sent / Applied" value={summary.sentActions} />
+        <MiniMetric label="Replies / Wins" value={summary.replies} />
+        <MiniMetric label="Saved This Week" value={formatMoney(summary.weekSaving, activePlan.setup.currency)} />
+        <MiniMetric label="Unnecessary Spending" value={summary.unnecessarySpending} />
+      </div>
+      <div className="mt-5 rounded-2xl border border-teal-300/20 bg-teal-300/[0.06] p-4 text-sm leading-6 text-slate-300">
+        <p className="font-black text-white">Rule-based feedback</p>
+        <p className="mt-2">{getMoneyFeedback(activePlan, spendingLogs, incomeLogs, savingLogs, opportunityLogs)}</p>
+      </div>
+    </Panel>
+  );
 }
 
 function createDefaultFitnessLog(date: string): FitnessLog {
