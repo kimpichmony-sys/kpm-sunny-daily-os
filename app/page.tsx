@@ -787,12 +787,13 @@ type LongStudyDraft = {
   targetStudyHours: string;
   customStudyHours: number;
   startTime: string;
-  targetSleepTime: string;
   energyLevel: Energy;
   pomodoroStyle: LongStudyPomodoroStyle;
   strictness: LongStudyStrictness;
   includeHygieneReset: boolean;
   includeShower: boolean;
+  includeSleepFollowUp: boolean;
+  includeNannoSleepBoost: boolean;
   mealPlanStyle: LongStudyMealStyle;
 };
 
@@ -804,10 +805,15 @@ type LongStudySession = {
   targetStudyHours: number;
   plannedStudyMinutes: number;
   startTime: string;
-  targetSleepTime: string;
+  estimatedFinishTime: string;
+  totalEventDurationMinutes: number;
+  studyMinutes: number;
+  breakMinutes: number;
+  mealHygieneMinutes: number;
   pomodoroStyle: string;
   warning: string;
   tasks: Task[];
+  followUpTasks: Task[];
 };
 
 type LongStudyReview = {
@@ -823,13 +829,10 @@ type LongStudyReview = {
   nextStep: string;
   keptClean: boolean;
   ateEnough: boolean;
-  sleptOnTime: boolean;
+  finishedFollowUp: boolean;
 };
 
-type LongStudyPreview = LongStudySession & {
-  dayLengthMinutes: number;
-  maxRealisticStudyHours: number;
-};
+type LongStudyPreview = LongStudySession;
 
 const TASKS_KEY_PREFIX = "kpm-sunny-tasks";
 const TOMORROW_KEY_PREFIX = "kpm-sunny-tomorrow-tasks";
@@ -1037,12 +1040,13 @@ const defaultLongStudyDraft: LongStudyDraft = {
   targetStudyHours: "4 hours",
   customStudyHours: 4,
   startTime: "8:00 AM",
-  targetSleepTime: "11:00 PM",
   energyLevel: "Medium",
   pomodoroStyle: "Auto Recommended",
   strictness: "Flexible schedule",
   includeHygieneReset: true,
   includeShower: false,
+  includeSleepFollowUp: true,
+  includeNannoSleepBoost: true,
   mealPlanStyle: "Auto meal breaks"
 };
 
@@ -3138,7 +3142,12 @@ function LongStudyModePanel({
   function toggleEventTask(eventId: string, taskId: string) {
     setEvents?.((current) => normalizeLongStudySessions(current).map((event) => {
       if (event.id !== eventId) return event;
-      return { ...event, tasks: event.tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)) };
+      const followUpTasks = ((event as LongStudyPreview).followUpTasks ?? []).map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task));
+      return {
+        ...event,
+        tasks: event.tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)),
+        followUpTasks
+      };
     }));
   }
 
@@ -3158,14 +3167,15 @@ function LongStudyModePanel({
         <Field label="Study subject / topic"><input value={draft.subject} onChange={(event) => updateDraft({ subject: event.target.value })} className="form-control" placeholder="Coding, English, math..." /></Field>
         <SelectField label="Target study hours" value={draft.targetStudyHours} options={longStudyHourOptions} onChange={updateHours} />
         {draft.targetStudyHours === "custom" ? <Field label="Custom hours"><input type="number" min="4" max="18" value={draft.customStudyHours} onChange={(event) => updateDraft({ customStudyHours: clampNumber(Number(event.target.value) || 4, 4, 18) })} className="form-control" /></Field> : null}
-        <Field label="Start time"><input type="time" value={timeToInputValue(draft.startTime)} onChange={(event) => updateDraft({ startTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
-        <Field label="Target sleep time"><input type="time" value={timeToInputValue(draft.targetSleepTime)} onChange={(event) => updateDraft({ targetSleepTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <Field label="Event start time"><input type="time" value={timeToInputValue(draft.startTime)} onChange={(event) => updateDraft({ startTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
         <SelectField label="Energy level" value={draft.energyLevel} options={["Low", "Medium", "High"]} onChange={(energyLevel) => updateDraft({ energyLevel: energyLevel as Energy })} />
         <SelectField label="Pomodoro style" value={draft.pomodoroStyle} options={longStudyPomodoroOptions} onChange={(pomodoroStyle) => updateDraft({ pomodoroStyle: pomodoroStyle as LongStudyPomodoroStyle })} />
         <SelectField label="Schedule strictness" value={draft.strictness} options={longStudyStrictnessOptions} onChange={(strictness) => updateDraft({ strictness: strictness as LongStudyStrictness })} />
         <SelectField label="Meal plan style" value={draft.mealPlanStyle} options={longStudyMealOptions} onChange={(mealPlanStyle) => updateDraft({ mealPlanStyle: mealPlanStyle as LongStudyMealStyle })} />
         <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeHygieneReset} onChange={(event) => updateDraft({ includeHygieneReset: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Include hygiene reset</label>
         <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeShower} onChange={(event) => updateDraft({ includeShower: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Include shower / body clean</label>
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeSleepFollowUp} onChange={(event) => updateDraft({ includeSleepFollowUp: event.target.checked })} className="h-5 w-5 accent-cyan-300" />After Study Follow-up Routine</label>
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeNannoSleepBoost} onChange={(event) => updateDraft({ includeNannoSleepBoost: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Nanno&apos;s Sleep Boost in follow-up</label>
       </div>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
@@ -3179,7 +3189,11 @@ function LongStudyModePanel({
             <MiniMetric label="Event" value={preview.eventName || preview.subject} />
             <MiniMetric label="Study target" value={`${preview.targetStudyHours}h`} />
             <MiniMetric label="Pomodoro" value={preview.pomodoroStyle} />
-            <MiniMetric label="Finish / sleep" value={preview.targetSleepTime} />
+            <MiniMetric label="Estimated finish" value={preview.estimatedFinishTime} />
+            <MiniMetric label="Event duration" value={formatDayLength(preview.totalEventDurationMinutes)} />
+            <MiniMetric label="Study time" value={formatDayLength(preview.studyMinutes)} />
+            <MiniMetric label="Break time" value={formatDayLength(preview.breakMinutes)} />
+            <MiniMetric label="Meals / hygiene" value={formatDayLength(preview.mealHygieneMinutes)} />
           </div>
           {preview.warning ? <p className="mt-4 rounded-2xl border border-red-300/25 bg-red-500/10 p-3 text-sm font-bold text-red-100">{preview.warning}</p> : null}
           {preview.targetStudyHours >= 15 ? <p className="mt-4 rounded-2xl border border-amber-200/25 bg-amber-300/10 p-3 text-sm font-bold text-amber-100">Extreme study days are for rare use. Protect sleep, food, hygiene, and recovery.</p> : null}
@@ -3210,7 +3224,7 @@ function LongStudyModePanel({
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <h3 className="text-xl font-black text-white">{event.eventName || event.subject}</h3>
-                      <p className="mt-1 text-sm leading-6 text-slate-400">{event.subject} · {event.targetStudyHours}h target · {event.startTime} to {event.targetSleepTime}</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">{event.subject} · {event.targetStudyHours}h target · {event.startTime} to {event.estimatedFinishTime}</p>
                     </div>
                     {copyKeyBlocksToToday ? <button type="button" onClick={() => copyKeyBlocksToToday(event)} className="secondary-button min-h-10 px-4 py-2 text-sm">Copy key blocks to Today</button> : null}
                   </div>
@@ -3221,21 +3235,17 @@ function LongStudyModePanel({
                     <MiniMetric label="Hygiene" value={`${summary.hygieneCompleted}/${summary.hygieneTotal}`} compact />
                   </div>
                   <div className="mt-4 grid gap-2">
-                    {event.tasks.map((task) => (
-                      <label key={task.id} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
-                        <input type="checkbox" checked={task.completed} onChange={() => toggleEventTask(event.id, task.id)} className="mt-1 h-5 w-5 accent-cyan-300" />
-                        <span className="min-w-0">
-                          <span className="flex flex-wrap gap-2">
-                            <Badge tone="dark">{task.time}</Badge>
-                            <Badge tone="dark">{task.subtitle ?? "Block"}</Badge>
-                            <Badge tone="dark">{getLongStudyTaskType(task)}</Badge>
-                          </span>
-                          <span className="mt-2 block break-words font-black text-white">{task.title}</span>
-                          <span className="mt-1 block text-sm leading-6 text-slate-400">{task.notes.replace("Source: Long Study Mode. ", "")}</span>
-                        </span>
-                      </label>
-                    ))}
+                    {event.tasks.map((task) => <LongStudyEventTaskRow key={task.id} task={task} onToggle={() => toggleEventTask(event.id, task.id)} />)}
                   </div>
+                  {((event as LongStudyPreview).followUpTasks ?? []).length ? (
+                    <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+                      <p className="font-black text-white">After Study Follow-up Routine</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">This happens after the calculated study event. It is not part of actual study hours.</p>
+                      <div className="mt-3 grid gap-2">
+                        {((event as LongStudyPreview).followUpTasks ?? []).map((task) => <LongStudyEventTaskRow key={task.id} task={task} onToggle={() => toggleEventTask(event.id, task.id)} />)}
+                      </div>
+                    </div>
+                  ) : null}
                 </article>
               );
             })}
@@ -3243,6 +3253,23 @@ function LongStudyModePanel({
         </section>
       ) : null}
     </Panel>
+  );
+}
+
+function LongStudyEventTaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) {
+  return (
+    <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+      <input type="checkbox" checked={task.completed} onChange={onToggle} className="mt-1 h-5 w-5 accent-cyan-300" />
+      <span className="min-w-0">
+        <span className="flex flex-wrap gap-2">
+          <Badge tone="dark">{task.time}</Badge>
+          <Badge tone="dark">{task.subtitle ?? "Block"}</Badge>
+          <Badge tone="dark">{getLongStudyTaskType(task)}</Badge>
+        </span>
+        <span className="mt-2 block break-words font-black text-white">{task.title}</span>
+        <span className="mt-1 block text-sm leading-6 text-slate-400">{task.notes.replace("Source: Long Study Mode. ", "")}</span>
+      </span>
+    </label>
   );
 }
 
@@ -3285,7 +3312,7 @@ function LongStudyProgressPanel({ sessions, reviews, todayKey, saveReview }: { s
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.keptClean} onChange={(event) => updateDraft({ keptClean: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Kept clean?</label>
         <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.ateEnough} onChange={(event) => updateDraft({ ateEnough: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Ate enough?</label>
-        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.sleptOnTime} onChange={(event) => updateDraft({ sleptOnTime: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Slept on time?</label>
+        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.finishedFollowUp} onChange={(event) => updateDraft({ finishedFollowUp: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Finished follow-up routine?</label>
       </div>
       <button type="button" onClick={() => saveReview(draft)} className="primary-button mt-5 justify-center">Save Long Study Review</button>
     </Panel>
@@ -11945,26 +11972,29 @@ function buildLongStudyPreview(draft: LongStudyDraft, date: string): LongStudyPr
   const targetStudyHours = getLongStudyHours(draft);
   const targetStudyMinutes = targetStudyHours * 60;
   const startTime = draft.startTime || "8:00 AM";
-  const targetSleepTime = draft.targetSleepTime || "11:00 PM";
-  const dayLengthMinutes = getAvailableDayMinutes(startTime, targetSleepTime);
   const pomodoro = getLongStudyPomodoro(draft, targetStudyHours);
   const tasks: Task[] = [];
+  const followUpTasks: Task[] = [];
   let offset = 0;
   let studiedMinutes = 0;
   let blockCount = 0;
   let mealCount = 0;
   let showerAdded = false;
+  let breakMinutes = 0;
+  let mealHygieneMinutes = 0;
   const studyTitles = getLongStudyBlockTitles(subject);
-  const stopBeforeSleep = Math.max(70, dayLengthMinutes - 75);
 
   if (draft.includeHygieneReset) {
-    tasks.push(buildLongStudyTask("clean-reset", startTime, offset, "Clean reset", 20, "Sunny", "A", 15, "Brush teeth, wash face, clean clothes, water, and prepare a clean study space.", 15));
-    offset += 20;
+    const cleanDuration = targetStudyHours >= 10 ? 35 : 20;
+    tasks.push(buildLongStudyTask("clean-reset", startTime, offset, targetStudyHours >= 10 ? "Clean Reset — keep yourself clean, fresh, no smell" : "Clean reset", cleanDuration, "Sunny", "A", 15, "Brush teeth, wash face, clean clothes, water, and prepare a clean study space.", 15));
+    offset += cleanDuration;
+    mealHygieneMinutes += cleanDuration;
   }
   tasks.push(buildLongStudyTask("water-check", startTime, offset, "Water check", 5, "Sunny", "A", 8, "Refill water before starting.", 5));
   offset += 5;
+  mealHygieneMinutes += 5;
 
-  while (studiedMinutes < targetStudyMinutes && offset + pomodoro.workMinutes <= stopBeforeSleep) {
+  while (studiedMinutes < targetStudyMinutes) {
     const remaining = targetStudyMinutes - studiedMinutes;
     const workMinutes = Math.min(pomodoro.workMinutes, remaining);
     blockCount += 1;
@@ -11976,36 +12006,41 @@ function buildLongStudyPreview(draft: LongStudyDraft, date: string): LongStudyPr
     if (studiedMinutes >= targetStudyMinutes) break;
 
     const needsMeal = shouldInsertLongStudyMeal(targetStudyHours, studiedMinutes, mealCount);
-    if (needsMeal && draft.mealPlanStyle === "Auto meal breaks" && offset + needsMeal.duration <= stopBeforeSleep) {
+    if (needsMeal && draft.mealPlanStyle === "Auto meal breaks") {
       mealCount += 1;
       tasks.push(buildLongStudyTask(`meal-${mealCount}`, startTime, offset, needsMeal.title, needsMeal.duration, "Sunny", "A", 15, "Eat, refill water, and avoid studying while eating.", 15));
       offset += needsMeal.duration;
+      mealHygieneMinutes += needsMeal.duration;
       continue;
     }
 
-    if (draft.includeShower && !showerAdded && studiedMinutes >= Math.min(360, targetStudyMinutes / 2) && offset + 25 <= stopBeforeSleep) {
+    if (draft.includeShower && !showerAdded && studiedMinutes >= Math.min(360, targetStudyMinutes / 2)) {
       showerAdded = true;
       tasks.push(buildLongStudyTask("shower-body-clean", startTime, offset, "Shower / body clean", 25, "Sunny", "A", 18, "Keep yourself clean, no smell: shower or body wipe, change shirt if needed, deodorant if available.", 15));
       offset += 25;
+      mealHygieneMinutes += 25;
       continue;
     }
 
     const breakDuration = blockCount % 3 === 0 ? Math.max(20, pomodoro.restMinutes + 15) : pomodoro.restMinutes;
-    if (breakDuration > 0 && offset + breakDuration <= stopBeforeSleep) {
+    if (breakDuration > 0) {
       tasks.push(buildLongStudyTask(`break-${blockCount}`, startTime, offset, blockCount % 3 === 0 ? "Reset break: stretch + water" : "Break: stretch + water", breakDuration, "Sunny", "B", 8, "Stand up, stretch, walk 3-5 minutes, and refill water.", breakDuration));
       offset += breakDuration;
+      breakMinutes += breakDuration;
     }
   }
 
-  if (studiedMinutes > 0 && offset + 20 <= stopBeforeSleep) {
-    tasks.push(buildLongStudyTask("review-notes", startTime, offset, "Review notes", 20, "Knowledge", "A", 20, "Summarize what you learned, what you practiced, and what confused you.", 20));
-  }
+  tasks.push(buildLongStudyTask("review-notes", startTime, offset, "Review notes", 20, "Knowledge", "A", 20, "Summarize what you learned, what you practiced, and what confused you.", 20));
+  offset += 20;
 
-  const withSleepProtection = finalizeTasksForSleepWindow(tasks, startTime, targetSleepTime, dayLengthMinutes, getDayLengthType(startTime, targetSleepTime, dayLengthMinutes, "Custom Day"));
-  const maxRealisticStudyHours = Math.round((studiedMinutes / 60) * 10) / 10;
-  const warning = studiedMinutes < targetStudyMinutes
-    ? `Your target study hours do not fit before your target sleep time. Max realistic study time is about ${maxRealisticStudyHours} hours. Reduce study hours, move start time earlier, or move sleep time later.`
-    : "";
+  const estimatedFinishTime = shiftTime(startTime, offset);
+  if (draft.includeSleepFollowUp) {
+    followUpTasks.push(...buildLongStudyFollowUpTasks(draft, startTime, offset, targetStudyHours));
+  }
+  const warningParts = [
+    isLateLongStudyFinish(startTime, offset) ? "This study event may end very late. Consider reducing study hours or starting earlier." : "",
+    targetStudyHours >= 15 ? "Extreme study events are for rare use. Protect food, hygiene, sleep, and recovery." : ""
+  ].filter(Boolean);
 
   return {
     id: `long-study-${date}-${Date.now()}`,
@@ -12015,12 +12050,15 @@ function buildLongStudyPreview(draft: LongStudyDraft, date: string): LongStudyPr
     targetStudyHours,
     plannedStudyMinutes: studiedMinutes,
     startTime,
-    targetSleepTime,
+    estimatedFinishTime,
+    totalEventDurationMinutes: offset,
+    studyMinutes: studiedMinutes,
+    breakMinutes,
+    mealHygieneMinutes,
     pomodoroStyle: pomodoro.label,
-    warning,
-    tasks: withSleepProtection,
-    dayLengthMinutes,
-    maxRealisticStudyHours
+    warning: warningParts.join(" "),
+    tasks: tasks,
+    followUpTasks
   };
 }
 
@@ -12085,6 +12123,30 @@ function buildLongStudyTask(id: string, startTime: string, offsetMinutes: number
   };
 }
 
+function buildLongStudyFollowUpTasks(draft: LongStudyDraft, startTime: string, eventEndOffset: number, targetStudyHours: number): Task[] {
+  const tasks: Task[] = [];
+  let offset = eventEndOffset;
+  tasks.push(buildLongStudyTask("follow-up-water-meal", startTime, offset, "After Study Follow-up: water / light meal check", 15, "Sunny", "A", 10, "Refill water and eat something simple if needed. This is after the study event.", 15));
+  offset += 15;
+  if (targetStudyHours >= 6 || draft.includeShower) {
+    tasks.push(buildLongStudyTask("follow-up-shower", startTime, offset, "After Study Follow-up: shower / body clean", 20, "Sunny", "A", 12, "Clean your body after a long study event.", 15));
+    offset += 20;
+  }
+  tasks.push(buildLongStudyTask("follow-up-brush", startTime, offset, "After Study Follow-up: brush teeth / clean clothes", 10, "Sunny", "A", 10, "Brush teeth and prepare clean clothes or clean body.", 10));
+  offset += 10;
+  if (draft.includeNannoSleepBoost) {
+    tasks.push(buildLongStudyTask("follow-up-nanno", startTime, offset, "After Study Follow-up: Nanno's Sleep Boost", 15, "Sunny", "A", 15, "Soak feet with warm water and let your body calm down.", 15));
+    offset += 15;
+  }
+  tasks.push(buildLongStudyTask("follow-up-night-shutdown", startTime, offset, "After Study Follow-up: Night Shutdown / sleep prep", 20, "Sunny", "A", 15, "Reduce stimulation and prepare to sleep or fully stop.", 15));
+  return tasks.map((task) => ({ ...task, notes: `${task.notes} Type: follow-up.` }));
+}
+
+function isLateLongStudyFinish(startTime: string, durationMinutes: number): boolean {
+  const finish = (timeToMinutes(startTime) + durationMinutes) % 1440;
+  return finish >= 23 * 60 || finish <= 4 * 60;
+}
+
 function normalizeLongStudySessions(sessions: LongStudySession[] = []): LongStudySession[] {
   return Array.isArray(sessions) ? sessions.filter(Boolean).map((session) => ({
     id: session.id || `long-study-${session.date || getDateKey(new Date())}`,
@@ -12094,10 +12156,15 @@ function normalizeLongStudySessions(sessions: LongStudySession[] = []): LongStud
     targetStudyHours: Number(session.targetStudyHours) || 4,
     plannedStudyMinutes: Number(session.plannedStudyMinutes) || 0,
     startTime: session.startTime || "8:00 AM",
-    targetSleepTime: session.targetSleepTime || "11:00 PM",
+    estimatedFinishTime: session.estimatedFinishTime || shiftTime(session.startTime || "8:00 AM", Number(session.totalEventDurationMinutes) || 0),
+    totalEventDurationMinutes: Number(session.totalEventDurationMinutes) || 0,
+    studyMinutes: Number(session.studyMinutes) || Number(session.plannedStudyMinutes) || 0,
+    breakMinutes: Number(session.breakMinutes) || 0,
+    mealHygieneMinutes: Number(session.mealHygieneMinutes) || 0,
     pomodoroStyle: session.pomodoroStyle || "Deep Work 50/10",
     warning: session.warning || "",
-    tasks: Array.isArray(session.tasks) ? session.tasks : []
+    tasks: Array.isArray(session.tasks) ? session.tasks : [],
+    followUpTasks: Array.isArray((session as LongStudyPreview).followUpTasks) ? (session as LongStudyPreview).followUpTasks : []
   })) : [];
 }
 
@@ -12119,7 +12186,7 @@ function normalizeLongStudyReview(review: Partial<LongStudyReview>): LongStudyRe
     nextStep: review.nextStep ?? "",
     keptClean: Boolean(review.keptClean),
     ateEnough: Boolean(review.ateEnough),
-    sleptOnTime: Boolean(review.sleptOnTime)
+    finishedFollowUp: Boolean(review.finishedFollowUp)
   };
 }
 
@@ -12137,12 +12204,12 @@ function createDefaultLongStudyReview(session: LongStudySession, date: string): 
     nextStep: "",
     keptClean: false,
     ateEnough: false,
-    sleptOnTime: false
+    finishedFollowUp: false
   };
 }
 
 function getLongStudyProgressSummary(session: LongStudySession) {
-  const relevantTasks = session.tasks;
+  const relevantTasks = [...session.tasks, ...((session as LongStudyPreview).followUpTasks ?? [])];
   const studyTasks = relevantTasks.filter((task) => /study block|review notes/i.test(task.title));
   const breakTasks = relevantTasks.filter((task) => /break|stretch|water/i.test(task.title));
   const mealTasks = relevantTasks.filter((task) => /meal|snack/i.test(task.title));
@@ -12162,7 +12229,8 @@ function getLongStudyProgressSummary(session: LongStudySession) {
 }
 
 function getLongStudyTaskType(task: Task): string {
-  const text = task.title.toLowerCase();
+  const text = `${task.title} ${task.notes}`.toLowerCase();
+  if (text.includes("follow-up")) return "follow-up";
   if (text.includes("study block")) return "study";
   if (text.includes("break")) return "break";
   if (text.includes("meal") || text.includes("snack")) return "meal";
