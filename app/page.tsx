@@ -782,6 +782,7 @@ type LongStudyStrictness = "Strict schedule" | "Flexible schedule";
 type LongStudyMealStyle = "Auto meal breaks" | "I will set meal times manually";
 
 type LongStudyDraft = {
+  eventName: string;
   subject: string;
   targetStudyHours: string;
   customStudyHours: number;
@@ -798,6 +799,7 @@ type LongStudyDraft = {
 type LongStudySession = {
   id: string;
   date: string;
+  eventName: string;
   subject: string;
   targetStudyHours: number;
   plannedStudyMinutes: number;
@@ -841,8 +843,10 @@ const MONEY_SPENDING_LOGS_KEY = "kpm-sunny-money-spending-logs";
 const MONEY_INCOME_LOGS_KEY = "kpm-sunny-money-income-logs";
 const MONEY_SAVING_LOGS_KEY = "kpm-sunny-money-saving-logs";
 const MONEY_OPPORTUNITY_LOGS_KEY = "kpm-sunny-money-opportunity-logs";
-const LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-sessions";
-const LONG_STUDY_REVIEWS_KEY = "kpm-sunny-long-study-reviews";
+const LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-events";
+const LONG_STUDY_REVIEWS_KEY = "kpm-sunny-long-study-event-reviews";
+const LEGACY_LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-sessions";
+const LEGACY_LONG_STUDY_REVIEWS_KEY = "kpm-sunny-long-study-reviews";
 const PLAN_KEY = "kpm-sunny-plan";
 const REVIEW_KEY = "kpm-sunny-review";
 const DAILY_NOTES_KEY_PREFIX = "kpm-sunny-daily-notes";
@@ -1028,6 +1032,7 @@ const longStudyStrictnessOptions: LongStudyStrictness[] = ["Strict schedule", "F
 const longStudyMealOptions: LongStudyMealStyle[] = ["Auto meal breaks", "I will set meal times manually"];
 
 const defaultLongStudyDraft: LongStudyDraft = {
+  eventName: "Long study event",
   subject: "Coding",
   targetStudyHours: "4 hours",
   customStudyHours: 4,
@@ -1323,7 +1328,6 @@ function HomeApp() {
   const [missionPreview, setMissionPreview] = useState<MissionPlanPreviewItem[]>([]);
   const [buildTodayDraft, setBuildTodayDraft] = useState<BuildTodayDraft>(defaultBuildTodayDraft);
   const [buildTodayPreview, setBuildTodayPreview] = useState<BuildTodayPreview | null>(null);
-  const [showLongStudyFlow, setShowLongStudyFlow] = useState(false);
   const [longStudyDraft, setLongStudyDraft] = useState<LongStudyDraft>(defaultLongStudyDraft);
   const [longStudyPreview, setLongStudyPreview] = useState<LongStudyPreview | null>(null);
   const [dailyNotes, setDailyNotes] = useState("");
@@ -1414,6 +1418,17 @@ function HomeApp() {
     const timeout = window.setTimeout(() => setShowLoadingRecovery(true), 3000);
     return () => window.clearTimeout(timeout);
   }, [isReady]);
+
+  useEffect(() => {
+    if (longStudySessions.length === 0) {
+      const legacySessions = normalizeLongStudySessions(readStorage<LongStudySession[]>(LEGACY_LONG_STUDY_SESSIONS_KEY, []));
+      if (legacySessions.length) setLongStudySessions(legacySessions);
+    }
+    if (longStudyReviews.length === 0) {
+      const legacyReviews = normalizeLongStudyReviews(readStorage<LongStudyReview[]>(LEGACY_LONG_STUDY_REVIEWS_KEY, []));
+      if (legacyReviews.length) setLongStudyReviews(legacyReviews);
+    }
+  }, [longStudySessions.length, longStudyReviews.length, setLongStudySessions, setLongStudyReviews]);
 
   useEffect(() => {
     setIsOnline(window.navigator.onLine);
@@ -1884,20 +1899,6 @@ function HomeApp() {
     if (tasks.length > 0) setShowBuildTodayFlow(false);
   }
 
-  function openLongStudyFlow() {
-    const currentHour = new Date().getHours();
-    const currentMinute = new Date().getMinutes();
-    const currentTime = inputValueToTime(`${String(currentHour).padStart(2, "0")}:${String(Math.floor(currentMinute / 5) * 5).padStart(2, "0")}`);
-    setLongStudyDraft({
-      ...defaultLongStudyDraft,
-      startTime: dayMeta.startTime || dayMeta.wakeTime || currentTime,
-      targetSleepTime: dayMeta.targetSleepTime || "11:00 PM",
-      includeShower: getLongStudyHours(defaultLongStudyDraft) >= 6
-    });
-    setLongStudyPreview(null);
-    setShowLongStudyFlow(true);
-  }
-
   function createLongStudyPlanPreview(nextDraft: LongStudyDraft) {
     const preview = buildLongStudyPreview(nextDraft, todayKey);
     setLongStudyDraft(nextDraft);
@@ -1906,24 +1907,14 @@ function HomeApp() {
 
   function applyLongStudyPreview() {
     if (!longStudyPreview) return;
-    if (tasks.length > 0 && !window.confirm("Replace today's current missions with this Long Study schedule?")) return;
-    setTasks(longStudyPreview.tasks);
-    setTodayMode("Skill");
-    setSelectedTodayMode("Skill");
-    setDayMeta({
-      dayType: "Custom Day",
-      wakeTime: longStudyPreview.startTime,
-      startTime: longStudyPreview.startTime,
-      targetSleepTime: longStudyPreview.targetSleepTime,
-      dayLengthMinutes: longStudyPreview.dayLengthMinutes,
-      dayLengthLabel: formatDayLength(longStudyPreview.dayLengthMinutes),
-      dayLengthType: getDayLengthType(longStudyPreview.startTime, longStudyPreview.targetSleepTime, longStudyPreview.dayLengthMinutes, "Custom Day"),
-      nightShutdownTime: getNightShutdownTime(longStudyPreview.targetSleepTime, longStudyPreview.dayLengthMinutes),
-      todayMode: "Skill"
-    });
     setLongStudySessions((current) => [longStudyPreview, ...normalizeLongStudySessions(current).filter((session) => session.id !== longStudyPreview.id)].slice(0, 50));
-    setShowLongStudyFlow(false);
     setLongStudyPreview(null);
+  }
+
+  function copyLongStudyBlocksToToday(session: LongStudySession) {
+    if (!window.confirm("This will add selected Long Study blocks to Today. Continue?")) return;
+    const keyBlocks = session.tasks.filter((task) => /study block|clean reset|meal|review notes|night shutdown/i.test(task.title)).slice(0, 8);
+    setTasks((current) => mergeSchedule(current, keyBlocks.map((task) => ({ ...task, id: `copy-${task.id}-${Date.now()}`, completed: false, skipped: false }))));
   }
 
   function saveLongStudyReview(review: LongStudyReview) {
@@ -2040,22 +2031,8 @@ function HomeApp() {
                     moneyIncomeLogs={normalizedMoneyIncomeLogs}
                     moneySavingLogs={normalizedMoneySavingLogs}
                     moneyOpportunityLogs={normalizedMoneyOpportunityLogs}
-                    startLongStudy={openLongStudyFlow}
                   />
                 )}
-                {showLongStudyFlow ? (
-                  <LongStudyModePanel
-                    draft={longStudyDraft}
-                    setDraft={setLongStudyDraft}
-                    preview={longStudyPreview}
-                    createPreview={createLongStudyPlanPreview}
-                    applyPreview={applyLongStudyPreview}
-                    cancel={() => {
-                      setShowLongStudyFlow(false);
-                      setLongStudyPreview(null);
-                    }}
-                  />
-                ) : null}
               </div>
             )}
             {activeSection === "Command Center" && (
@@ -2112,6 +2089,15 @@ function HomeApp() {
                 moneyOpportunityLogs={normalizedMoneyOpportunityLogs}
                 setMoneyOpportunityLogs={setMoneyOpportunityLogs}
                 todayKey={todayKey}
+                longStudyDraft={longStudyDraft}
+                setLongStudyDraft={setLongStudyDraft}
+                longStudyPreview={longStudyPreview}
+                createLongStudyPreview={createLongStudyPlanPreview}
+                saveLongStudyPreview={applyLongStudyPreview}
+                cancelLongStudyPreview={() => setLongStudyPreview(null)}
+                longStudySessions={normalizeLongStudySessions(longStudySessions)}
+                setLongStudySessions={setLongStudySessions}
+                copyLongStudyBlocksToToday={copyLongStudyBlocksToToday}
               />
             )}
             {activeSection === "Progress" && (
@@ -2913,8 +2899,7 @@ function TodayCommand({
   moneySpendingLogs,
   moneyIncomeLogs,
   moneySavingLogs,
-  moneyOpportunityLogs,
-  startLongStudy
+  moneyOpportunityLogs
 }: {
   stats: Stats;
   currentMission?: Task;
@@ -2935,7 +2920,6 @@ function TodayCommand({
   moneyIncomeLogs: MoneyIncomeLog[];
   moneySavingLogs: MoneySavingLog[];
   moneyOpportunityLogs: MoneyOpportunityLog[];
-  startLongStudy: () => void;
 }) {
   const nextMissions = tasks
     .filter((task) => !task.completed && !task.skipped && task.id !== currentMission?.id)
@@ -3078,7 +3062,7 @@ function TodayCommand({
       </div>
 
       <aside className="grid min-w-0 gap-4 xl:sticky xl:top-4">
-        <TodayQuickActions rebuildToday={rebuildToday} setActiveSection={setActiveSection} startLongStudy={startLongStudy} />
+        <TodayQuickActions rebuildToday={rebuildToday} setActiveSection={setActiveSection} />
         <Panel compact>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Progress Signal</p>
           <div className="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-1">
@@ -3095,12 +3079,10 @@ function TodayCommand({
 
 function TodayQuickActions({
   rebuildToday,
-  setActiveSection,
-  startLongStudy
+  setActiveSection
 }: {
   rebuildToday: () => void;
   setActiveSection: Dispatch<SetStateAction<SectionId>>;
-  startLongStudy: () => void;
 }) {
   return (
     <Panel compact>
@@ -3108,9 +3090,6 @@ function TodayQuickActions({
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
         <button type="button" onClick={rebuildToday} className="secondary-button">
           Build / Rebuild Today
-        </button>
-        <button type="button" onClick={startLongStudy} className="primary-button">
-          Start Long Study Mode
         </button>
         <button type="button" onClick={() => setActiveSection("Today Task List")} className="secondary-button">
           View Full Mission List
@@ -3132,7 +3111,10 @@ function LongStudyModePanel({
   preview,
   createPreview,
   applyPreview,
-  cancel
+  cancel,
+  events = [],
+  setEvents,
+  copyKeyBlocksToToday
 }: {
   draft: LongStudyDraft;
   setDraft: Dispatch<SetStateAction<LongStudyDraft>>;
@@ -3140,6 +3122,9 @@ function LongStudyModePanel({
   createPreview: (draft: LongStudyDraft) => void;
   applyPreview: () => void;
   cancel: () => void;
+  events?: LongStudySession[];
+  setEvents?: Dispatch<SetStateAction<LongStudySession[]>>;
+  copyKeyBlocksToToday?: (session: LongStudySession) => void;
 }) {
   function updateDraft(patch: Partial<LongStudyDraft>) {
     setDraft((current) => ({ ...current, ...patch }));
@@ -3150,18 +3135,26 @@ function LongStudyModePanel({
     updateDraft({ targetStudyHours, includeShower: nextHours >= 6 ? true : draft.includeShower });
   }
 
+  function toggleEventTask(eventId: string, taskId: string) {
+    setEvents?.((current) => normalizeLongStudySessions(current).map((event) => {
+      if (event.id !== eventId) return event;
+      return { ...event, tasks: event.tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)) };
+    }));
+  }
+
   return (
     <Panel>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Long Study Mode</p>
-          <h2 className="mt-2 text-2xl font-black text-white">Plan a serious study day</h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Generate study blocks with breaks, food, hygiene, and target sleep protection.</p>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Long Study Event</p>
+          <h2 className="mt-2 text-2xl font-black text-white">Long Study Event Planner</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Create a separate study event schedule. It will not change Today unless you manually copy key blocks.</p>
         </div>
         <button type="button" onClick={cancel} className="secondary-button min-h-10 px-4 py-2 text-sm">Close</button>
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Field label="Event name"><input value={draft.eventName} onChange={(event) => updateDraft({ eventName: event.target.value })} className="form-control" placeholder="12-hour coding study day" /></Field>
         <Field label="Study subject / topic"><input value={draft.subject} onChange={(event) => updateDraft({ subject: event.target.value })} className="form-control" placeholder="Coding, English, math..." /></Field>
         <SelectField label="Target study hours" value={draft.targetStudyHours} options={longStudyHourOptions} onChange={updateHours} />
         {draft.targetStudyHours === "custom" ? <Field label="Custom hours"><input type="number" min="4" max="18" value={draft.customStudyHours} onChange={(event) => updateDraft({ customStudyHours: clampNumber(Number(event.target.value) || 4, 4, 18) })} className="form-control" /></Field> : null}
@@ -3176,17 +3169,17 @@ function LongStudyModePanel({
       </div>
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-        <button type="button" onClick={() => createPreview(draft)} className="primary-button justify-center">Preview Long Study Day</button>
-        {preview ? <button type="button" onClick={applyPreview} className="secondary-button justify-center">Generate Today Missions</button> : null}
+        <button type="button" onClick={() => createPreview(draft)} className="primary-button justify-center">Generate Long Study Schedule</button>
+        {preview ? <button type="button" onClick={applyPreview} className="secondary-button justify-center">Save Event Schedule</button> : null}
       </div>
 
       {preview ? (
         <section className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MiniMetric label="Subject" value={preview.subject} />
+            <MiniMetric label="Event" value={preview.eventName || preview.subject} />
             <MiniMetric label="Study target" value={`${preview.targetStudyHours}h`} />
             <MiniMetric label="Pomodoro" value={preview.pomodoroStyle} />
-            <MiniMetric label="Sleep" value={preview.targetSleepTime} />
+            <MiniMetric label="Finish / sleep" value={preview.targetSleepTime} />
           </div>
           {preview.warning ? <p className="mt-4 rounded-2xl border border-red-300/25 bg-red-500/10 p-3 text-sm font-bold text-red-100">{preview.warning}</p> : null}
           {preview.targetStudyHours >= 15 ? <p className="mt-4 rounded-2xl border border-amber-200/25 bg-amber-300/10 p-3 text-sm font-bold text-amber-100">Extreme study days are for rare use. Protect sleep, food, hygiene, and recovery.</p> : null}
@@ -3205,14 +3198,58 @@ function LongStudyModePanel({
           </div>
         </section>
       ) : null}
+
+      {events.length ? (
+        <section className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Saved Long Study Events</p>
+          <div className="mt-4 grid gap-4">
+            {events.map((event) => {
+              const summary = getLongStudyProgressSummary(event);
+              return (
+                <article key={event.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <h3 className="text-xl font-black text-white">{event.eventName || event.subject}</h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">{event.subject} · {event.targetStudyHours}h target · {event.startTime} to {event.targetSleepTime}</p>
+                    </div>
+                    {copyKeyBlocksToToday ? <button type="button" onClick={() => copyKeyBlocksToToday(event)} className="secondary-button min-h-10 px-4 py-2 text-sm">Copy key blocks to Today</button> : null}
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <MiniMetric label="Blocks" value={`${summary.blocksCompleted}/${summary.blocksTotal}`} compact />
+                    <MiniMetric label="Breaks" value={`${summary.breaksCompleted}/${summary.breaksTotal}`} compact />
+                    <MiniMetric label="Meals" value={`${summary.mealsCompleted}/${summary.mealsTotal}`} compact />
+                    <MiniMetric label="Hygiene" value={`${summary.hygieneCompleted}/${summary.hygieneTotal}`} compact />
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    {event.tasks.map((task) => (
+                      <label key={task.id} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <input type="checkbox" checked={task.completed} onChange={() => toggleEventTask(event.id, task.id)} className="mt-1 h-5 w-5 accent-cyan-300" />
+                        <span className="min-w-0">
+                          <span className="flex flex-wrap gap-2">
+                            <Badge tone="dark">{task.time}</Badge>
+                            <Badge tone="dark">{task.subtitle ?? "Block"}</Badge>
+                            <Badge tone="dark">{getLongStudyTaskType(task)}</Badge>
+                          </span>
+                          <span className="mt-2 block break-words font-black text-white">{task.title}</span>
+                          <span className="mt-1 block text-sm leading-6 text-slate-400">{task.notes.replace("Source: Long Study Mode. ", "")}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </Panel>
   );
 }
 
-function LongStudyProgressPanel({ sessions, reviews, tasks, todayKey, saveReview }: { sessions: LongStudySession[]; reviews: LongStudyReview[]; tasks: Task[]; todayKey: string; saveReview: (review: LongStudyReview) => void }) {
+function LongStudyProgressPanel({ sessions, reviews, todayKey, saveReview }: { sessions: LongStudySession[]; reviews: LongStudyReview[]; todayKey: string; saveReview: (review: LongStudyReview) => void }) {
   const latest = sessions[0];
   const todaySession = sessions.find((session) => session.date === todayKey) ?? latest;
-  const summary = getLongStudyProgressSummary(todaySession, tasks);
+  const summary = getLongStudyProgressSummary(todaySession);
   const existingReview = reviews.find((review) => review.sessionId === todaySession.id);
   const [draft, setDraft] = useState<LongStudyReview>(() => existingReview ?? createDefaultLongStudyReview(todaySession, todayKey));
 
@@ -4296,7 +4333,16 @@ function PlanFoundation({
   setMoneySavingLogs,
   moneyOpportunityLogs,
   setMoneyOpportunityLogs,
-  todayKey
+  todayKey,
+  longStudyDraft,
+  setLongStudyDraft,
+  longStudyPreview,
+  createLongStudyPreview,
+  saveLongStudyPreview,
+  cancelLongStudyPreview,
+  longStudySessions,
+  setLongStudySessions,
+  copyLongStudyBlocksToToday
 }: {
   plan: Plan;
   setPlan: Dispatch<SetStateAction<Plan>>;
@@ -4327,6 +4373,15 @@ function PlanFoundation({
   moneyOpportunityLogs: MoneyOpportunityLog[];
   setMoneyOpportunityLogs: Dispatch<SetStateAction<MoneyOpportunityLog[]>>;
   todayKey: string;
+  longStudyDraft: LongStudyDraft;
+  setLongStudyDraft: Dispatch<SetStateAction<LongStudyDraft>>;
+  longStudyPreview: LongStudyPreview | null;
+  createLongStudyPreview: (draft: LongStudyDraft) => void;
+  saveLongStudyPreview: () => void;
+  cancelLongStudyPreview: () => void;
+  longStudySessions: LongStudySession[];
+  setLongStudySessions: Dispatch<SetStateAction<LongStudySession[]>>;
+  copyLongStudyBlocksToToday: (session: LongStudySession) => void;
 }) {
   const activeCount = activePlans.filter((item) => item.status === "active").length;
   const pausedCount = activePlans.filter((item) => item.status === "paused").length;
@@ -4507,6 +4562,20 @@ function PlanFoundation({
             </div>
           ))}
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Special Event Plans" subtitle="Occasional event schedules that do not change your normal Today plan unless you manually copy blocks." defaultOpen={true}>
+        <LongStudyModePanel
+          draft={longStudyDraft}
+          setDraft={setLongStudyDraft}
+          preview={longStudyPreview}
+          createPreview={createLongStudyPreview}
+          applyPreview={saveLongStudyPreview}
+          cancel={cancelLongStudyPreview}
+          events={longStudySessions}
+          setEvents={setLongStudySessions}
+          copyKeyBlocksToToday={copyLongStudyBlocksToToday}
+        />
       </CollapsibleSection>
 
       <Panel>
@@ -5197,7 +5266,7 @@ function ProgressFoundation({
       ) : null}
 
       {longStudySessions.length ? (
-        <LongStudyProgressPanel sessions={longStudySessions} reviews={longStudyReviews} tasks={tasks} todayKey={todayKey} saveReview={saveLongStudyReview} />
+        <LongStudyProgressPanel sessions={longStudySessions} reviews={longStudyReviews} todayKey={todayKey} saveReview={saveLongStudyReview} />
       ) : null}
 
       {activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project" || plan.type === "money_plan" || plan.type === "life_reset") ? (
@@ -11871,6 +11940,7 @@ function buildTodayPlan(draft: BuildTodayDraft, defaultTasks: Task[]): BuildToda
 }
 
 function buildLongStudyPreview(draft: LongStudyDraft, date: string): LongStudyPreview {
+  const eventName = draft.eventName.trim() || "Long Study Event";
   const subject = draft.subject.trim() || "Study";
   const targetStudyHours = getLongStudyHours(draft);
   const targetStudyMinutes = targetStudyHours * 60;
@@ -11940,6 +12010,7 @@ function buildLongStudyPreview(draft: LongStudyDraft, date: string): LongStudyPr
   return {
     id: `long-study-${date}-${Date.now()}`,
     date,
+    eventName,
     subject,
     targetStudyHours,
     plannedStudyMinutes: studiedMinutes,
@@ -12018,6 +12089,7 @@ function normalizeLongStudySessions(sessions: LongStudySession[] = []): LongStud
   return Array.isArray(sessions) ? sessions.filter(Boolean).map((session) => ({
     id: session.id || `long-study-${session.date || getDateKey(new Date())}`,
     date: session.date || getDateKey(new Date()),
+    eventName: session.eventName || session.subject || "Long Study Event",
     subject: session.subject || "Study",
     targetStudyHours: Number(session.targetStudyHours) || 4,
     plannedStudyMinutes: Number(session.plannedStudyMinutes) || 0,
@@ -12069,9 +12141,8 @@ function createDefaultLongStudyReview(session: LongStudySession, date: string): 
   };
 }
 
-function getLongStudyProgressSummary(session: LongStudySession, todayTasks: Task[]) {
-  const sessionTaskIds = new Set(session.tasks.map((task) => task.id));
-  const relevantTasks = todayTasks.filter((task) => sessionTaskIds.has(task.id) || getTaskSourceLabel(task) === "Long Study Mode");
+function getLongStudyProgressSummary(session: LongStudySession) {
+  const relevantTasks = session.tasks;
   const studyTasks = relevantTasks.filter((task) => /study block|review notes/i.test(task.title));
   const breakTasks = relevantTasks.filter((task) => /break|stretch|water/i.test(task.title));
   const mealTasks = relevantTasks.filter((task) => /meal|snack/i.test(task.title));
@@ -12088,6 +12159,16 @@ function getLongStudyProgressSummary(session: LongStudySession, todayTasks: Task
     hygieneCompleted: hygieneTasks.filter((task) => task.completed).length,
     hygieneTotal: hygieneTasks.length
   };
+}
+
+function getLongStudyTaskType(task: Task): string {
+  const text = task.title.toLowerCase();
+  if (text.includes("study block")) return "study";
+  if (text.includes("break")) return "break";
+  if (text.includes("meal") || text.includes("snack")) return "meal";
+  if (text.includes("clean") || text.includes("shower") || text.includes("hygiene") || text.includes("water")) return "hygiene";
+  if (text.includes("review")) return "review";
+  return "event";
 }
 
 function getDurationFromTaskNotes(task: Task): number {
