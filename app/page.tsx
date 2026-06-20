@@ -511,6 +511,53 @@ type MoneyPlan = {
   weeklyReviews?: PlanWeeklyReview[];
 };
 
+type LifeResetSetup = {
+  resetLength: string;
+  resetIntensity: string;
+  mainProblem: string;
+  wakeTime: string;
+  targetSleepTime: string;
+  mainResetFocus: string;
+  dailyResetTime: string;
+  customDailyMinutes: number;
+  includeNannoSleepBoost: boolean;
+};
+
+type LifeResetTask = {
+  id: string;
+  title: string;
+  detail: string;
+  category: "Body" | "Sleep" | "Money" | "Room" | "Mind" | "Direction";
+  completed: boolean;
+  disabled: boolean;
+};
+
+type LifeResetLog = {
+  date: string;
+  energy: number;
+  roomCondition: number;
+  mood: number;
+  sleepReadiness: number;
+  moneyStress: number;
+  improvedToday: string;
+  stillMessy: string;
+  tomorrowResetFocus: string;
+};
+
+type LifeResetPlan = {
+  id: string;
+  type: "life_reset";
+  name: "Life Reset";
+  status: PlanStatus;
+  startDate: string;
+  setup: LifeResetSetup;
+  resetChecklist: LifeResetTask[];
+  dailyTasks: LifeResetTask[];
+  weeklyTasks: LifeResetTask[];
+  logs: LifeResetLog[];
+  weeklyReviews?: PlanWeeklyReview[];
+};
+
 type LearnMasterSetup = {
   subjectName: string;
   currentLevel: string;
@@ -525,7 +572,7 @@ type LearnMasterSetup = {
   customResource: string;
 };
 
-type ActivePlan = EverydayEssentialsPlan | GetLeanPlan | LearnMasterPlan | SleepEnergyPlan | BuildProjectPlan | MoneyPlan;
+type ActivePlan = EverydayEssentialsPlan | GetLeanPlan | LearnMasterPlan | SleepEnergyPlan | BuildProjectPlan | MoneyPlan | LifeResetPlan;
 
 type PlanTaskRow = {
   id: string;
@@ -753,7 +800,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.0";
+const APP_VERSION = "V3.1";
 const APP_LAST_UPDATED = "June 19, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -902,6 +949,24 @@ const moneyBottleneckOptions = ["no skill", "no portfolio", "no clients", "no jo
 const moneySavingStyleOptions = ["fixed daily saving", "fixed weekly saving", "fixed monthly saving", "percentage of income", "save whatever remains", "custom"];
 const moneyOpportunityTypes = ["job application", "freelance message", "project task", "content", "local business", "other"];
 const moneyOpportunityStatuses = ["planned", "sent", "replied", "rejected", "won", "follow-up"];
+
+const defaultLifeResetSetup: LifeResetSetup = {
+  resetLength: "7 days",
+  resetIntensity: "Normal",
+  mainProblem: "all of the above",
+  wakeTime: "7:00 AM",
+  targetSleepTime: "11:00 PM",
+  mainResetFocus: "Full reset",
+  dailyResetTime: "60 min",
+  customDailyMinutes: 60,
+  includeNannoSleepBoost: true
+};
+
+const lifeResetLengthOptions = ["1 day", "3 days", "7 days", "14 days", "30 days"];
+const lifeResetIntensityOptions = ["Gentle", "Normal", "Strong"];
+const lifeResetProblemOptions = ["sleep messed up", "low energy", "messy room", "money stress", "eating badly", "no direction", "too many tasks", "emotional reset", "all of the above"];
+const lifeResetFocusOptions = ["Body", "Sleep", "Money", "Room", "Mind", "Project/Skill", "Full reset"];
+const lifeResetTimeOptions = ["30 min", "60 min", "90 min", "120 min", "custom"];
 
 const everydayEssentialsTemplates = {
   dailyTasks: [
@@ -1701,7 +1766,7 @@ function HomeApp() {
   }
 
   function createBuildTodayPreview(nextDraft: BuildTodayDraft) {
-    const preview = buildTodayPlan(nextDraft, defaultTasks);
+    const preview = addLifeResetTasksToBuildPreview(buildTodayPlan(nextDraft, defaultTasks), activeTodayPlans);
     setBuildTodayDraft(nextDraft);
     setBuildTodayPreview(preview);
   }
@@ -3997,12 +4062,14 @@ function PlanFoundation({
   const [showSleepSetup, setShowSleepSetup] = useState(false);
   const [showProjectSetup, setShowProjectSetup] = useState(false);
   const [showMoneySetup, setShowMoneySetup] = useState(false);
+  const [showLifeResetSetup, setShowLifeResetSetup] = useState(false);
   const [essentialsSetup, setEssentialsSetup] = useState<EssentialsSetup>(defaultEssentialsSetup);
   const [getLeanSetup, setGetLeanSetup] = useState<GetLeanSetup>(() => createGetLeanSetupFromProfile(profile));
   const [learnSetup, setLearnSetup] = useState<LearnMasterSetup>(defaultLearnMasterSetup);
   const [sleepSetup, setSleepSetup] = useState<SleepEnergySetup>(() => createSleepEnergySetupFromProfile(profile));
   const [projectSetup, setProjectSetup] = useState<ProjectSetup>(defaultProjectSetup);
   const [moneySetup, setMoneySetup] = useState<MoneySetup>(defaultMoneySetup);
+  const [lifeResetSetup, setLifeResetSetup] = useState<LifeResetSetup>(() => createLifeResetSetupFromProfile(profile));
   const presetPlans = [
     { name: "Everyday Essentials", purpose: "Make sure I have the basic things I need for daily life." },
     { name: "Get Lean / Shred", purpose: "Create a simple rule-based fat-loss plan using my profile data." },
@@ -4055,6 +4122,13 @@ function PlanFoundation({
     setShowMoneySetup(false);
   }
 
+  function setupLifeResetPlan() {
+    const nextPlan = createLifeResetPlan(lifeResetSetup);
+    addActivePlan(nextPlan);
+    setProfile((current) => ({ ...normalizeProfile(current), activePlan: nextPlan.name }));
+    setShowLifeResetSetup(false);
+  }
+
   function openPresetSetup(name: string) {
     if (name === "Everyday Essentials") {
       setShowEssentialsSetup((current) => !current);
@@ -4063,6 +4137,7 @@ function PlanFoundation({
       setShowSleepSetup(false);
       setShowProjectSetup(false);
       setShowMoneySetup(false);
+      setShowLifeResetSetup(false);
       return;
     }
     if (name === "Get Lean / Shred") {
@@ -4073,6 +4148,7 @@ function PlanFoundation({
       setShowSleepSetup(false);
       setShowProjectSetup(false);
       setShowMoneySetup(false);
+      setShowLifeResetSetup(false);
       return;
     }
     if (name === "Learn / Master Subject") {
@@ -4082,6 +4158,7 @@ function PlanFoundation({
       setShowSleepSetup(false);
       setShowProjectSetup(false);
       setShowMoneySetup(false);
+      setShowLifeResetSetup(false);
       return;
     }
     if (name === "Fix Sleep & Energy") {
@@ -4092,6 +4169,7 @@ function PlanFoundation({
       setShowLearnSetup(false);
       setShowProjectSetup(false);
       setShowMoneySetup(false);
+      setShowLifeResetSetup(false);
       return;
     }
     if (name === "Build a Project") {
@@ -4101,6 +4179,7 @@ function PlanFoundation({
       setShowLearnSetup(false);
       setShowSleepSetup(false);
       setShowMoneySetup(false);
+      setShowLifeResetSetup(false);
       return;
     }
     if (name === "Money Plan") {
@@ -4110,6 +4189,18 @@ function PlanFoundation({
       setShowLearnSetup(false);
       setShowSleepSetup(false);
       setShowProjectSetup(false);
+      setShowLifeResetSetup(false);
+      return;
+    }
+    if (name === "Life Reset") {
+      setLifeResetSetup((current) => mergeLifeResetSetupWithProfile(current, profile));
+      setShowLifeResetSetup((current) => !current);
+      setShowEssentialsSetup(false);
+      setShowGetLeanSetup(false);
+      setShowLearnSetup(false);
+      setShowSleepSetup(false);
+      setShowProjectSetup(false);
+      setShowMoneySetup(false);
     }
   }
 
@@ -4151,7 +4242,7 @@ function PlanFoundation({
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {presetPlans.map((preset) => {
-            const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred" || preset.name === "Learn / Master Subject" || preset.name === "Fix Sleep & Energy" || preset.name === "Build a Project" || preset.name === "Money Plan";
+            const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred" || preset.name === "Learn / Master Subject" || preset.name === "Fix Sleep & Energy" || preset.name === "Build a Project" || preset.name === "Money Plan" || preset.name === "Life Reset";
             const isActive = activePlans.some((plan) => plan.name === preset.name && plan.status === "active");
             return (
               <article key={preset.name} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
@@ -4240,6 +4331,15 @@ function PlanFoundation({
         />
       ) : null}
 
+      {showLifeResetSetup ? (
+        <LifeResetSetupPanel
+          setup={lifeResetSetup}
+          setSetup={setLifeResetSetup}
+          onSave={setupLifeResetPlan}
+          onCancel={() => setShowLifeResetSetup(false)}
+        />
+      ) : null}
+
       {activePlans.length > 0 ? (
         <CollapsibleSection title="Active plan details" subtitle="Open this when you want the full checklist or plan controls." defaultOpen={false}>
           <div className="grid gap-5">
@@ -4282,6 +4382,7 @@ function PlanFoundation({
                   </div>
                 );
               }
+              if (item.type === "life_reset") return <div key={item.id} id={`plan-details-${item.id}`}><LifeResetPlanDetails activePlan={normalizeLifeResetPlan(item)} setActivePlan={planSetter} /></div>;
               return null;
             })}
           </div>
@@ -4599,6 +4700,20 @@ function PlanSpecificSetupFields({ plan, setPlan }: { plan: ActivePlan; setPlan:
       </>
     );
   }
+  if (plan.type === "life_reset") {
+    const setup = plan.setup;
+    return (
+      <>
+        <SelectField label="Reset length" value={setup.resetLength} options={lifeResetLengthOptions} onChange={(resetLength) => setPlan({ ...plan, setup: { ...setup, resetLength } })} />
+        <SelectField label="Reset intensity" value={setup.resetIntensity} options={lifeResetIntensityOptions} onChange={(resetIntensity) => setPlan({ ...plan, setup: { ...setup, resetIntensity } })} />
+        <SelectField label="Main problem" value={setup.mainProblem} options={lifeResetProblemOptions} onChange={(mainProblem) => setPlan({ ...plan, setup: { ...setup, mainProblem } })} />
+        <Field label="Wake time"><input type="time" value={timeToInputValue(setup.wakeTime)} onChange={(event) => setPlan({ ...plan, setup: { ...setup, wakeTime: inputValueToTime(event.target.value) } })} className="form-control" /></Field>
+        <Field label="Target sleep time"><input type="time" value={timeToInputValue(setup.targetSleepTime)} onChange={(event) => setPlan({ ...plan, setup: { ...setup, targetSleepTime: inputValueToTime(event.target.value) } })} className="form-control" /></Field>
+        <SelectField label="Main reset focus" value={setup.mainResetFocus} options={lifeResetFocusOptions} onChange={(mainResetFocus) => setPlan({ ...plan, setup: { ...setup, mainResetFocus } })} />
+        <SelectField label="Daily reset time" value={setup.dailyResetTime} options={lifeResetTimeOptions} onChange={(dailyResetTime) => setPlan({ ...plan, setup: { ...setup, dailyResetTime } })} />
+      </>
+    );
+  }
   const setup = plan.setup;
   return (
     <>
@@ -4704,6 +4819,17 @@ function PlanSpecificReviewFields({ plan, draft, updateSpecific }: { plan: Activ
       </>
     );
   }
+  if (plan.type === "life_reset") {
+    return (
+      <>
+        <Field label="What became better"><input value={String(s.whatBecameBetter ?? "")} onChange={(event) => updateSpecific("whatBecameBetter", event.target.value)} className="form-control" /></Field>
+        <Field label="What is still weak"><input value={String(s.whatIsStillWeak ?? "")} onChange={(event) => updateSpecific("whatIsStillWeak", event.target.value)} className="form-control" /></Field>
+        <SelectField label="Continue reset?" value={String(s.continueReset ?? "continue")} options={["continue", "adjust", "switch plan", "pause"]} onChange={(continueReset) => updateSpecific("continueReset", continueReset)} />
+        <Field label="Switch plan idea"><input value={String(s.switchPlan ?? "")} onChange={(event) => updateSpecific("switchPlan", event.target.value)} className="form-control" /></Field>
+        <Field label="Next focus"><input value={String(s.nextFocus ?? "")} onChange={(event) => updateSpecific("nextFocus", event.target.value)} className="form-control" /></Field>
+      </>
+    );
+  }
   return (
     <>
       <Field label="Missing items"><input value={String(s.missingItems ?? "")} onChange={(event) => updateSpecific("missingItems", event.target.value)} className="form-control" /></Field>
@@ -4787,7 +4913,7 @@ function ProgressFoundation({
         </Panel>
       ) : null}
 
-      {activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project" || plan.type === "money_plan") ? (
+      {activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project" || plan.type === "money_plan" || plan.type === "life_reset") ? (
         <CollapsibleSection title="Daily Logs" subtitle="Fitness, sleep, project, and study logs for active plans." defaultOpen={false}>
           <div className="grid gap-5">
             {activeProgressPlans.some((plan) => plan.type === "get_lean_shred") ? (
@@ -4802,6 +4928,7 @@ function ProgressFoundation({
               if (plan.type === "fix_sleep_energy") return <SleepEnergyProgressPanel key={plan.id} activePlan={normalizeSleepEnergyPlan(plan)} setActivePlan={planSetter} />;
               if (plan.type === "build_project") return <BuildProjectProgressPanel key={plan.id} activePlan={normalizeBuildProjectPlan(plan)} setActivePlan={planSetter} />;
               if (plan.type === "learn_master_subject") return <LearnMasterProgressPanel key={plan.id} activePlan={normalizeLearnMasterPlan(plan)} setActivePlan={planSetter} />;
+              if (plan.type === "life_reset") return <LifeResetPlanDetails key={plan.id} activePlan={normalizeLifeResetPlan(plan)} setActivePlan={planSetter} />;
               return null;
             })}
           </div>
@@ -5247,6 +5374,7 @@ function ProfileVersionSection() {
           <li>V2.10 Active Plan Control Center</li>
           <li>V2.11 Stability + backup test pass</li>
           <li>V3.0 Money Plan - Increase Income + Saving Plan</li>
+          <li>V3.1 Life Reset preset plan</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -5289,6 +5417,7 @@ function ActivePlanTasksSection({
   const sleepPlan = activePlans.find((plan): plan is SleepEnergyPlan => plan.type === "fix_sleep_energy");
   const projectPlan = activePlans.find((plan): plan is BuildProjectPlan => plan.type === "build_project");
   const moneyPlan = activePlans.find((plan): plan is MoneyPlan => plan.type === "money_plan");
+  const lifeResetPlan = activePlans.find((plan): plan is LifeResetPlan => plan.type === "life_reset");
 
   return (
     <Panel compact>
@@ -5310,6 +5439,8 @@ function ActivePlanTasksSection({
       {projectPlan ? <CompactProjectSummary activePlan={normalizeBuildProjectPlan(projectPlan)} /> : null}
 
       {moneyPlan ? <CompactMoneySummary activePlan={normalizeMoneyPlan(moneyPlan)} spendingLogs={moneySpendingLogs} incomeLogs={moneyIncomeLogs} savingLogs={moneySavingLogs} opportunityLogs={moneyOpportunityLogs} /> : null}
+
+      {lifeResetPlan ? <CompactLifeResetSummary activePlan={normalizeLifeResetPlan(lifeResetPlan)} /> : null}
 
       <div className="mt-5 flex flex-wrap gap-2">
         {(["All", "Main", "Body", "Skill", "Essentials"] as PlanTaskFilter[]).map((option) => (
@@ -5937,6 +6068,149 @@ function MoneyLogRow({ title, detail, onEdit, onDelete }: { title: string; detai
           <button type="button" onClick={onEdit} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit</button>
           <button type="button" onClick={onDelete} className="danger-button min-h-9 px-3 py-2 text-xs">Delete</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function LifeResetSetupPanel({ setup, setSetup, onSave, onCancel }: { setup: LifeResetSetup; setSetup: Dispatch<SetStateAction<LifeResetSetup>>; onSave: () => void; onCancel: () => void }) {
+  function updateSetup(patch: Partial<LifeResetSetup>) {
+    setSetup((current) => ({ ...current, ...patch }));
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Life Reset Setup</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Reset your basics, restore control, and rebuild momentum.</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">A personal routine reset tool, not medical advice.</p>
+        </div>
+        <Badge tone="gold">{setup.resetIntensity}</Badge>
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <SelectField label="Reset length" value={setup.resetLength} options={lifeResetLengthOptions} onChange={(resetLength) => updateSetup({ resetLength })} />
+        <SelectField label="Reset intensity" value={setup.resetIntensity} options={lifeResetIntensityOptions} onChange={(resetIntensity) => updateSetup({ resetIntensity })} />
+        <SelectField label="Main problem right now" value={setup.mainProblem} options={lifeResetProblemOptions} onChange={(mainProblem) => updateSetup({ mainProblem })} />
+        <Field label="Wake time"><input type="time" value={timeToInputValue(setup.wakeTime)} onChange={(event) => updateSetup({ wakeTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <Field label="Target sleep time"><input type="time" value={timeToInputValue(setup.targetSleepTime)} onChange={(event) => updateSetup({ targetSleepTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <SelectField label="Main reset focus" value={setup.mainResetFocus} options={lifeResetFocusOptions} onChange={(mainResetFocus) => updateSetup({ mainResetFocus })} />
+        <SelectField label="Daily reset time" value={setup.dailyResetTime} options={lifeResetTimeOptions} onChange={(dailyResetTime) => updateSetup({ dailyResetTime })} />
+        {setup.dailyResetTime === "custom" ? <Field label="Custom daily minutes"><input type="number" value={setup.customDailyMinutes || ""} onChange={(event) => updateSetup({ customDailyMinutes: Number(event.target.value) || 60 })} className="form-control" /></Field> : null}
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={setup.includeNannoSleepBoost} onChange={(event) => updateSetup({ includeNannoSleepBoost: event.target.checked })} className="h-5 w-5 accent-emerald-400" />Include Nanno&apos;s Sleep Boost</label>
+      </div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={onSave} className="primary-button justify-center">Save Life Reset Plan</button>
+        <button type="button" onClick={onCancel} className="secondary-button justify-center">Cancel</button>
+      </div>
+    </Panel>
+  );
+}
+
+function CompactLifeResetSummary({ activePlan }: { activePlan: LifeResetPlan }) {
+  const nextTask = activePlan.dailyTasks.find((task) => !task.completed && !task.disabled) ?? activePlan.dailyTasks.find((task) => !task.disabled);
+  return (
+    <div className="mt-5 rounded-2xl border border-cyan-200/20 bg-cyan-300/[0.06] p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Life Reset</p>
+          <h4 className="mt-1 text-lg font-black text-white">Focus: {activePlan.setup.mainResetFocus}</h4>
+          <p className="mt-1 text-sm leading-6 text-slate-300">Today Reset Mission: {nextTask?.title ?? "Reset complete"} + sleep by {activePlan.setup.targetSleepTime}</p>
+        </div>
+        <Badge tone="gold">{activePlan.setup.resetIntensity}</Badge>
+      </div>
+    </div>
+  );
+}
+
+function LifeResetPlanDetails({ activePlan, setActivePlan }: { activePlan: LifeResetPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>> }) {
+  const todayKey = getDateKey(new Date());
+  const todayLog = activePlan.logs.find((log) => log.date === todayKey);
+  const [draft, setDraft] = useState<LifeResetLog>(todayLog ?? createDefaultLifeResetLog(todayKey, activePlan.setup));
+  const summary = getLifeResetSummary(activePlan);
+
+  useEffect(() => {
+    setDraft(todayLog ?? createDefaultLifeResetLog(todayKey, activePlan.setup));
+  }, [activePlan.setup, todayKey, todayLog]);
+
+  function updateDraft(patch: Partial<LifeResetLog>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function saveLog() {
+    setActivePlan({ ...activePlan, logs: [...activePlan.logs.filter((log) => log.date !== draft.date), normalizeLifeResetLog(draft)].sort((a, b) => a.date.localeCompare(b.date)) });
+  }
+
+  return (
+    <div className="grid gap-5">
+      <Panel>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Details</p>
+            <h3 className="mt-2 text-2xl font-black text-white">Life Reset</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-400">Started {activePlan.startDate}. {activePlan.setup.resetLength} · {activePlan.setup.resetIntensity} · {activePlan.setup.mainResetFocus}.</p>
+          </div>
+          <Badge tone="green">Active</Badge>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MiniMetric label="Reset Days" value={summary.resetDaysCompleted} />
+          <MiniMetric label="Hygiene Days" value={summary.hygieneCompletedDays} />
+          <MiniMetric label="Room Days" value={summary.roomResetDays} />
+          <MiniMetric label="Sleep Target Days" value={summary.sleepTargetDays} />
+          <MiniMetric label="Money Check Days" value={summary.moneyCheckDays} />
+          <MiniMetric label="Main Mission Days" value={summary.mainMissionDays} />
+        </div>
+      </Panel>
+
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Daily Reset Tasks</p>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {activePlan.dailyTasks.map((item) => <LifeResetTaskRow key={item.id} item={item} activePlan={activePlan} setActivePlan={setActivePlan} list="dailyTasks" />)}
+        </div>
+      </Panel>
+
+      <Panel>
+        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Life Reset Log</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Field label="Energy 1-10"><input type="number" min="1" max="10" value={draft.energy} onChange={(event) => updateDraft({ energy: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+          <Field label="Room condition 1-10"><input type="number" min="1" max="10" value={draft.roomCondition} onChange={(event) => updateDraft({ roomCondition: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+          <Field label="Mood 1-10"><input type="number" min="1" max="10" value={draft.mood} onChange={(event) => updateDraft({ mood: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+          <Field label="Sleep readiness 1-10"><input type="number" min="1" max="10" value={draft.sleepReadiness} onChange={(event) => updateDraft({ sleepReadiness: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+          <Field label="Money stress 1-10"><input type="number" min="1" max="10" value={draft.moneyStress} onChange={(event) => updateDraft({ moneyStress: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+          <Field label="Tomorrow reset focus"><input value={draft.tomorrowResetFocus} onChange={(event) => updateDraft({ tomorrowResetFocus: event.target.value })} className="form-control" /></Field>
+          <div className="md:col-span-2 xl:col-span-3"><Field label="What improved today"><textarea value={draft.improvedToday} onChange={(event) => updateDraft({ improvedToday: event.target.value })} className="form-control min-h-24" /></Field></div>
+          <div className="md:col-span-2 xl:col-span-3"><Field label="What still feels messy"><textarea value={draft.stillMessy} onChange={(event) => updateDraft({ stillMessy: event.target.value })} className="form-control min-h-24" /></Field></div>
+        </div>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <button type="button" onClick={saveLog} className="primary-button justify-center">Save Life Reset Log</button>
+          <button type="button" onClick={() => setDraft(createDefaultLifeResetLog(todayKey, activePlan.setup))} className="secondary-button justify-center">Reset Today Log</button>
+        </div>
+        <div className="mt-5 rounded-2xl border border-teal-300/20 bg-teal-300/[0.06] p-4 text-sm leading-6 text-slate-300">
+          <p className="font-black text-white">Rule-based feedback</p>
+          <p className="mt-2">{getLifeResetFeedback(activePlan)}</p>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function LifeResetTaskRow({ item, activePlan, setActivePlan, list, compact = false }: { item: LifeResetTask; activePlan: LifeResetPlan; setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>; list: "dailyTasks" | "weeklyTasks" | "resetChecklist"; compact?: boolean }) {
+  if (item.disabled && compact) return null;
+  return (
+    <div className={`rounded-2xl border p-3 ${item.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : item.disabled ? "border-orange-300/25 bg-orange-400/[0.06] opacity-70" : "border-white/10 bg-white/[0.04]"}`}>
+      <div className="flex items-start gap-3">
+        <button type="button" onClick={() => updateLifeResetTask(activePlan, setActivePlan, list, item.id, { completed: !item.completed })} className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${item.completed ? "border-emerald-300 bg-emerald-400 text-slate-950" : "border-white/15 bg-black/20 text-slate-400"}`}>
+          {item.completed ? <Check size={16} /> : null}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-black text-white">{item.title}</p>
+          <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{item.detail}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge tone="dark">{item.category}</Badge>
+            {item.disabled ? <Badge tone="orange">Disabled</Badge> : null}
+          </div>
+        </div>
+        {!compact ? <button type="button" onClick={() => updateLifeResetTask(activePlan, setActivePlan, list, item.id, { disabled: !item.disabled })} className="secondary-button min-h-9 px-3 py-2 text-xs">{item.disabled ? "Enable" : "Disable"}</button> : null}
       </div>
     </div>
   );
@@ -8032,6 +8306,7 @@ function SettingsPanel({
               <li>V2.10 Active Plan Control Center</li>
               <li>V2.11 Stability + backup test pass</li>
               <li>V3.0 Money Plan - Increase Income + Saving Plan</li>
+              <li>V3.1 Life Reset preset plan</li>
             </ul>
           </div>
           <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -8822,6 +9097,23 @@ function mergeSleepEnergySetupWithProfile(setup: SleepEnergySetup, profile: Prof
   };
 }
 
+function createLifeResetSetupFromProfile(profile: ProfileState): LifeResetSetup {
+  const normalized = normalizeProfile(profile);
+  return {
+    ...defaultLifeResetSetup,
+    wakeTime: normalized.normalWakeTime || defaultLifeResetSetup.wakeTime
+  };
+}
+
+function mergeLifeResetSetupWithProfile(setup: LifeResetSetup, profile: ProfileState): LifeResetSetup {
+  const fromProfile = createLifeResetSetupFromProfile(profile);
+  return {
+    ...setup,
+    wakeTime: setup.wakeTime || fromProfile.wakeTime,
+    targetSleepTime: setup.targetSleepTime || fromProfile.targetSleepTime
+  };
+}
+
 function normalizePlanStatus(status: unknown): PlanStatus {
   return status === "paused" || status === "completed" || status === "archived" || status === "active" ? status : "active";
 }
@@ -8838,6 +9130,7 @@ function normalizeMaybeActivePlan(plan: unknown): ActivePlan | null {
   if (candidate.type === "fix_sleep_energy") return normalizeSleepEnergyPlan(candidate as SleepEnergyPlan);
   if (candidate.type === "build_project") return normalizeBuildProjectPlan(candidate as BuildProjectPlan);
   if (candidate.type === "money_plan") return normalizeMoneyPlan(candidate as MoneyPlan);
+  if (candidate.type === "life_reset") return normalizeLifeResetPlan(candidate as LifeResetPlan);
   if (candidate.type === "learn_master_subject") return normalizeLearnMasterPlan(candidate as LearnMasterPlan);
   return null;
 }
@@ -8863,6 +9156,7 @@ function getPlanTaskSourceLabel(plan: ActivePlan): string {
   if (plan.type === "fix_sleep_energy") return "Fix Sleep & Energy";
   if (plan.type === "build_project") return normalizeBuildProjectPlan(plan).setup.projectName ? `Build ${normalizeBuildProjectPlan(plan).setup.projectName}` : "Build a Project";
   if (plan.type === "money_plan") return "Money Plan";
+  if (plan.type === "life_reset") return "Life Reset";
   if (plan.type === "learn_master_subject") return plan.subjectName ? `Learn ${plan.subjectName}` : "Learn / Master Subject";
   return "Other active plan";
 }
@@ -8879,6 +9173,7 @@ function formatPlanType(type: ActivePlan["type"]): string {
   if (type === "fix_sleep_energy") return "Fix Sleep & Energy";
   if (type === "build_project") return "Build a Project";
   if (type === "money_plan") return "Money Plan";
+  if (type === "life_reset") return "Life Reset";
   return "Learn / Master Subject";
 }
 
@@ -8947,6 +9242,19 @@ function getPlanTodayTaskRows(plan: ActivePlan): PlanTaskRow[] {
       }));
   }
 
+  if (plan.type === "life_reset") {
+    const normalized = normalizeLifeResetPlan(plan);
+    return normalized.dailyTasks
+      .filter((item) => !item.disabled)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        detail: item.detail,
+        badge: item.category,
+        completed: item.completed
+      }));
+  }
+
   const normalized = normalizeLearnMasterPlan(plan);
   return normalized.dailyTasks
     .filter((item) => !item.disabled)
@@ -8990,6 +9298,11 @@ function getPlanTaskFilterGroup(plan: ActivePlan, row: PlanTaskRow): Exclude<Pla
   if (plan.type === "fix_sleep_energy") return "Body";
   if (plan.type === "build_project") return "Skill";
   if (plan.type === "money_plan") return "Main";
+  if (plan.type === "life_reset") {
+    if (/sleep|body|food|water|walk|hygiene/.test(text)) return "Body";
+    if (/money|spending/.test(text)) return "Main";
+    return "Essentials";
+  }
   if (text.includes("money") || text.includes("main") || text.includes("mission")) return "Main";
   if (text.includes("skill") || text.includes("study") || text.includes("practice") || text.includes("learn")) return "Skill";
   if (text.includes("health") || text.includes("sleep") || text.includes("water") || text.includes("walk")) return "Body";
@@ -9002,6 +9315,7 @@ function getPlanTaskRank(plan: ActivePlan, row: PlanTaskRow, filterGroup: Exclud
   if (text.includes("main mission") || text.includes("main task")) return 20;
   if (filterGroup === "Body" && /sleep|energy|caffeine|nap|night|nanno|screen|protein|water|walk|steps|calorie|workout|health/.test(text)) return 30;
   if (plan.type === "money_plan" || /income|money|saving|spending|job|client|application|offer/.test(text)) return 35;
+  if (plan.type === "life_reset") return 38;
   if (filterGroup === "Skill" || plan.type === "learn_master_subject" || plan.type === "build_project") return 40;
   if (filterGroup === "Essentials" || plan.type === "everyday_essentials") return 50;
   if (text.includes("weekly") || text.includes("restock")) return 60;
@@ -9194,6 +9508,15 @@ function getDefaultPlanReviewSpecifics(plan: ActivePlan): Record<string, string 
       whatWastedMoney: ""
     };
   }
+  if (plan.type === "life_reset") {
+    return {
+      whatBecameBetter: "",
+      whatIsStillWeak: "",
+      continueReset: "continue",
+      switchPlan: "",
+      nextFocus: normalizeLifeResetPlan(plan).setup.mainResetFocus
+    };
+  }
   return {
     missingItems: "",
     restockNeeded: "",
@@ -9210,6 +9533,7 @@ function getPlanWeeklyCompletionText(plan: ActivePlan): string {
   if (plan.type === "fix_sleep_energy") return `${normalizeSleepEnergyPlan(plan).logs.slice(-7).filter((log) => log.sleepHours || log.energy).length}/7 sleep logs`;
   if (plan.type === "build_project") return `${normalizeBuildProjectPlan(plan).logs.slice(-7).filter((log) => log.minutesWorked || log.workedOn).length}/7 project logs`;
   if (plan.type === "money_plan") return `${normalizeMoneyPlan(plan).dailyTasks.filter((task) => task.completed).length}/${normalizeMoneyPlan(plan).dailyTasks.length} daily`;
+  if (plan.type === "life_reset") return `${normalizeLifeResetPlan(plan).dailyTasks.filter((task) => task.completed).length}/${normalizeLifeResetPlan(plan).dailyTasks.length} daily`;
   return `${normalizeLearnMasterPlan(plan).logs.slice(-7).filter((log) => log.studyCompleted).length}/7 study days`;
 }
 
@@ -9218,6 +9542,7 @@ function getPlanLastLogText(plan: ActivePlan): string {
   if (plan.type === "fix_sleep_energy") return normalizeSleepEnergyPlan(plan).logs.at(-1)?.date ?? "No log yet";
   if (plan.type === "build_project") return normalizeBuildProjectPlan(plan).logs.at(-1)?.date ?? "No log yet";
   if (plan.type === "money_plan") return normalizeMoneyPlan(plan).logs.at(-1)?.date ?? "No opportunity yet";
+  if (plan.type === "life_reset") return normalizeLifeResetPlan(plan).logs.at(-1)?.date ?? "No reset log yet";
   if (plan.type === "learn_master_subject") return normalizeLearnMasterPlan(plan).logs.at(-1)?.date ?? "No log yet";
   return "Checklist only";
 }
@@ -9227,6 +9552,7 @@ function getPlanLogCount(plan: ActivePlan): number {
   if (plan.type === "fix_sleep_energy") return normalizeSleepEnergyPlan(plan).logs.length;
   if (plan.type === "build_project") return normalizeBuildProjectPlan(plan).logs.length;
   if (plan.type === "money_plan") return normalizeMoneyPlan(plan).logs.length;
+  if (plan.type === "life_reset") return normalizeLifeResetPlan(plan).logs.length;
   if (plan.type === "learn_master_subject") return normalizeLearnMasterPlan(plan).logs.length;
   return 0;
 }
@@ -9300,6 +9626,19 @@ function getPlanSetupRows(plan: ActivePlan): Array<{ label: string; value: strin
       { label: "Saving style", value: setup.savingStyle }
     ];
   }
+  if (plan.type === "life_reset") {
+    const setup = normalizeLifeResetPlan(plan).setup;
+    return [
+      { label: "Reset length", value: setup.resetLength },
+      { label: "Intensity", value: setup.resetIntensity },
+      { label: "Main problem", value: setup.mainProblem },
+      { label: "Wake time", value: setup.wakeTime },
+      { label: "Target sleep", value: setup.targetSleepTime },
+      { label: "Main focus", value: setup.mainResetFocus },
+      { label: "Daily reset time", value: `${getLifeResetDailyMinutes(setup)} min` },
+      { label: "Nanno Sleep Boost", value: setup.includeNannoSleepBoost ? "Yes" : "No" }
+    ];
+  }
   const normalized = normalizeLearnMasterPlan(plan);
   return [
     { label: "Subject", value: normalized.subjectName || "Not set" },
@@ -9369,6 +9708,18 @@ function getPlanTargetRows(plan: ActivePlan): Array<{ label: string; value: stri
       { label: "Feedback", value: getMoneyFeedback(normalized, [], [], [], normalized.logs) }
     ];
   }
+  if (plan.type === "life_reset") {
+    const normalized = normalizeLifeResetPlan(plan);
+    const summary = getLifeResetSummary(normalized);
+    return [
+      { label: "Reset days completed", value: summary.resetDaysCompleted },
+      { label: "Hygiene days", value: summary.hygieneCompletedDays },
+      { label: "Room reset days", value: summary.roomResetDays },
+      { label: "Sleep target days", value: summary.sleepTargetDays },
+      { label: "Money check days", value: summary.moneyCheckDays },
+      { label: "Feedback", value: getLifeResetFeedback(normalized) }
+    ];
+  }
   const normalized = normalizeLearnMasterPlan(plan);
   return [
     { label: "Study loop", value: normalized.studyLoop.join(" -> ") },
@@ -9398,6 +9749,11 @@ function getPlanWeeklyRows(plan: ActivePlan): Array<{ label: string; value: stri
       rows.push({ label: item.title, value: item.completed ? "Done" : "Open" });
     });
   }
+  if (plan.type === "life_reset") {
+    normalizeLifeResetPlan(plan).weeklyTasks.filter((item) => !item.disabled).slice(0, 5).forEach((item) => {
+      rows.push({ label: item.title, value: item.completed ? "Done" : "Open" });
+    });
+  }
   rows.push({ label: "Weekly reviews", value: String(getPlanWeeklyReviews(plan).length) });
   return rows;
 }
@@ -9418,6 +9774,9 @@ function togglePlanTask(plan: ActivePlan, taskId: string, updateActivePlan: (pla
       return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
     }
     if (target.type === "money_plan") {
+      return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
+    }
+    if (target.type === "life_reset") {
       return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
     }
     return { ...target, dailyTasks: target.dailyTasks.map((item) => (item.id === taskId ? { ...item, completed: !item.completed } : item)) };
@@ -9606,6 +9965,204 @@ function updateMoneyTask(activePlan: MoneyPlan, setActivePlan: Dispatch<SetState
     ...activePlan,
     [list]: activePlan[list].map((item) => (item.id === id ? { ...item, ...patch } : item))
   });
+}
+
+function createLifeResetPlan(setup: LifeResetSetup): LifeResetPlan {
+  const normalizedSetup = normalizeLifeResetSetup(setup);
+  return {
+    id: createPlanId("life_reset"),
+    type: "life_reset",
+    name: "Life Reset",
+    status: "active",
+    startDate: getDateKey(new Date()),
+    setup: normalizedSetup,
+    resetChecklist: createLifeResetChecklist(normalizedSetup),
+    dailyTasks: createLifeResetDailyTasks(normalizedSetup),
+    weeklyTasks: createLifeResetWeeklyTasks(normalizedSetup),
+    logs: [],
+    weeklyReviews: []
+  };
+}
+
+function normalizeLifeResetPlan(plan: LifeResetPlan): LifeResetPlan {
+  const setup = normalizeLifeResetSetup(plan.setup);
+  return {
+    id: plan.id || createPlanId("life_reset"),
+    type: "life_reset",
+    name: "Life Reset",
+    status: normalizePlanStatus(plan.status),
+    startDate: plan.startDate || getDateKey(new Date()),
+    setup,
+    resetChecklist: normalizeLifeResetTasks(plan.resetChecklist, createLifeResetChecklist(setup)),
+    dailyTasks: normalizeLifeResetTasks(plan.dailyTasks, createLifeResetDailyTasks(setup)),
+    weeklyTasks: normalizeLifeResetTasks(plan.weeklyTasks, createLifeResetWeeklyTasks(setup)),
+    logs: Array.isArray(plan.logs) ? plan.logs.map(normalizeLifeResetLog) : [],
+    weeklyReviews: normalizePlanWeeklyReviews(plan.weeklyReviews)
+  };
+}
+
+function normalizeLifeResetSetup(setup: Partial<LifeResetSetup>): LifeResetSetup {
+  return {
+    resetLength: lifeResetLengthOptions.includes(setup.resetLength ?? "") ? setup.resetLength ?? defaultLifeResetSetup.resetLength : defaultLifeResetSetup.resetLength,
+    resetIntensity: lifeResetIntensityOptions.includes(setup.resetIntensity ?? "") ? setup.resetIntensity ?? defaultLifeResetSetup.resetIntensity : defaultLifeResetSetup.resetIntensity,
+    mainProblem: lifeResetProblemOptions.includes(setup.mainProblem ?? "") ? setup.mainProblem ?? defaultLifeResetSetup.mainProblem : defaultLifeResetSetup.mainProblem,
+    wakeTime: setup.wakeTime || defaultLifeResetSetup.wakeTime,
+    targetSleepTime: setup.targetSleepTime || defaultLifeResetSetup.targetSleepTime,
+    mainResetFocus: lifeResetFocusOptions.includes(setup.mainResetFocus ?? "") ? setup.mainResetFocus ?? defaultLifeResetSetup.mainResetFocus : defaultLifeResetSetup.mainResetFocus,
+    dailyResetTime: lifeResetTimeOptions.includes(setup.dailyResetTime ?? "") ? setup.dailyResetTime ?? defaultLifeResetSetup.dailyResetTime : defaultLifeResetSetup.dailyResetTime,
+    customDailyMinutes: Number(setup.customDailyMinutes) || defaultLifeResetSetup.customDailyMinutes,
+    includeNannoSleepBoost: setup.includeNannoSleepBoost !== false
+  };
+}
+
+function createLifeResetChecklist(_setup: LifeResetSetup): LifeResetTask[] {
+  return [
+    lifeResetTask("body-baseline", "Body baseline", "Drink water, hygiene reset, clean clothes.", "Body"),
+    lifeResetTask("sleep-baseline", "Sleep baseline", "Know the target sleep time and protect Night Shutdown.", "Sleep"),
+    lifeResetTask("room-baseline", "Room baseline", "Clear one visible mess so the room feels lighter.", "Room"),
+    lifeResetTask("money-baseline", "Money baseline", "Check spending or supplies for 5 minutes.", "Money"),
+    lifeResetTask("direction-baseline", "Direction baseline", "Choose one thing that matters today.", "Direction")
+  ];
+}
+
+function createLifeResetDailyTasks(setup: LifeResetSetup): LifeResetTask[] {
+  const normalized = normalizeLifeResetSetup(setup);
+  const nannoTask = normalized.includeNannoSleepBoost ? [lifeResetTask("nanno-sleep-boost", "Nanno's Sleep Boost", "Soak feet with warm water before the final sleep routine.", "Sleep")] : [];
+  if (normalized.resetIntensity === "Gentle") {
+    return [
+      lifeResetTask("drink-water", "Drink water", "Target: one full cup after waking.", "Body"),
+      lifeResetTask("wash-face-brush", "Wash face / brush teeth", "Basic hygiene first, pressure low.", "Body"),
+      lifeResetTask("proper-meal", "Eat one proper meal", "Choose simple food that helps your body stabilize.", "Body"),
+      lifeResetTask("tiny-clean", "Clean one small area", "Reset one visible surface or one small mess.", "Room"),
+      lifeResetTask("walk-stretch", "Walk or stretch 10 minutes", "Small movement, fresh air if possible.", "Body"),
+      lifeResetTask("plan-sleep-time", "Plan sleep time", `Aim for sleep by ${normalized.targetSleepTime}.`, "Sleep"),
+      ...nannoTask
+    ];
+  }
+  if (normalized.resetIntensity === "Strong") {
+    return [
+      lifeResetTask("full-hygiene", "Full hygiene reset", "Shower or wipe body, brush teeth, clean clothes.", "Body"),
+      lifeResetTask("laundry-check", "Laundry / clothes check", "Find clean clothes or start a clothes reset.", "Room"),
+      lifeResetTask("room-reset", "Clean room 30-60 minutes", "Trash, desk, clothes, floor, then stop.", "Room"),
+      lifeResetTask("food-water-plan", "Food and water plan", "Prepare water and one simple food plan.", "Body"),
+      lifeResetTask("walk-workout", "Walk or workout", "Move your body enough to reset energy.", "Body"),
+      lifeResetTask("money-review", "Review money", "Check spending, supplies, and one money risk.", "Money"),
+      lifeResetTask("main-life-mission", "Choose one main life mission", "Pick the one action that makes tomorrow better.", "Direction"),
+      lifeResetTask("deep-reset-action", "Deep work / project / income action", `Use ${getLifeResetDailyMinutes(normalized)} minutes for the reset focus.`, "Direction"),
+      lifeResetTask("night-shutdown", "Night Shutdown", `Begin calming down before ${normalized.targetSleepTime}.`, "Sleep"),
+      ...nannoTask
+    ];
+  }
+  return [
+    lifeResetTask("hygiene-reset", "Hygiene reset", "Brush teeth, wash face, shower or body reset.", "Body"),
+    lifeResetTask("clean-clothes", "Clean clothes", "Wear clean clothes or prepare clean sleep clothes.", "Body"),
+    lifeResetTask("drink-water", "Drink water", "Target: keep water nearby today.", "Body"),
+    lifeResetTask("protein-meal", "Eat protein-based meal", "Choose a simple meal that supports energy.", "Body"),
+    lifeResetTask("room-clean", "Clean room 15-30 minutes", "Trash, desk, bed, or floor. One area is enough.", "Room"),
+    lifeResetTask("money-check", "Review money / spending 5 minutes", "Check spending, supplies, or one money reminder.", "Money"),
+    lifeResetTask("important-task", "Do one important task", "One useful action for life control.", "Direction"),
+    lifeResetTask("night-shutdown", "Night Shutdown", `Start winding down before ${normalized.targetSleepTime}.`, "Sleep"),
+    ...nannoTask
+  ];
+}
+
+function createLifeResetWeeklyTasks(_setup: LifeResetSetup): LifeResetTask[] {
+  return [
+    lifeResetTask("weekly-review-better", "Review what became better", "Notice the parts of life that improved.", "Mind"),
+    lifeResetTask("weekly-review-weak", "Review what is still weak", "Name the remaining weak point without shame.", "Mind"),
+    lifeResetTask("weekly-next-focus", "Choose next reset focus", "Decide what needs the next small reset.", "Direction"),
+    lifeResetTask("weekly-continue-or-switch", "Continue or switch plan", "Choose continue, adjust, pause, or switch to another plan.", "Direction")
+  ];
+}
+
+function lifeResetTask(id: string, title: string, detail: string, category: LifeResetTask["category"]): LifeResetTask {
+  return { id, title, detail, category, completed: false, disabled: false };
+}
+
+function normalizeLifeResetTasks(savedTasks: LifeResetTask[] = [], template: LifeResetTask[]): LifeResetTask[] {
+  const safeTasks = Array.isArray(savedTasks) ? savedTasks : [];
+  const savedById = new Map(safeTasks.map((task) => [task.id, task]));
+  return template.map((task) => {
+    const saved = savedById.get(task.id);
+    return {
+      ...task,
+      completed: Boolean(saved?.completed),
+      disabled: Boolean(saved?.disabled),
+      title: saved?.title || task.title,
+      detail: saved?.detail || task.detail,
+      category: saved?.category || task.category
+    };
+  });
+}
+
+function getLifeResetDailyMinutes(setup: LifeResetSetup): number {
+  const normalized = normalizeLifeResetSetup(setup);
+  if (normalized.dailyResetTime === "custom") return Number(normalized.customDailyMinutes) || 60;
+  return Number(normalized.dailyResetTime.replace(/[^0-9]/g, "")) || 60;
+}
+
+function updateLifeResetTask(activePlan: LifeResetPlan, setActivePlan: Dispatch<SetStateAction<ActivePlan | null>>, list: "dailyTasks" | "weeklyTasks" | "resetChecklist", id: string, patch: Partial<LifeResetTask>) {
+  setActivePlan({
+    ...activePlan,
+    [list]: activePlan[list].map((item) => (item.id === id ? { ...item, ...patch } : item))
+  });
+}
+
+function createDefaultLifeResetLog(date: string, setup: LifeResetSetup): LifeResetLog {
+  return {
+    date,
+    energy: 5,
+    roomCondition: 5,
+    mood: 5,
+    sleepReadiness: 5,
+    moneyStress: 5,
+    improvedToday: "",
+    stillMessy: "",
+    tomorrowResetFocus: normalizeLifeResetSetup(setup).mainResetFocus
+  };
+}
+
+function normalizeLifeResetLog(log: Partial<LifeResetLog>): LifeResetLog {
+  return {
+    date: log.date || getDateKey(new Date()),
+    energy: clampNumber(Number(log.energy) || 5, 1, 10),
+    roomCondition: clampNumber(Number(log.roomCondition) || 5, 1, 10),
+    mood: clampNumber(Number(log.mood) || 5, 1, 10),
+    sleepReadiness: clampNumber(Number(log.sleepReadiness) || 5, 1, 10),
+    moneyStress: clampNumber(Number(log.moneyStress) || 5, 1, 10),
+    improvedToday: log.improvedToday ?? "",
+    stillMessy: log.stillMessy ?? "",
+    tomorrowResetFocus: log.tomorrowResetFocus ?? ""
+  };
+}
+
+function getLifeResetSummary(activePlan: LifeResetPlan) {
+  const normalized = normalizeLifeResetPlan(activePlan);
+  const logs = normalized.logs;
+  const completedDaily = normalized.dailyTasks.filter((task) => task.completed && !task.disabled).length;
+  return {
+    resetDaysCompleted: logs.length,
+    hygieneCompletedDays: logs.filter((log) => log.energy >= 5).length,
+    roomResetDays: logs.filter((log) => log.roomCondition >= 6).length,
+    sleepTargetDays: logs.filter((log) => log.sleepReadiness >= 7).length,
+    moneyCheckDays: logs.filter((log) => log.moneyStress <= 5).length,
+    mainMissionDays: completedDaily,
+    todayCompleted: completedDaily,
+    todayTotal: normalized.dailyTasks.filter((task) => !task.disabled).length
+  };
+}
+
+function getLifeResetFeedback(activePlan: LifeResetPlan): string {
+  const normalized = normalizeLifeResetPlan(activePlan);
+  const recent = normalized.logs.slice(-3);
+  if (recent.length === 0) return "Start with body, room, sleep, and one useful action. The reset only needs to be real, not perfect.";
+  const averageEnergy = recent.reduce((sum, log) => sum + log.energy, 0) / recent.length;
+  const averageSleepReadiness = recent.reduce((sum, log) => sum + log.sleepReadiness, 0) / recent.length;
+  const averageMoneyStress = recent.reduce((sum, log) => sum + log.moneyStress, 0) / recent.length;
+  if (averageEnergy <= 4) return "Energy is low. Use Gentle reset, protect sleep, and reduce the task load.";
+  if (averageSleepReadiness <= 4) return "Sleep readiness is weak. Start Night Shutdown earlier and keep Nanno's Sleep Boost if it helps.";
+  if (averageMoneyStress >= 7) return "Money stress is high. Keep the reset simple and do one small money check daily.";
+  return "The reset is moving. Keep the routine small enough to repeat tomorrow.";
 }
 
 function createSleepEnergyPlan(setup: SleepEnergySetup): SleepEnergyPlan {
@@ -11014,6 +11571,75 @@ function buildTodayPlan(draft: BuildTodayDraft, defaultTasks: Task[]): BuildToda
     mainMission: mainMission || getMainMissionForDay(tasks)?.title || "",
     tasks: sortTasksByDayStart(tasks, startTime)
   };
+}
+
+function addLifeResetTasksToBuildPreview(preview: BuildTodayPreview, activePlans: ActivePlan[]): BuildTodayPreview {
+  const resetPlans = activePlans.filter((plan): plan is LifeResetPlan => plan.type === "life_reset").map(normalizeLifeResetPlan);
+  if (resetPlans.length === 0) return preview;
+
+  const resetTasks = resetPlans.flatMap((plan) => createLifeResetScheduleTasks(plan, preview));
+  if (resetTasks.length === 0) return preview;
+
+  const taskMap = new Map<string, Task>();
+  [...preview.tasks, ...resetTasks]
+    .filter((task) => isTaskInsideDayWindow(task.time, preview.startTime, preview.dayLengthMinutes))
+    .forEach((task) => {
+      const key = normalizeScheduleTaskTitle(task.title);
+      const existing = taskMap.get(key);
+      if (!existing || task.notes.length > existing.notes.length) taskMap.set(key, task);
+    });
+
+  return {
+    ...preview,
+    tasks: sortTasksByDayStart(Array.from(taskMap.values()), preview.startTime)
+  };
+}
+
+function createLifeResetScheduleTasks(activePlan: LifeResetPlan, preview: BuildTodayPreview): Task[] {
+  const normalized = normalizeLifeResetPlan(activePlan);
+  const eligible = getLifeResetBuildTasks(normalized, preview.dayLengthType);
+  const windowEndBuffer = preview.dayLengthType === "Short" ? 65 : 95;
+  const availableWindow = Math.max(40, preview.dayLengthMinutes - windowEndBuffer);
+  const spacing = Math.max(20, Math.floor(availableWindow / Math.max(eligible.length + 1, 2)));
+
+  return eligible.map((item, index) => {
+    const offset = Math.min(availableWindow, spacing * (index + 1));
+    const task = buildDayTask(
+      `life-reset-${normalized.id}`,
+      preview.startTime,
+      offset,
+      item.title,
+      getLifeResetTaskCategory(item.category),
+      item.category === "Direction" ? "S" : item.category === "Sleep" || item.category === "Body" ? "A" : "B",
+      item.category === "Direction" ? 25 : item.category === "Sleep" || item.category === "Body" ? 15 : 10,
+      item.detail,
+      "Life Reset"
+    );
+    task.insertedGoal = true;
+    task.flexible = true;
+    return task;
+  });
+}
+
+function getLifeResetBuildTasks(activePlan: LifeResetPlan, dayLengthType: DayLengthType): LifeResetTask[] {
+  const tasks = activePlan.dailyTasks.filter((task) => !task.disabled);
+  if (dayLengthType === "Short") {
+    const essentialKeywords = ["hygiene", "wash", "brush", "water", "meal", "food", "clean one", "small area", "night shutdown"];
+    return tasks.filter((task) => essentialKeywords.some((keyword) => `${task.title} ${task.detail}`.toLowerCase().includes(keyword))).slice(0, 4);
+  }
+  if (dayLengthType === "Compact") return tasks.slice(0, 5);
+  return tasks.slice(0, 6);
+}
+
+function getLifeResetTaskCategory(category: LifeResetTask["category"]): Category {
+  if (category === "Money") return "Monitoring";
+  if (category === "Room") return "Monitoring";
+  if (category === "Mind" || category === "Direction") return "Plan";
+  return "Sunny";
+}
+
+function normalizeScheduleTaskTitle(title: string): string {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function getAvailableDayMinutes(startTime: string, targetSleepTime: string): number {
