@@ -777,6 +777,58 @@ type BuildTodayPreview = {
   tasks: Task[];
 };
 
+type LongStudyPomodoroStyle = "Standard" | "Deep Work" | "CEO Block" | "Auto Recommended";
+type LongStudyStrictness = "Strict schedule" | "Flexible schedule";
+type LongStudyMealStyle = "Auto meal breaks" | "I will set meal times manually";
+
+type LongStudyDraft = {
+  subject: string;
+  targetStudyHours: string;
+  customStudyHours: number;
+  startTime: string;
+  targetSleepTime: string;
+  energyLevel: Energy;
+  pomodoroStyle: LongStudyPomodoroStyle;
+  strictness: LongStudyStrictness;
+  includeHygieneReset: boolean;
+  includeShower: boolean;
+  mealPlanStyle: LongStudyMealStyle;
+};
+
+type LongStudySession = {
+  id: string;
+  date: string;
+  subject: string;
+  targetStudyHours: number;
+  plannedStudyMinutes: number;
+  startTime: string;
+  targetSleepTime: string;
+  pomodoroStyle: string;
+  warning: string;
+  tasks: Task[];
+};
+
+type LongStudyReview = {
+  id: string;
+  sessionId: string;
+  date: string;
+  totalStudyHoursCompleted: number;
+  focus: number;
+  difficulty: number;
+  learned: string;
+  practiced: string;
+  confused: string;
+  nextStep: string;
+  keptClean: boolean;
+  ateEnough: boolean;
+  sleptOnTime: boolean;
+};
+
+type LongStudyPreview = LongStudySession & {
+  dayLengthMinutes: number;
+  maxRealisticStudyHours: number;
+};
+
 const TASKS_KEY_PREFIX = "kpm-sunny-tasks";
 const TOMORROW_KEY_PREFIX = "kpm-sunny-tomorrow-tasks";
 const SETTINGS_KEY = "kpm-sunny-settings";
@@ -789,6 +841,8 @@ const MONEY_SPENDING_LOGS_KEY = "kpm-sunny-money-spending-logs";
 const MONEY_INCOME_LOGS_KEY = "kpm-sunny-money-income-logs";
 const MONEY_SAVING_LOGS_KEY = "kpm-sunny-money-saving-logs";
 const MONEY_OPPORTUNITY_LOGS_KEY = "kpm-sunny-money-opportunity-logs";
+const LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-sessions";
+const LONG_STUDY_REVIEWS_KEY = "kpm-sunny-long-study-reviews";
 const PLAN_KEY = "kpm-sunny-plan";
 const REVIEW_KEY = "kpm-sunny-review";
 const DAILY_NOTES_KEY_PREFIX = "kpm-sunny-daily-notes";
@@ -800,8 +854,8 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.1";
-const APP_LAST_UPDATED = "June 19, 2026";
+const APP_VERSION = "V3.2";
+const APP_LAST_UPDATED = "June 20, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
 const categories: Category[] = ["Knowledge", "Plan", "Monitoring", "Sunny"];
@@ -967,6 +1021,25 @@ const lifeResetIntensityOptions = ["Gentle", "Normal", "Strong"];
 const lifeResetProblemOptions = ["sleep messed up", "low energy", "messy room", "money stress", "eating badly", "no direction", "too many tasks", "emotional reset", "all of the above"];
 const lifeResetFocusOptions = ["Body", "Sleep", "Money", "Room", "Mind", "Project/Skill", "Full reset"];
 const lifeResetTimeOptions = ["30 min", "60 min", "90 min", "120 min", "custom"];
+
+const longStudyHourOptions = ["4 hours", "5 hours", "6 hours", "7 hours", "8 hours", "10 hours", "12 hours", "14 hours", "16 hours", "18 hours", "custom"];
+const longStudyPomodoroOptions: LongStudyPomodoroStyle[] = ["Auto Recommended", "Standard", "Deep Work", "CEO Block"];
+const longStudyStrictnessOptions: LongStudyStrictness[] = ["Strict schedule", "Flexible schedule"];
+const longStudyMealOptions: LongStudyMealStyle[] = ["Auto meal breaks", "I will set meal times manually"];
+
+const defaultLongStudyDraft: LongStudyDraft = {
+  subject: "Coding",
+  targetStudyHours: "4 hours",
+  customStudyHours: 4,
+  startTime: "8:00 AM",
+  targetSleepTime: "11:00 PM",
+  energyLevel: "Medium",
+  pomodoroStyle: "Auto Recommended",
+  strictness: "Flexible schedule",
+  includeHygieneReset: true,
+  includeShower: false,
+  mealPlanStyle: "Auto meal breaks"
+};
 
 const everydayEssentialsTemplates = {
   dailyTasks: [
@@ -1235,6 +1308,8 @@ function HomeApp() {
   const [moneyIncomeLogs, setMoneyIncomeLogs] = useLocalStorage<MoneyIncomeLog[]>(MONEY_INCOME_LOGS_KEY, []);
   const [moneySavingLogs, setMoneySavingLogs] = useLocalStorage<MoneySavingLog[]>(MONEY_SAVING_LOGS_KEY, []);
   const [moneyOpportunityLogs, setMoneyOpportunityLogs] = useLocalStorage<MoneyOpportunityLog[]>(MONEY_OPPORTUNITY_LOGS_KEY, []);
+  const [longStudySessions, setLongStudySessions] = useLocalStorage<LongStudySession[]>(LONG_STUDY_SESSIONS_KEY, []);
+  const [longStudyReviews, setLongStudyReviews] = useLocalStorage<LongStudyReview[]>(LONG_STUDY_REVIEWS_KEY, []);
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
   const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
   const tomorrowKey = getNextDateKey(todayKey);
@@ -1248,6 +1323,9 @@ function HomeApp() {
   const [missionPreview, setMissionPreview] = useState<MissionPlanPreviewItem[]>([]);
   const [buildTodayDraft, setBuildTodayDraft] = useState<BuildTodayDraft>(defaultBuildTodayDraft);
   const [buildTodayPreview, setBuildTodayPreview] = useState<BuildTodayPreview | null>(null);
+  const [showLongStudyFlow, setShowLongStudyFlow] = useState(false);
+  const [longStudyDraft, setLongStudyDraft] = useState<LongStudyDraft>(defaultLongStudyDraft);
+  const [longStudyPreview, setLongStudyPreview] = useState<LongStudyPreview | null>(null);
   const [dailyNotes, setDailyNotes] = useState("");
   const [review, setReview] = useState<Review>(defaultReview);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -1806,6 +1884,52 @@ function HomeApp() {
     if (tasks.length > 0) setShowBuildTodayFlow(false);
   }
 
+  function openLongStudyFlow() {
+    const currentHour = new Date().getHours();
+    const currentMinute = new Date().getMinutes();
+    const currentTime = inputValueToTime(`${String(currentHour).padStart(2, "0")}:${String(Math.floor(currentMinute / 5) * 5).padStart(2, "0")}`);
+    setLongStudyDraft({
+      ...defaultLongStudyDraft,
+      startTime: dayMeta.startTime || dayMeta.wakeTime || currentTime,
+      targetSleepTime: dayMeta.targetSleepTime || "11:00 PM",
+      includeShower: getLongStudyHours(defaultLongStudyDraft) >= 6
+    });
+    setLongStudyPreview(null);
+    setShowLongStudyFlow(true);
+  }
+
+  function createLongStudyPlanPreview(nextDraft: LongStudyDraft) {
+    const preview = buildLongStudyPreview(nextDraft, todayKey);
+    setLongStudyDraft(nextDraft);
+    setLongStudyPreview(preview);
+  }
+
+  function applyLongStudyPreview() {
+    if (!longStudyPreview) return;
+    if (tasks.length > 0 && !window.confirm("Replace today's current missions with this Long Study schedule?")) return;
+    setTasks(longStudyPreview.tasks);
+    setTodayMode("Skill");
+    setSelectedTodayMode("Skill");
+    setDayMeta({
+      dayType: "Custom Day",
+      wakeTime: longStudyPreview.startTime,
+      startTime: longStudyPreview.startTime,
+      targetSleepTime: longStudyPreview.targetSleepTime,
+      dayLengthMinutes: longStudyPreview.dayLengthMinutes,
+      dayLengthLabel: formatDayLength(longStudyPreview.dayLengthMinutes),
+      dayLengthType: getDayLengthType(longStudyPreview.startTime, longStudyPreview.targetSleepTime, longStudyPreview.dayLengthMinutes, "Custom Day"),
+      nightShutdownTime: getNightShutdownTime(longStudyPreview.targetSleepTime, longStudyPreview.dayLengthMinutes),
+      todayMode: "Skill"
+    });
+    setLongStudySessions((current) => [longStudyPreview, ...normalizeLongStudySessions(current).filter((session) => session.id !== longStudyPreview.id)].slice(0, 50));
+    setShowLongStudyFlow(false);
+    setLongStudyPreview(null);
+  }
+
+  function saveLongStudyReview(review: LongStudyReview) {
+    setLongStudyReviews((current) => [normalizeLongStudyReview(review), ...normalizeLongStudyReviews(current).filter((item) => item.id !== review.id)].slice(0, 100));
+  }
+
   function selectTomorrowMode(mode: DailyMode) {
     setTomorrowMode(mode);
     setPlan((current) => ({ ...current, tomorrowMode: mode }));
@@ -1916,8 +2040,22 @@ function HomeApp() {
                     moneyIncomeLogs={normalizedMoneyIncomeLogs}
                     moneySavingLogs={normalizedMoneySavingLogs}
                     moneyOpportunityLogs={normalizedMoneyOpportunityLogs}
+                    startLongStudy={openLongStudyFlow}
                   />
                 )}
+                {showLongStudyFlow ? (
+                  <LongStudyModePanel
+                    draft={longStudyDraft}
+                    setDraft={setLongStudyDraft}
+                    preview={longStudyPreview}
+                    createPreview={createLongStudyPlanPreview}
+                    applyPreview={applyLongStudyPreview}
+                    cancel={() => {
+                      setShowLongStudyFlow(false);
+                      setLongStudyPreview(null);
+                    }}
+                  />
+                ) : null}
               </div>
             )}
             {activeSection === "Command Center" && (
@@ -1995,6 +2133,9 @@ function HomeApp() {
                 moneyIncomeLogs={normalizedMoneyIncomeLogs}
                 moneySavingLogs={normalizedMoneySavingLogs}
                 moneyOpportunityLogs={normalizedMoneyOpportunityLogs}
+                longStudySessions={normalizeLongStudySessions(longStudySessions)}
+                longStudyReviews={normalizeLongStudyReviews(longStudyReviews)}
+                saveLongStudyReview={saveLongStudyReview}
               />
             )}
             {activeSection === "Profile" && (
@@ -2772,7 +2913,8 @@ function TodayCommand({
   moneySpendingLogs,
   moneyIncomeLogs,
   moneySavingLogs,
-  moneyOpportunityLogs
+  moneyOpportunityLogs,
+  startLongStudy
 }: {
   stats: Stats;
   currentMission?: Task;
@@ -2793,6 +2935,7 @@ function TodayCommand({
   moneyIncomeLogs: MoneyIncomeLog[];
   moneySavingLogs: MoneySavingLog[];
   moneyOpportunityLogs: MoneyOpportunityLog[];
+  startLongStudy: () => void;
 }) {
   const nextMissions = tasks
     .filter((task) => !task.completed && !task.skipped && task.id !== currentMission?.id)
@@ -2935,7 +3078,7 @@ function TodayCommand({
       </div>
 
       <aside className="grid min-w-0 gap-4 xl:sticky xl:top-4">
-        <TodayQuickActions rebuildToday={rebuildToday} setActiveSection={setActiveSection} />
+        <TodayQuickActions rebuildToday={rebuildToday} setActiveSection={setActiveSection} startLongStudy={startLongStudy} />
         <Panel compact>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Progress Signal</p>
           <div className="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-1">
@@ -2952,10 +3095,12 @@ function TodayCommand({
 
 function TodayQuickActions({
   rebuildToday,
-  setActiveSection
+  setActiveSection,
+  startLongStudy
 }: {
   rebuildToday: () => void;
   setActiveSection: Dispatch<SetStateAction<SectionId>>;
+  startLongStudy: () => void;
 }) {
   return (
     <Panel compact>
@@ -2963,6 +3108,9 @@ function TodayQuickActions({
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
         <button type="button" onClick={rebuildToday} className="secondary-button">
           Build / Rebuild Today
+        </button>
+        <button type="button" onClick={startLongStudy} className="primary-button">
+          Start Long Study Mode
         </button>
         <button type="button" onClick={() => setActiveSection("Today Task List")} className="secondary-button">
           View Full Mission List
@@ -2974,6 +3122,135 @@ function TodayQuickActions({
           Evening Review
         </button>
       </div>
+    </Panel>
+  );
+}
+
+function LongStudyModePanel({
+  draft,
+  setDraft,
+  preview,
+  createPreview,
+  applyPreview,
+  cancel
+}: {
+  draft: LongStudyDraft;
+  setDraft: Dispatch<SetStateAction<LongStudyDraft>>;
+  preview: LongStudyPreview | null;
+  createPreview: (draft: LongStudyDraft) => void;
+  applyPreview: () => void;
+  cancel: () => void;
+}) {
+  function updateDraft(patch: Partial<LongStudyDraft>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function updateHours(targetStudyHours: string) {
+    const nextHours = getLongStudyHours({ ...draft, targetStudyHours });
+    updateDraft({ targetStudyHours, includeShower: nextHours >= 6 ? true : draft.includeShower });
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Long Study Mode</p>
+          <h2 className="mt-2 text-2xl font-black text-white">Plan a serious study day</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Generate study blocks with breaks, food, hygiene, and target sleep protection.</p>
+        </div>
+        <button type="button" onClick={cancel} className="secondary-button min-h-10 px-4 py-2 text-sm">Close</button>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Field label="Study subject / topic"><input value={draft.subject} onChange={(event) => updateDraft({ subject: event.target.value })} className="form-control" placeholder="Coding, English, math..." /></Field>
+        <SelectField label="Target study hours" value={draft.targetStudyHours} options={longStudyHourOptions} onChange={updateHours} />
+        {draft.targetStudyHours === "custom" ? <Field label="Custom hours"><input type="number" min="4" max="18" value={draft.customStudyHours} onChange={(event) => updateDraft({ customStudyHours: clampNumber(Number(event.target.value) || 4, 4, 18) })} className="form-control" /></Field> : null}
+        <Field label="Start time"><input type="time" value={timeToInputValue(draft.startTime)} onChange={(event) => updateDraft({ startTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <Field label="Target sleep time"><input type="time" value={timeToInputValue(draft.targetSleepTime)} onChange={(event) => updateDraft({ targetSleepTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+        <SelectField label="Energy level" value={draft.energyLevel} options={["Low", "Medium", "High"]} onChange={(energyLevel) => updateDraft({ energyLevel: energyLevel as Energy })} />
+        <SelectField label="Pomodoro style" value={draft.pomodoroStyle} options={longStudyPomodoroOptions} onChange={(pomodoroStyle) => updateDraft({ pomodoroStyle: pomodoroStyle as LongStudyPomodoroStyle })} />
+        <SelectField label="Schedule strictness" value={draft.strictness} options={longStudyStrictnessOptions} onChange={(strictness) => updateDraft({ strictness: strictness as LongStudyStrictness })} />
+        <SelectField label="Meal plan style" value={draft.mealPlanStyle} options={longStudyMealOptions} onChange={(mealPlanStyle) => updateDraft({ mealPlanStyle: mealPlanStyle as LongStudyMealStyle })} />
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeHygieneReset} onChange={(event) => updateDraft({ includeHygieneReset: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Include hygiene reset</label>
+        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeShower} onChange={(event) => updateDraft({ includeShower: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Include shower / body clean</label>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={() => createPreview(draft)} className="primary-button justify-center">Preview Long Study Day</button>
+        {preview ? <button type="button" onClick={applyPreview} className="secondary-button justify-center">Generate Today Missions</button> : null}
+      </div>
+
+      {preview ? (
+        <section className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MiniMetric label="Subject" value={preview.subject} />
+            <MiniMetric label="Study target" value={`${preview.targetStudyHours}h`} />
+            <MiniMetric label="Pomodoro" value={preview.pomodoroStyle} />
+            <MiniMetric label="Sleep" value={preview.targetSleepTime} />
+          </div>
+          {preview.warning ? <p className="mt-4 rounded-2xl border border-red-300/25 bg-red-500/10 p-3 text-sm font-bold text-red-100">{preview.warning}</p> : null}
+          {preview.targetStudyHours >= 15 ? <p className="mt-4 rounded-2xl border border-amber-200/25 bg-amber-300/10 p-3 text-sm font-bold text-amber-100">Extreme study days are for rare use. Protect sleep, food, hygiene, and recovery.</p> : null}
+          <div className="mt-4 grid gap-2">
+            {preview.tasks.slice(0, 10).map((task) => (
+              <div key={task.id} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="dark">{task.time}</Badge>
+                  <Badge tone={task.category === "Knowledge" ? "green" : "dark"}>{task.category}</Badge>
+                  <Badge tone="dark">{task.points} KPM</Badge>
+                </div>
+                <p className="mt-2 font-black text-white">{task.title}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-400">{task.notes.replace("Source: Long Study Mode. ", "")}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </Panel>
+  );
+}
+
+function LongStudyProgressPanel({ sessions, reviews, tasks, todayKey, saveReview }: { sessions: LongStudySession[]; reviews: LongStudyReview[]; tasks: Task[]; todayKey: string; saveReview: (review: LongStudyReview) => void }) {
+  const latest = sessions[0];
+  const todaySession = sessions.find((session) => session.date === todayKey) ?? latest;
+  const summary = getLongStudyProgressSummary(todaySession, tasks);
+  const existingReview = reviews.find((review) => review.sessionId === todaySession.id);
+  const [draft, setDraft] = useState<LongStudyReview>(() => existingReview ?? createDefaultLongStudyReview(todaySession, todayKey));
+
+  useEffect(() => {
+    setDraft(existingReview ?? createDefaultLongStudyReview(todaySession, todayKey));
+  }, [todaySession.id, existingReview?.id, todayKey]);
+
+  function updateDraft(patch: Partial<LongStudyReview>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  return (
+    <Panel>
+      <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Long Study Summary</p>
+      <h3 className="mt-2 text-2xl font-black text-white">{todaySession.subject}</h3>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniMetric label="Study planned" value={`${Math.round(todaySession.plannedStudyMinutes / 60)}h`} />
+        <MiniMetric label="Study done" value={`${summary.studyHoursCompleted.toFixed(1)}h`} />
+        <MiniMetric label="Blocks done" value={`${summary.blocksCompleted}/${summary.blocksTotal}`} />
+        <MiniMetric label="Breaks done" value={`${summary.breaksCompleted}/${summary.breaksTotal}`} />
+        <MiniMetric label="Meals done" value={`${summary.mealsCompleted}/${summary.mealsTotal}`} />
+        <MiniMetric label="Hygiene done" value={`${summary.hygieneCompleted}/${summary.hygieneTotal}`} />
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <Field label="Total study hours completed"><input type="number" min="0" step="0.25" value={draft.totalStudyHoursCompleted} onChange={(event) => updateDraft({ totalStudyHoursCompleted: Number(event.target.value) || 0 })} className="form-control" /></Field>
+        <Field label="Focus 1-10"><input type="number" min="1" max="10" value={draft.focus} onChange={(event) => updateDraft({ focus: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+        <Field label="Difficulty 1-10"><input type="number" min="1" max="10" value={draft.difficulty} onChange={(event) => updateDraft({ difficulty: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+        <Field label="What I learned"><input value={draft.learned} onChange={(event) => updateDraft({ learned: event.target.value })} className="form-control" /></Field>
+        <Field label="What I practiced"><input value={draft.practiced} onChange={(event) => updateDraft({ practiced: event.target.value })} className="form-control" /></Field>
+        <Field label="What confused me"><input value={draft.confused} onChange={(event) => updateDraft({ confused: event.target.value })} className="form-control" /></Field>
+        <Field label="Next study step"><input value={draft.nextStep} onChange={(event) => updateDraft({ nextStep: event.target.value })} className="form-control" /></Field>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.keptClean} onChange={(event) => updateDraft({ keptClean: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Kept clean?</label>
+        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.ateEnough} onChange={(event) => updateDraft({ ateEnough: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Ate enough?</label>
+        <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.sleptOnTime} onChange={(event) => updateDraft({ sleptOnTime: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Slept on time?</label>
+      </div>
+      <button type="button" onClick={() => saveReview(draft)} className="primary-button mt-5 justify-center">Save Long Study Review</button>
     </Panel>
   );
 }
@@ -4856,7 +5133,10 @@ function ProgressFoundation({
   moneySpendingLogs,
   moneyIncomeLogs,
   moneySavingLogs,
-  moneyOpportunityLogs
+  moneyOpportunityLogs,
+  longStudySessions,
+  longStudyReviews,
+  saveLongStudyReview
 }: {
   review: Review;
   setReview: Dispatch<SetStateAction<Review>>;
@@ -4875,6 +5155,9 @@ function ProgressFoundation({
   moneyIncomeLogs: MoneyIncomeLog[];
   moneySavingLogs: MoneySavingLog[];
   moneyOpportunityLogs: MoneyOpportunityLog[];
+  longStudySessions: LongStudySession[];
+  longStudyReviews: LongStudyReview[];
+  saveLongStudyReview: (review: LongStudyReview) => void;
 }) {
   const activeProgressPlans = activePlans;
   const activePlanCount = activeProgressPlans.filter((plan) => plan.status === "active").length;
@@ -4911,6 +5194,10 @@ function ProgressFoundation({
             {activeProgressPlans.map((plan) => <PlanProgressSummaryCard key={plan.id} activePlan={plan} />)}
           </div>
         </Panel>
+      ) : null}
+
+      {longStudySessions.length ? (
+        <LongStudyProgressPanel sessions={longStudySessions} reviews={longStudyReviews} tasks={tasks} todayKey={todayKey} saveReview={saveLongStudyReview} />
       ) : null}
 
       {activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project" || plan.type === "money_plan" || plan.type === "life_reset") ? (
@@ -5375,6 +5662,7 @@ function ProfileVersionSection() {
           <li>V2.11 Stability + backup test pass</li>
           <li>V3.0 Money Plan - Increase Income + Saving Plan</li>
           <li>V3.1 Life Reset preset plan</li>
+          <li>V3.2 Long Study Mode</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -8307,6 +8595,7 @@ function SettingsPanel({
               <li>V2.11 Stability + backup test pass</li>
               <li>V3.0 Money Plan - Increase Income + Saving Plan</li>
               <li>V3.1 Life Reset preset plan</li>
+              <li>V3.2 Long Study Mode</li>
             </ul>
           </div>
           <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -8784,6 +9073,13 @@ function getFocusPreset(id: FocusPresetId): FocusPreset {
 function getSuggestedFocusPreset(task: Task): FocusPreset {
   const text = `${task.title} ${task.notes}`.toLowerCase();
 
+  if (task.timerPresetMinutes === 5) return getFocusPreset("quick-reset");
+  if (task.timerPresetMinutes === 10) return getFocusPreset("routine");
+  if (task.timerPresetMinutes === 15) return getFocusPreset("short-task");
+  if (task.timerPresetMinutes === 25) return getFocusPreset("normal-focus");
+  if (task.timerPresetMinutes === 50) return getFocusPreset("deep-work");
+  if (task.timerPresetMinutes === 90) return getFocusPreset("ceo-block");
+
   if (/ceo mode|ceo block|major project|long deep work/.test(text)) return getFocusPreset("ceo-block");
   if (task.timerPresetMinutes === 15 || /(soak feet|warm water|nanno)/.test(text)) return getFocusPreset("short-task");
 
@@ -9162,8 +9458,9 @@ function getPlanTaskSourceLabel(plan: ActivePlan): string {
 }
 
 function getTaskSourceLabel(task: Task): string {
-  if (task.custom) return "Manual Today Mission";
+  if (task.displayLabel === "Long Study Mode" || task.notes.toLowerCase().includes("source: long study mode")) return "Long Study Mode";
   if (task.insertedGoal) return "Plan Tomorrow";
+  if (task.custom) return "Manual Today Mission";
   return "Build Today";
 }
 
@@ -11571,6 +11868,231 @@ function buildTodayPlan(draft: BuildTodayDraft, defaultTasks: Task[]): BuildToda
     mainMission: mainMission || getMainMissionForDay(tasks)?.title || "",
     tasks: sortTasksByDayStart(tasks, startTime)
   };
+}
+
+function buildLongStudyPreview(draft: LongStudyDraft, date: string): LongStudyPreview {
+  const subject = draft.subject.trim() || "Study";
+  const targetStudyHours = getLongStudyHours(draft);
+  const targetStudyMinutes = targetStudyHours * 60;
+  const startTime = draft.startTime || "8:00 AM";
+  const targetSleepTime = draft.targetSleepTime || "11:00 PM";
+  const dayLengthMinutes = getAvailableDayMinutes(startTime, targetSleepTime);
+  const pomodoro = getLongStudyPomodoro(draft, targetStudyHours);
+  const tasks: Task[] = [];
+  let offset = 0;
+  let studiedMinutes = 0;
+  let blockCount = 0;
+  let mealCount = 0;
+  let showerAdded = false;
+  const studyTitles = getLongStudyBlockTitles(subject);
+  const stopBeforeSleep = Math.max(70, dayLengthMinutes - 75);
+
+  if (draft.includeHygieneReset) {
+    tasks.push(buildLongStudyTask("clean-reset", startTime, offset, "Clean reset", 20, "Sunny", "A", 15, "Brush teeth, wash face, clean clothes, water, and prepare a clean study space.", 15));
+    offset += 20;
+  }
+  tasks.push(buildLongStudyTask("water-check", startTime, offset, "Water check", 5, "Sunny", "A", 8, "Refill water before starting.", 5));
+  offset += 5;
+
+  while (studiedMinutes < targetStudyMinutes && offset + pomodoro.workMinutes <= stopBeforeSleep) {
+    const remaining = targetStudyMinutes - studiedMinutes;
+    const workMinutes = Math.min(pomodoro.workMinutes, remaining);
+    blockCount += 1;
+    const title = `Study Block ${blockCount}: ${studyTitles[(blockCount - 1) % studyTitles.length]}`;
+    tasks.push(buildLongStudyTask(`study-${blockCount}`, startTime, offset, title, workMinutes, "Knowledge", blockCount === 1 ? "S" : "A", workMinutes >= 50 ? 30 : 20, `${pomodoro.label}. Subject: ${subject}.`, workMinutes));
+    offset += workMinutes;
+    studiedMinutes += workMinutes;
+
+    if (studiedMinutes >= targetStudyMinutes) break;
+
+    const needsMeal = shouldInsertLongStudyMeal(targetStudyHours, studiedMinutes, mealCount);
+    if (needsMeal && draft.mealPlanStyle === "Auto meal breaks" && offset + needsMeal.duration <= stopBeforeSleep) {
+      mealCount += 1;
+      tasks.push(buildLongStudyTask(`meal-${mealCount}`, startTime, offset, needsMeal.title, needsMeal.duration, "Sunny", "A", 15, "Eat, refill water, and avoid studying while eating.", 15));
+      offset += needsMeal.duration;
+      continue;
+    }
+
+    if (draft.includeShower && !showerAdded && studiedMinutes >= Math.min(360, targetStudyMinutes / 2) && offset + 25 <= stopBeforeSleep) {
+      showerAdded = true;
+      tasks.push(buildLongStudyTask("shower-body-clean", startTime, offset, "Shower / body clean", 25, "Sunny", "A", 18, "Keep yourself clean, no smell: shower or body wipe, change shirt if needed, deodorant if available.", 15));
+      offset += 25;
+      continue;
+    }
+
+    const breakDuration = blockCount % 3 === 0 ? Math.max(20, pomodoro.restMinutes + 15) : pomodoro.restMinutes;
+    if (breakDuration > 0 && offset + breakDuration <= stopBeforeSleep) {
+      tasks.push(buildLongStudyTask(`break-${blockCount}`, startTime, offset, blockCount % 3 === 0 ? "Reset break: stretch + water" : "Break: stretch + water", breakDuration, "Sunny", "B", 8, "Stand up, stretch, walk 3-5 minutes, and refill water.", breakDuration));
+      offset += breakDuration;
+    }
+  }
+
+  if (studiedMinutes > 0 && offset + 20 <= stopBeforeSleep) {
+    tasks.push(buildLongStudyTask("review-notes", startTime, offset, "Review notes", 20, "Knowledge", "A", 20, "Summarize what you learned, what you practiced, and what confused you.", 20));
+  }
+
+  const withSleepProtection = finalizeTasksForSleepWindow(tasks, startTime, targetSleepTime, dayLengthMinutes, getDayLengthType(startTime, targetSleepTime, dayLengthMinutes, "Custom Day"));
+  const maxRealisticStudyHours = Math.round((studiedMinutes / 60) * 10) / 10;
+  const warning = studiedMinutes < targetStudyMinutes
+    ? `Your target study hours do not fit before your target sleep time. Max realistic study time is about ${maxRealisticStudyHours} hours. Reduce study hours, move start time earlier, or move sleep time later.`
+    : "";
+
+  return {
+    id: `long-study-${date}-${Date.now()}`,
+    date,
+    subject,
+    targetStudyHours,
+    plannedStudyMinutes: studiedMinutes,
+    startTime,
+    targetSleepTime,
+    pomodoroStyle: pomodoro.label,
+    warning,
+    tasks: withSleepProtection,
+    dayLengthMinutes,
+    maxRealisticStudyHours
+  };
+}
+
+function getLongStudyHours(draft: LongStudyDraft): number {
+  if (draft.targetStudyHours === "custom") return clampNumber(Number(draft.customStudyHours) || 4, 4, 18);
+  return clampNumber(Number(draft.targetStudyHours.replace(/[^0-9]/g, "")) || 4, 4, 18);
+}
+
+function getLongStudyPomodoro(draft: LongStudyDraft, hours: number): { workMinutes: number; restMinutes: number; label: string } {
+  const style = draft.pomodoroStyle === "Auto Recommended"
+    ? hours <= 10 ? "Deep Work" : hours <= 14 ? "CEO Block" : "Deep Work"
+    : draft.pomodoroStyle;
+  if (style === "Standard") return { workMinutes: 25, restMinutes: 5, label: "Standard 25/5" };
+  if (style === "CEO Block") return { workMinutes: 90, restMinutes: 20, label: "CEO Block 90/20" };
+  return { workMinutes: 50, restMinutes: 10, label: hours >= 15 ? "Deep Work 50/10 with recovery breaks" : "Deep Work 50/10" };
+}
+
+function getLongStudyBlockTitles(subject: string): string[] {
+  const lowered = subject.toLowerCase();
+  if (/coding|code|app|development|programming/.test(lowered)) return ["Watch / read", "Code along", "Build small part", "Debug", "Review what changed", "Summarize notes"];
+  return ["Learn", "Practice", "Recall without looking", "Review mistakes", "Apply / build", "Summarize notes"];
+}
+
+function shouldInsertLongStudyMeal(hours: number, studiedMinutes: number, mealCount: number): { title: string; duration: number } | null {
+  if (hours <= 6) return studiedMinutes >= 150 && mealCount < 1 ? { title: "Meal / snack break", duration: 25 } : null;
+  if (hours <= 10) {
+    if (studiedMinutes >= 180 && mealCount < 1) return { title: "Main meal break", duration: 50 };
+    if (studiedMinutes >= 360 && mealCount < 2) return { title: "Snack / light meal break", duration: 25 };
+    return null;
+  }
+  if (hours <= 14) {
+    if (studiedMinutes >= 180 && mealCount < 1) return { title: "Main meal break", duration: 55 };
+    if (studiedMinutes >= 420 && mealCount < 2) return { title: "Snack break", duration: 25 };
+    if (studiedMinutes >= 600 && mealCount < 3) return { title: "Second meal break", duration: 55 };
+    return null;
+  }
+  if (studiedMinutes >= 180 && mealCount < 1) return { title: "Main meal break", duration: 55 };
+  if (studiedMinutes >= 420 && mealCount < 2) return { title: "Recovery meal break", duration: 60 };
+  if (studiedMinutes >= 720 && mealCount < 3) return { title: "Late meal / recovery break", duration: 45 };
+  return null;
+}
+
+function buildLongStudyTask(id: string, startTime: string, offsetMinutes: number, title: string, duration: number, category: Category, priority: Priority, points: number, notes: string, timerPresetMinutes: number): Task {
+  const time = shiftTime(startTime, offsetMinutes);
+  return {
+    id: `long-study-${id}-${timeToMinutes(time)}`,
+    time,
+    title,
+    category,
+    priority,
+    points,
+    completed: false,
+    skipped: false,
+    notes: `Source: Long Study Mode. Duration: ${duration} min. ${notes}`,
+    block: getTaskBlock(time),
+    displayLabel: "Long Study Mode",
+    subtitle: `${duration} min`,
+    flexible: true,
+    insertedGoal: true,
+    custom: true,
+    timerPresetMinutes
+  };
+}
+
+function normalizeLongStudySessions(sessions: LongStudySession[] = []): LongStudySession[] {
+  return Array.isArray(sessions) ? sessions.filter(Boolean).map((session) => ({
+    id: session.id || `long-study-${session.date || getDateKey(new Date())}`,
+    date: session.date || getDateKey(new Date()),
+    subject: session.subject || "Study",
+    targetStudyHours: Number(session.targetStudyHours) || 4,
+    plannedStudyMinutes: Number(session.plannedStudyMinutes) || 0,
+    startTime: session.startTime || "8:00 AM",
+    targetSleepTime: session.targetSleepTime || "11:00 PM",
+    pomodoroStyle: session.pomodoroStyle || "Deep Work 50/10",
+    warning: session.warning || "",
+    tasks: Array.isArray(session.tasks) ? session.tasks : []
+  })) : [];
+}
+
+function normalizeLongStudyReviews(reviews: LongStudyReview[] = []): LongStudyReview[] {
+  return Array.isArray(reviews) ? reviews.filter(Boolean).map(normalizeLongStudyReview) : [];
+}
+
+function normalizeLongStudyReview(review: Partial<LongStudyReview>): LongStudyReview {
+  return {
+    id: review.id || `long-study-review-${review.sessionId || "session"}-${review.date || getDateKey(new Date())}`,
+    sessionId: review.sessionId || "",
+    date: review.date || getDateKey(new Date()),
+    totalStudyHoursCompleted: Number(review.totalStudyHoursCompleted) || 0,
+    focus: clampNumber(Number(review.focus) || 5, 1, 10),
+    difficulty: clampNumber(Number(review.difficulty) || 5, 1, 10),
+    learned: review.learned ?? "",
+    practiced: review.practiced ?? "",
+    confused: review.confused ?? "",
+    nextStep: review.nextStep ?? "",
+    keptClean: Boolean(review.keptClean),
+    ateEnough: Boolean(review.ateEnough),
+    sleptOnTime: Boolean(review.sleptOnTime)
+  };
+}
+
+function createDefaultLongStudyReview(session: LongStudySession, date: string): LongStudyReview {
+  return {
+    id: `long-study-review-${session.id}`,
+    sessionId: session.id,
+    date,
+    totalStudyHoursCompleted: Math.round((session.plannedStudyMinutes / 60) * 10) / 10,
+    focus: 5,
+    difficulty: 5,
+    learned: "",
+    practiced: "",
+    confused: "",
+    nextStep: "",
+    keptClean: false,
+    ateEnough: false,
+    sleptOnTime: false
+  };
+}
+
+function getLongStudyProgressSummary(session: LongStudySession, todayTasks: Task[]) {
+  const sessionTaskIds = new Set(session.tasks.map((task) => task.id));
+  const relevantTasks = todayTasks.filter((task) => sessionTaskIds.has(task.id) || getTaskSourceLabel(task) === "Long Study Mode");
+  const studyTasks = relevantTasks.filter((task) => /study block|review notes/i.test(task.title));
+  const breakTasks = relevantTasks.filter((task) => /break|stretch|water/i.test(task.title));
+  const mealTasks = relevantTasks.filter((task) => /meal|snack/i.test(task.title));
+  const hygieneTasks = relevantTasks.filter((task) => /clean reset|hygiene|shower|body clean|brush teeth|wash face/i.test(task.title));
+  const completedStudyMinutes = studyTasks.filter((task) => task.completed).reduce((sum, task) => sum + getDurationFromTaskNotes(task), 0);
+  return {
+    studyHoursCompleted: Math.round((completedStudyMinutes / 60) * 10) / 10,
+    blocksCompleted: studyTasks.filter((task) => task.completed).length,
+    blocksTotal: studyTasks.length,
+    breaksCompleted: breakTasks.filter((task) => task.completed).length,
+    breaksTotal: breakTasks.length,
+    mealsCompleted: mealTasks.filter((task) => task.completed).length,
+    mealsTotal: mealTasks.length,
+    hygieneCompleted: hygieneTasks.filter((task) => task.completed).length,
+    hygieneTotal: hygieneTasks.length
+  };
+}
+
+function getDurationFromTaskNotes(task: Task): number {
+  const match = task.notes.match(/Duration:\s*(\d+)\s*min/i);
+  return match ? Number(match[1]) || 0 : 0;
 }
 
 function addLifeResetTasksToBuildPreview(preview: BuildTodayPreview, activePlans: ActivePlan[]): BuildTodayPreview {
