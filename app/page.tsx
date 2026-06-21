@@ -879,7 +879,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.4";
+const APP_VERSION = "V3.5";
 const APP_LAST_UPDATED = "June 21, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -1377,12 +1377,12 @@ function HomeApp() {
       const loadedDefaultTasks = buildSchedule(loadedTemplate, loadedSettings.scheduleVersion === "5:00");
       const preferredMode = loadedSettings.defaultDailyMode ?? "Full Day";
       const loadedTodayMode = readMode(`${MODE_KEY_PREFIX}:${currentDate}`, preferredMode);
-      const loadedHistory = readStorage<HistoryEntry[]>(HISTORY_KEY, []);
+      const loadedHistory = normalizeHistoryEntries(readStorage<unknown>(HISTORY_KEY, []));
       const lastActiveDate = safeGetLocalStorageItem(LAST_ACTIVE_DATE_KEY);
       let nextHistory = loadedHistory;
 
       if (lastActiveDate && lastActiveDate !== currentDate) {
-        const previousTasks = readStorage<Task[]>(`${TASKS_KEY_PREFIX}:${lastActiveDate}`, []);
+        const previousTasks = normalizeTasks(readStorage<unknown>(`${TASKS_KEY_PREFIX}:${lastActiveDate}`, []));
         const previousReview = normalizeReview(readStorage<Partial<Review>>(`${REVIEW_KEY}:${lastActiveDate}`, defaultReview));
         const previousDailyNotes = readStorage<string>(`${DAILY_NOTES_KEY_PREFIX}:${lastActiveDate}`, "");
         const previousMode = readMode(`${MODE_KEY_PREFIX}:${lastActiveDate}`, "Full Day");
@@ -1392,9 +1392,9 @@ function HomeApp() {
         }
       }
 
-      const carriedTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${currentDate}`, []);
+      const carriedTasks = normalizeTasks(readStorage<unknown>(`${TOMORROW_KEY_PREFIX}:${currentDate}`, []));
       const carriedMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${currentDate}`, loadedTodayMode);
-      const storedTodayTasks = readStorage<Task[]>(`${TASKS_KEY_PREFIX}:${currentDate}`, []);
+      const storedTodayTasks = normalizeTasks(readStorage<unknown>(`${TASKS_KEY_PREFIX}:${currentDate}`, []));
       const loadedDayMeta = normalizeDayMeta(readStorage<Partial<DayMeta>>(`${DAY_META_KEY_PREFIX}:${currentDate}`, { ...defaultDayMeta, todayMode: carriedMode }));
       const nextTodayTasks = storedTodayTasks.length > 0
         ? mergeSchedule(storedTodayTasks, loadedDefaultTasks)
@@ -1405,7 +1405,7 @@ function HomeApp() {
       const nextTomorrowKey = getNextDateKey(currentDate);
       const loadedPlan = normalizePlan(readStorage<Partial<Plan>>(`${PLAN_KEY}:${nextTomorrowKey}`, defaultPlan));
       const loadedTomorrowMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${nextTomorrowKey}`, loadedPlan.tomorrowMode);
-      const storedTomorrowTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${nextTomorrowKey}`, buildModeSchedule(loadedDefaultTasks, loadedTomorrowMode));
+      const storedTomorrowTasks = normalizeTasks(readStorage<unknown>(`${TOMORROW_KEY_PREFIX}:${nextTomorrowKey}`, buildModeSchedule(loadedDefaultTasks, loadedTomorrowMode)));
 
       setSettings(loadedSettings);
       setTemplateTasks(loadedTemplate);
@@ -1478,7 +1478,7 @@ function HomeApp() {
       const archived = createHistoryEntry(todayKey, tasks, review, todayMode, dailyNotes);
       const nextHistory = upsertHistoryEntry(history, archived);
       const nextDefaultTasks = buildSchedule(templateTasks, settings.scheduleVersion === "5:00");
-      const carriedTasks = readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${currentDate}`, []);
+      const carriedTasks = normalizeTasks(readStorage<unknown>(`${TOMORROW_KEY_PREFIX}:${currentDate}`, []));
       const carriedMode = readMode(`${TOMORROW_MODE_KEY_PREFIX}:${currentDate}`, "Full Day");
       const nextTodayTasks = carriedTasks.length > 0
         ? resetTaskStatuses(mergeSchedule(carriedTasks, nextDefaultTasks))
@@ -1493,7 +1493,7 @@ function HomeApp() {
       safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
       setTodayKey(currentDate);
       setTasks(nextTodayTasks);
-      setTomorrowTasks(readStorage<Task[]>(`${TOMORROW_KEY_PREFIX}:${nextTomorrowKey}`, buildModeSchedule(nextDefaultTasks, nextTomorrowMode)));
+      setTomorrowTasks(normalizeTasks(readStorage<unknown>(`${TOMORROW_KEY_PREFIX}:${nextTomorrowKey}`, buildModeSchedule(nextDefaultTasks, nextTomorrowMode))));
       setPlan(nextPlan);
       setReview(normalizeReview(readStorage<Partial<Review>>(`${REVIEW_KEY}:${currentDate}`, defaultReview)));
       setDailyNotes(readStorage<string>(`${DAILY_NOTES_KEY_PREFIX}:${currentDate}`, ""));
@@ -1679,9 +1679,24 @@ function HomeApp() {
   function clearAllLocalData() {
     if (!window.confirm("This deletes all local data on this device. Clear all KPM Sunny Daily OS data?")) return;
     clearKpmLocalData();
+    const currentDate = getCurrentDateKey();
     setSettings(defaultSettings);
+    setProfile(defaultProfile);
+    setActivePlan(null);
+    setActivePlans([]);
+    setFoodLibrary(createDefaultFoodLibrary());
+    setDailyFoodLogs({});
+    setMoneySpendingLogs([]);
+    setMoneyIncomeLogs([]);
+    setMoneySavingLogs([]);
+    setMoneyOpportunityLogs([]);
+    setLongStudySessions([]);
+    setLongStudyReviews([]);
+    setTodayBackupBeforeEvent(null);
+    setTodayEventMode(null);
     const originalTemplate = createOriginalTemplate();
     setTemplateTasks(originalTemplate);
+    setTodayKey(currentDate);
     setTodayMode("Full Day");
     setSelectedTodayMode("Full Day");
     setTomorrowMode("Full Day");
@@ -1692,8 +1707,11 @@ function HomeApp() {
     setPlan(defaultPlan);
     setMissionPreview([]);
     setReview(defaultReview);
+    setDailyNotes("");
     setHistory([]);
-    safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, getCurrentDateKey());
+    setActiveFocusTaskId(null);
+    setQuickStartMessage("");
+    safeSetLocalStorageItem(LAST_ACTIVE_DATE_KEY, currentDate);
   }
 
   function loadDefaultDashboard() {
@@ -1708,6 +1726,19 @@ function HomeApp() {
     const nextTasks = buildModeSchedule(nextDefaultTasks, nextSettings.defaultDailyMode ?? "Full Day");
 
     setSettings(nextSettings);
+    setProfile(defaultProfile);
+    setActivePlan(null);
+    setActivePlans([]);
+    setFoodLibrary(createDefaultFoodLibrary());
+    setDailyFoodLogs({});
+    setMoneySpendingLogs([]);
+    setMoneyIncomeLogs([]);
+    setMoneySavingLogs([]);
+    setMoneyOpportunityLogs([]);
+    setLongStudySessions([]);
+    setLongStudyReviews([]);
+    setTodayBackupBeforeEvent(null);
+    setTodayEventMode(null);
     setTemplateTasks(originalTemplate);
     setTodayKey(currentDate);
     setTasks(nextTasks);
@@ -6214,6 +6245,7 @@ function ProfileVersionSection() {
           <li>V3.2 Long Study Event Planner</li>
           <li>V3.3 Plan tab organization</li>
           <li>V3.4 Progress Review Center</li>
+          <li>V3.5 Full stability + data safety pass</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -9149,6 +9181,7 @@ function SettingsPanel({
               <li>V3.2 Long Study Event Planner</li>
               <li>V3.3 Plan tab organization</li>
               <li>V3.4 Progress Review Center</li>
+              <li>V3.5 Full stability + data safety pass</li>
             </ul>
           </div>
           <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -9896,6 +9929,76 @@ function normalizeProfile(profile: Partial<ProfileState>): ProfileState {
     foodRules: Array.isArray(profile.foodRules) ? profile.foodRules.filter(Boolean) : [],
     activePlan: profile.activePlan ?? ""
   };
+}
+
+function normalizeTask(task: Partial<Task>, index = 0): Task {
+  const time = task.time || "8:00 AM";
+  return {
+    id: task.id || `recovered-task-${index}-${Date.now()}`,
+    time,
+    title: task.title || "Recovered mission",
+    category: categories.includes(task.category as Category) ? task.category as Category : "Plan",
+    priority: priorities.includes(task.priority as Priority) ? task.priority as Priority : "B",
+    points: Number(task.points) || 0,
+    completed: Boolean(task.completed),
+    skipped: Boolean(task.skipped),
+    notes: task.notes ?? "",
+    block: task.block || getTaskBlock(time),
+    custom: task.custom === true,
+    insertedGoal: task.insertedGoal === true,
+    displayLabel: task.displayLabel,
+    subtitle: task.subtitle,
+    flexible: task.flexible === true,
+    timerPresetMinutes: Number(task.timerPresetMinutes) || undefined
+  };
+}
+
+function normalizeTasks(tasks: unknown): Task[] {
+  if (!Array.isArray(tasks)) return [];
+  return tasks.map((task, index) => normalizeTask(task as Partial<Task>, index)).sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+}
+
+function normalizeHistoryEntry(entry: Partial<HistoryEntry>, index = 0): HistoryEntry {
+  const taskSummary = Array.isArray(entry.taskSummary)
+    ? entry.taskSummary.map((task, taskIndex) => {
+      const normalized = normalizeTask(task as Partial<Task>, taskIndex);
+      return {
+        id: normalized.id,
+        time: normalized.time,
+        title: normalized.title,
+        category: normalized.category,
+        priority: normalized.priority,
+        points: normalized.points,
+        completed: normalized.completed,
+        skipped: normalized.skipped,
+        notes: normalized.notes
+      };
+    })
+    : [];
+  const totalMissions = Number(entry.totalMissions) || taskSummary.length;
+  const completedMissions = Number(entry.completedMissions) || taskSummary.filter((task) => task.completed).length;
+  const totalScore = Number(entry.totalScore) || taskSummary.filter((task) => task.completed).reduce((sum, task) => sum + task.points, 0);
+  return {
+    date: /^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? "") ? entry.date as string : getDateKey(addDays(new Date(), -index)),
+    mode: entry.mode && dailyModes.includes(entry.mode) ? entry.mode : "Full Day",
+    totalScore,
+    dayLevel: entry.dayLevel || getDayLevel(totalScore),
+    completedMissions,
+    skippedMissions: Number(entry.skippedMissions) || taskSummary.filter((task) => task.skipped).length,
+    totalMissions,
+    mainMission: entry.mainMission || taskSummary.find((task) => task.priority === "S")?.title || "No main mission",
+    mainMissionCompleted: Boolean(entry.mainMissionCompleted),
+    dailyNotes: entry.dailyNotes ?? "",
+    eveningReview: normalizeReview(entry.eveningReview ?? defaultReview),
+    taskSummary
+  };
+}
+
+function normalizeHistoryEntries(history: unknown): HistoryEntry[] {
+  if (!Array.isArray(history)) return [];
+  return history
+    .map((entry, index) => normalizeHistoryEntry(entry as Partial<HistoryEntry>, index))
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 function createGetLeanSetupFromProfile(profile: ProfileState): GetLeanSetup {
