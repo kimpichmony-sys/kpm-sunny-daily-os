@@ -833,6 +833,7 @@ type LongStudyReview = {
 };
 
 type LongStudyPreview = LongStudySession;
+type PlanTabFilter = "All" | "Active" | "Presets" | "Events" | "Reviews Due" | "Archived";
 
 type TodayBackupBeforeEvent = {
   date: string;
@@ -877,7 +878,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.2";
+const APP_VERSION = "V3.3";
 const APP_LAST_UPDATED = "June 20, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -4525,15 +4526,28 @@ function PlanFoundation({
   const [projectSetup, setProjectSetup] = useState<ProjectSetup>(defaultProjectSetup);
   const [moneySetup, setMoneySetup] = useState<MoneySetup>(defaultMoneySetup);
   const [lifeResetSetup, setLifeResetSetup] = useState<LifeResetSetup>(() => createLifeResetSetupFromProfile(profile));
+  const [planTabFilter, setPlanTabFilter] = useState<PlanTabFilter>("All");
   const presetPlans = [
-    { name: "Everyday Essentials", purpose: "Make sure I have the basic things I need for daily life." },
-    { name: "Get Lean / Shred", purpose: "Create a simple rule-based fat-loss plan using my profile data." },
-    { name: "Learn / Master Subject", purpose: "Turn one subject into daily practice, review, and weekly proof." },
-    { name: "Fix Sleep & Energy", purpose: "Stabilize wake time, sunlight, meals, wind-down, and recovery." },
-    { name: "Build a Project", purpose: "Ship one project through small daily build, test, and review blocks." },
-    { name: "Money Plan", purpose: "Build income actions and protect savings." },
-    { name: "Life Reset", purpose: "Clean the baseline: body, room, money, admin, relationships, and rhythm." }
+    { name: "Get Lean / Shred", category: "Body & Energy", purpose: "Create a simple rule-based fat-loss plan using my profile data." },
+    { name: "Fix Sleep & Energy", category: "Body & Energy", purpose: "Stabilize wake time, sunlight, meals, wind-down, and recovery." },
+    { name: "Life Reset", category: "Body & Energy", purpose: "Clean the baseline: body, room, money, admin, relationships, and rhythm." },
+    { name: "Learn / Master Subject", category: "Skill & Project", purpose: "Turn one subject into daily practice, review, and weekly proof." },
+    { name: "Build a Project", category: "Skill & Project", purpose: "Ship one project through small daily build, test, and review blocks." },
+    { name: "Money Plan", category: "Money", purpose: "Build income actions and protect savings." },
+    { name: "Everyday Essentials", category: "Essentials", purpose: "Make sure I have the basic things I need for daily life." }
   ];
+  const presetGroups = ["Body & Energy", "Skill & Project", "Money", "Essentials"].map((category) => ({
+    category,
+    plans: presetPlans.filter((preset) => preset.category === category)
+  }));
+  const reviewDuePlans = activePlans.filter((item) => item.status === "active" && getPlanWeeklyReviews(item).length === 0);
+  const archivedPlans = activePlans.filter((item) => item.status === "archived" || item.status === "completed");
+  const recommendation = getPlanRecommendedAction(activePlans, longStudySessions);
+  const showActiveSection = planTabFilter === "All" || planTabFilter === "Active" || planTabFilter === "Archived";
+  const showPresetsSection = planTabFilter === "All" || planTabFilter === "Presets";
+  const showEventsSection = planTabFilter === "All" || planTabFilter === "Events";
+  const showReviewsSection = planTabFilter === "All" || planTabFilter === "Reviews Due";
+  const showArchivedSection = planTabFilter === "All" || planTabFilter === "Archived";
 
   function setupEverydayEssentials() {
     const nextPlan = createEverydayEssentialsPlan(essentialsSetup);
@@ -4665,10 +4679,89 @@ function PlanFoundation({
         <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Plan</p>
         <h2 className="mt-2 text-3xl font-black text-white">What is my long-term plan?</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Active plans, preset systems, and tomorrow planning live here without crowding Today.</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(["All", "Active", "Presets", "Events", "Reviews Due", "Archived"] as PlanTabFilter[]).map((filter) => (
+            <button key={filter} type="button" onClick={() => setPlanTabFilter(filter)} className={`rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] ${planTabFilter === filter ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}>
+              {filter}
+            </button>
+          ))}
+        </div>
       </Panel>
 
-      <ActivePlansManager activePlans={activePlans} updateActivePlan={updateActivePlan} updatePlanStatus={updatePlanStatus} />
+      {showActiveSection ? <ActivePlansManager activePlans={activePlans} updateActivePlan={updateActivePlan} updatePlanStatus={updatePlanStatus} /> : null}
 
+      {planTabFilter === "All" ? (
+        <Panel compact>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Recommended Next Action</p>
+          <h3 className="mt-2 text-xl font-black text-white">{recommendation.title}</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{recommendation.detail}</p>
+        </Panel>
+      ) : null}
+
+      {showPresetsSection ? (
+      <Panel>
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Preset Plans Library</p>
+            <h3 className="mt-2 text-2xl font-black text-white">Choose the system you want to start</h3>
+          </div>
+          <Badge tone="dark">Grouped</Badge>
+        </div>
+        <div className="grid gap-5">
+          {presetGroups.map((group) => (
+            <section key={group.category} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h4 className="text-lg font-black text-white">{group.category}</h4>
+              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {group.plans.map((preset) => {
+                  const isAvailable = true;
+                  const activeMatch = activePlans.find((plan) => plan.name === preset.name && plan.status === "active");
+                  return (
+                    <article key={preset.name} className="rounded-[1.1rem] border border-white/10 bg-white/[0.04] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <h5 className="break-words text-base font-black text-white">{preset.name}</h5>
+                        <Badge tone={activeMatch ? "green" : isAvailable ? "gold" : "dark"}>{activeMatch ? "Active" : "Available"}</Badge>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">{preset.purpose}</p>
+                      <button
+                        type="button"
+                        onClick={() => activeMatch ? document.getElementById("active-plan-control-center")?.scrollIntoView({ behavior: "smooth", block: "start" }) : openPresetSetup(preset.name)}
+                        className="secondary-button mt-4 w-full justify-center"
+                      >
+                        {activeMatch ? "Open Active Plan" : "Set Up Plan"}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      </Panel>
+      ) : null}
+
+      {showEventsSection ? (
+      <CollapsibleSection title="Special Event Plans" subtitle="Special events do not replace your normal day unless you choose to connect them to Today." defaultOpen={true}>
+        <LongStudyModePanel
+          draft={longStudyDraft}
+          setDraft={setLongStudyDraft}
+          preview={longStudyPreview}
+          createPreview={createLongStudyPreview}
+          applyPreview={saveLongStudyPreview}
+          addKeyBlocksToToday={addLongStudyPreviewKeyBlocksToToday}
+          useAsTodayMainEvent={useLongStudyPreviewAsTodayEvent}
+          cancel={cancelLongStudyPreview}
+          events={longStudySessions}
+          setEvents={setLongStudySessions}
+          copyKeyBlocksToToday={copyLongStudyBlocksToToday}
+        />
+      </CollapsibleSection>
+      ) : null}
+
+      {showReviewsSection ? <WeeklyReviewsDue plans={reviewDuePlans} /> : null}
+
+      {showArchivedSection ? <ArchivedPlansSection plans={archivedPlans} updatePlanStatus={updatePlanStatus} /> : null}
+
+      {planTabFilter === "All" ? (
       <CollapsibleSection title="Long-term planning" subtitle="Big goals, 90-day plan, monthly focus, weekly missions, and next actions." defaultOpen={false}>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {[
@@ -4686,55 +4779,7 @@ function PlanFoundation({
           ))}
         </div>
       </CollapsibleSection>
-
-      <CollapsibleSection title="Special Event Plans" subtitle="Occasional event schedules that do not change your normal Today plan unless you manually copy blocks." defaultOpen={true}>
-        <LongStudyModePanel
-          draft={longStudyDraft}
-          setDraft={setLongStudyDraft}
-          preview={longStudyPreview}
-          createPreview={createLongStudyPreview}
-          applyPreview={saveLongStudyPreview}
-          addKeyBlocksToToday={addLongStudyPreviewKeyBlocksToToday}
-          useAsTodayMainEvent={useLongStudyPreviewAsTodayEvent}
-          cancel={cancelLongStudyPreview}
-          events={longStudySessions}
-          setEvents={setLongStudySessions}
-          copyKeyBlocksToToday={copyLongStudyBlocksToToday}
-        />
-      </CollapsibleSection>
-
-      <Panel>
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Preset Plans</p>
-            <h3 className="mt-2 text-2xl font-black text-white">Choose the direction later</h3>
-          </div>
-          <Badge tone="dark">Foundation only</Badge>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {presetPlans.map((preset) => {
-            const isAvailable = preset.name === "Everyday Essentials" || preset.name === "Get Lean / Shred" || preset.name === "Learn / Master Subject" || preset.name === "Fix Sleep & Energy" || preset.name === "Build a Project" || preset.name === "Money Plan" || preset.name === "Life Reset";
-            const isActive = activePlans.some((plan) => plan.name === preset.name && plan.status === "active");
-            return (
-              <article key={preset.name} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <h4 className="break-words text-lg font-black text-white">{preset.name}</h4>
-                  <Badge tone={isActive ? "green" : isAvailable ? "gold" : "dark"}>{isActive ? "Active" : isAvailable ? "Available" : "Coming soon"}</Badge>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-400">{preset.purpose}</p>
-                <button
-                  type="button"
-                  onClick={() => openPresetSetup(preset.name)}
-                  className="secondary-button mt-4 w-full justify-center disabled:opacity-50"
-                  disabled={!isAvailable}
-                >
-                  {isActive ? "Add Another Active Plan" : "Set Up Plan"}
-                </button>
-              </article>
-            );
-          })}
-        </div>
-      </Panel>
+      ) : null}
 
       {showEssentialsSetup ? (
         <Panel>
@@ -4911,6 +4956,7 @@ function ActivePlansManager({
 
   return (
     <Panel>
+      <span id="active-plan-control-center" className="block scroll-mt-24" />
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Control Center</p>
@@ -4987,6 +5033,48 @@ function ActivePlansManager({
         <PlanWeeklyReviewEditor plan={reviewPlan} updateActivePlan={updateActivePlan} close={() => setReviewPlanId(null)} />
       ) : null}
     </Panel>
+  );
+}
+
+function WeeklyReviewsDue({ plans }: { plans: ActivePlan[] }) {
+  return (
+    <Panel compact>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Weekly Reviews Due</p>
+          <h3 className="mt-2 text-xl font-black text-white">Plans that need a review</h3>
+        </div>
+        <Badge tone={plans.length ? "orange" : "green"}>{plans.length ? `${plans.length} due` : "Clear"}</Badge>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {plans.length ? plans.map((plan) => (
+          <article key={plan.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <h4 className="break-words font-black text-white">{getPlanDisplayName(plan)}</h4>
+            <p className="mt-1 text-sm text-slate-400">Last review: {getPlanWeeklyReviews(plan).at(-1)?.date ?? "No review yet"}</p>
+            <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-amber-100">Use Weekly Review in Active Plan Control Center</p>
+          </article>
+        )) : <p className="text-sm text-slate-400">No weekly reviews due right now.</p>}
+      </div>
+    </Panel>
+  );
+}
+
+function ArchivedPlansSection({ plans, updatePlanStatus }: { plans: ActivePlan[]; updatePlanStatus: (planId: string, status: PlanStatus) => void }) {
+  return (
+    <CollapsibleSection title="Archived / Completed Plans" subtitle="Paused history stays here. Restore only when useful." defaultOpen={false}>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {plans.length ? plans.map((plan) => (
+          <article key={plan.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <h4 className="break-words font-black text-white">{getPlanDisplayName(plan)}</h4>
+              <Badge tone="dark">{plan.status}</Badge>
+            </div>
+            <p className="mt-1 text-sm text-slate-400">{formatPlanType(plan.type)} · Started {plan.startDate || "Unknown"}</p>
+            <button type="button" onClick={() => updatePlanStatus(plan.id, "active")} className="secondary-button mt-4 w-full justify-center">Restore / Reopen</button>
+          </article>
+        )) : <p className="text-sm text-slate-400">No archived or completed plans yet.</p>}
+      </div>
+    </CollapsibleSection>
   );
 }
 
@@ -5856,7 +5944,8 @@ function ProfileVersionSection() {
           <li>V2.11 Stability + backup test pass</li>
           <li>V3.0 Money Plan - Increase Income + Saving Plan</li>
           <li>V3.1 Life Reset preset plan</li>
-          <li>V3.2 Long Study Mode</li>
+          <li>V3.2 Long Study Event Planner</li>
+          <li>V3.3 Plan tab organization</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -8789,7 +8878,8 @@ function SettingsPanel({
               <li>V2.11 Stability + backup test pass</li>
               <li>V3.0 Money Plan - Increase Income + Saving Plan</li>
               <li>V3.1 Life Reset preset plan</li>
-              <li>V3.2 Long Study Mode</li>
+              <li>V3.2 Long Study Event Planner</li>
+              <li>V3.3 Plan tab organization</li>
             </ul>
           </div>
           <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -9756,6 +9846,18 @@ function getPlanTodayTaskRows(plan: ActivePlan): PlanTaskRow[] {
       badge: "Study",
       completed: item.completed
     }));
+}
+
+function getPlanRecommendedAction(activePlans: ActivePlan[], longStudyEvents: LongStudySession[]): { title: string; detail: string } {
+  const active = activePlans.filter((plan) => plan.status === "active");
+  if (active.length === 0) return { title: "Choose one preset plan to start.", detail: "Pick a simple system from the Preset Plans Library. Everyday Essentials or Life Reset are good baseline choices." };
+  const reviewDue = active.find((plan) => getPlanWeeklyReviews(plan).length === 0);
+  if (reviewDue) return { title: "Complete one weekly review.", detail: `${getPlanDisplayName(reviewDue)} has no weekly review yet. Use the Weekly Review button in Active Plan Control Center.` };
+  const latestStudy = longStudyEvents[0];
+  if (latestStudy) return { title: "Review latest study event.", detail: `${latestStudy.eventName || latestStudy.subject} is saved. Open Special Event Plans when you want to mark blocks or review it.` };
+  if (active.some((plan) => plan.type === "money_plan")) return { title: "Log spending or saving today.", detail: "Money Plan is active. A small money log keeps the plan honest." };
+  if (active.some((plan) => plan.type === "get_lean_shred")) return { title: "Log today's food.", detail: "Get Lean / Shred is active. Add food or check macro targets in the plan details." };
+  return { title: "Keep active plans moving.", detail: "Open one active plan, mark the top task, or save a short weekly review." };
 }
 
 function getPrioritizedPlanTaskRows(activePlans: ActivePlan[]): PrioritizedPlanTaskRow[] {
