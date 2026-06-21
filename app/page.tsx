@@ -703,6 +703,89 @@ type RealUseTestLog = {
   improveNext: string;
 };
 
+type LongTermCategory = "Body" | "Money" | "Skill" | "Project" | "Sleep/Energy" | "Life" | "Relationship" | "Other";
+type LongTermStatus = "active" | "paused" | "completed" | "archived";
+type WeeklyMissionStatus = "not started" | "in progress" | "completed" | "skipped";
+type WeeklyMissionType = "Main Mission" | "Support Mission" | "Maintenance Mission";
+type NextActionStatus = "open" | "sent to today" | "completed" | "archived";
+
+type BigGoal = {
+  id: string;
+  title: string;
+  category: LongTermCategory;
+  why: string;
+  targetResult: string;
+  targetDate: string;
+  priority: Priority;
+  status: LongTermStatus;
+  notes: string;
+};
+
+type NinetyDayMilestone = {
+  id: string;
+  title: string;
+  targetDate: string;
+  status: LongTermStatus;
+  notes: string;
+};
+
+type NinetyDayPlan = {
+  id: string;
+  title: string;
+  linkedBigGoalId: string;
+  startDate: string;
+  endDate: string;
+  mainOutcome: string;
+  successDefinition: string;
+  milestones: NinetyDayMilestone[];
+  risks: string;
+  status: LongTermStatus;
+};
+
+type MonthlyFocus = {
+  id: string;
+  month: string;
+  focusTitle: string;
+  linkedNinetyDayPlanId: string;
+  mainTarget: string;
+  focusArea: Exclude<LongTermCategory, "Sleep/Energy" | "Relationship" | "Other"> | "Sleep";
+  mustDo: string;
+  avoid: string;
+  status: LongTermStatus;
+};
+
+type WeeklyMission = {
+  id: string;
+  weekStartDate: string;
+  weekEndDate: string;
+  title: string;
+  linkedMonthlyFocusId: string;
+  category: LongTermCategory;
+  priority: Priority;
+  targetResult: string;
+  status: WeeklyMissionStatus;
+  notes: string;
+  missionType: WeeklyMissionType;
+};
+
+type NextAction = {
+  id: string;
+  title: string;
+  linkedWeeklyMissionId: string;
+  estimatedTime: "5 min" | "15 min" | "30 min" | "60 min" | "90 min";
+  category: LongTermCategory;
+  priority: Priority;
+  status: NextActionStatus;
+};
+
+type LongTermPlanningState = {
+  bigGoals: BigGoal[];
+  ninetyDayPlans: NinetyDayPlan[];
+  monthlyFocuses: MonthlyFocus[];
+  weeklyMissions: WeeklyMission[];
+  nextActions: NextAction[];
+};
+
 type CategoryStats = {
   total: number;
   completed: number;
@@ -880,6 +963,7 @@ const MONEY_INCOME_LOGS_KEY = "kpm-sunny-money-income-logs";
 const MONEY_SAVING_LOGS_KEY = "kpm-sunny-money-saving-logs";
 const MONEY_OPPORTUNITY_LOGS_KEY = "kpm-sunny-money-opportunity-logs";
 const REAL_USE_TEST_LOGS_KEY = "kpm-sunny-real-use-test-logs";
+const LONG_TERM_PLANNING_KEY = "kpm-sunny-long-term-planning";
 const LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-events";
 const LONG_STUDY_REVIEWS_KEY = "kpm-sunny-long-study-event-reviews";
 const TODAY_BACKUP_BEFORE_EVENT_KEY = "kpm-sunny-today-backup-before-event";
@@ -897,7 +981,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.6";
+const APP_VERSION = "V3.7";
 const APP_LAST_UPDATED = "June 21, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -1354,6 +1438,7 @@ function HomeApp() {
   const [moneySavingLogs, setMoneySavingLogs] = useLocalStorage<MoneySavingLog[]>(MONEY_SAVING_LOGS_KEY, []);
   const [moneyOpportunityLogs, setMoneyOpportunityLogs] = useLocalStorage<MoneyOpportunityLog[]>(MONEY_OPPORTUNITY_LOGS_KEY, []);
   const [realUseTestLogs, setRealUseTestLogs] = useLocalStorage<RealUseTestLog[]>(REAL_USE_TEST_LOGS_KEY, []);
+  const [longTermPlanning, setLongTermPlanning] = useLocalStorage<LongTermPlanningState>(LONG_TERM_PLANNING_KEY, createDefaultLongTermPlanning());
   const [longStudySessions, setLongStudySessions] = useLocalStorage<LongStudySession[]>(LONG_STUDY_SESSIONS_KEY, []);
   const [longStudyReviews, setLongStudyReviews] = useLocalStorage<LongStudyReview[]>(LONG_STUDY_REVIEWS_KEY, []);
   const [todayBackupBeforeEvent, setTodayBackupBeforeEvent] = useLocalStorage<TodayBackupBeforeEvent | null>(TODAY_BACKUP_BEFORE_EVENT_KEY, null);
@@ -1710,6 +1795,7 @@ function HomeApp() {
     setMoneySavingLogs([]);
     setMoneyOpportunityLogs([]);
     setRealUseTestLogs([]);
+    setLongTermPlanning(createDefaultLongTermPlanning());
     setLongStudySessions([]);
     setLongStudyReviews([]);
     setTodayBackupBeforeEvent(null);
@@ -1756,6 +1842,7 @@ function HomeApp() {
     setMoneySavingLogs([]);
     setMoneyOpportunityLogs([]);
     setRealUseTestLogs([]);
+    setLongTermPlanning(createDefaultLongTermPlanning());
     setLongStudySessions([]);
     setLongStudyReviews([]);
     setTodayBackupBeforeEvent(null);
@@ -2009,6 +2096,33 @@ function HomeApp() {
     setTasks((current) => mergeSchedule(current, keyBlocks.map((task) => ({ ...task, id: `copy-${task.id}-${Date.now()}`, completed: false, skipped: false }))));
   }
 
+  function sendLongTermTaskToToday(source: "Weekly Mission" | "Next Action", item: WeeklyMission | NextAction) {
+    if (!window.confirm(`Send "${item.title}" to Today as a Long-Term Planning task?`)) return;
+    const category = mapLongTermCategoryToTaskCategory(item.category);
+    const time = source === "Weekly Mission" ? "8:00 AM" : "10:15 AM";
+    const task: Task = {
+      id: `long-term-${source.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`,
+      time,
+      title: item.title,
+      category,
+      priority: item.priority,
+      points: getMissionPoints(item.priority),
+      completed: false,
+      skipped: false,
+      notes: `Source: Long-Term Planning. Type: ${source}.${"targetResult" in item && item.targetResult ? ` Target: ${item.targetResult}` : ""}`,
+      block: getTaskBlock(time),
+      custom: true,
+      flexible: true
+    };
+    setTasks((current) => [...current, task].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)));
+    if (source === "Next Action") {
+      setLongTermPlanning((current) => ({
+        ...normalizeLongTermPlanning(current),
+        nextActions: normalizeLongTermPlanning(current).nextActions.map((action) => action.id === item.id ? { ...action, status: "sent to today" } : action)
+      }));
+    }
+  }
+
   function useLongStudyPreviewAsTodayEvent() {
     if (!longStudyPreview) return;
     if (!window.confirm("Use this Long Study Event as today's main event? Your current Today plan will be backed up and can be restored.")) return;
@@ -2220,6 +2334,9 @@ function HomeApp() {
                 longStudySessions={normalizeLongStudySessions(longStudySessions)}
                 setLongStudySessions={setLongStudySessions}
                 copyLongStudyBlocksToToday={copyLongStudyBlocksToToday}
+                longTermPlanning={normalizeLongTermPlanning(longTermPlanning)}
+                setLongTermPlanning={setLongTermPlanning}
+                sendLongTermTaskToToday={sendLongTermTaskToToday}
               />
             )}
             {activeSection === "Progress" && (
@@ -2246,6 +2363,7 @@ function HomeApp() {
                 saveLongStudyReview={saveLongStudyReview}
                 realUseTestLogs={normalizeRealUseTestLogs(realUseTestLogs)}
                 setRealUseTestLogs={setRealUseTestLogs}
+                longTermPlanning={normalizeLongTermPlanning(longTermPlanning)}
               />
             )}
             {activeSection === "Profile" && (
@@ -4519,7 +4637,10 @@ function PlanFoundation({
   cancelLongStudyPreview,
   longStudySessions,
   setLongStudySessions,
-  copyLongStudyBlocksToToday
+  copyLongStudyBlocksToToday,
+  longTermPlanning,
+  setLongTermPlanning,
+  sendLongTermTaskToToday
 }: {
   plan: Plan;
   setPlan: Dispatch<SetStateAction<Plan>>;
@@ -4561,6 +4682,9 @@ function PlanFoundation({
   longStudySessions: LongStudySession[];
   setLongStudySessions: Dispatch<SetStateAction<LongStudySession[]>>;
   copyLongStudyBlocksToToday: (session: LongStudySession) => void;
+  longTermPlanning: LongTermPlanningState;
+  setLongTermPlanning: Dispatch<SetStateAction<LongTermPlanningState>>;
+  sendLongTermTaskToToday: (source: "Weekly Mission" | "Next Action", item: WeeklyMission | NextAction) => void;
 }) {
   const activeCount = activePlans.filter((item) => item.status === "active").length;
   const pausedCount = activePlans.filter((item) => item.status === "paused").length;
@@ -4817,23 +4941,12 @@ function PlanFoundation({
       {showArchivedSection ? <ArchivedPlansSection plans={archivedPlans} updatePlanStatus={updatePlanStatus} /> : null}
 
       {planTabFilter === "All" ? (
-      <CollapsibleSection title="Long-term planning" subtitle="Big goals, 90-day plan, monthly focus, weekly missions, and next actions." defaultOpen={false}>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {[
-            ["Active Plans", activePlans.length ? `${activePlans.length} total` : "No active plans selected"],
-            ["Big Goals", "Coming soon"],
-            ["90-Day Plan", "Coming soon"],
-            ["Monthly Focus", "Coming soon"],
-            ["Weekly Missions", "Coming soon"],
-            ["Active Plan Details", activePlanDetails]
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-200">{label}</p>
-              <p className="mt-2 break-words text-xl font-black text-white">{value}</p>
-            </div>
-          ))}
-        </div>
-      </CollapsibleSection>
+      <LongTermPlanningHub
+        planning={longTermPlanning}
+        setPlanning={setLongTermPlanning}
+        activePlans={activePlans}
+        sendLongTermTaskToToday={sendLongTermTaskToToday}
+      />
       ) : null}
 
       {showEssentialsSetup ? (
@@ -4975,6 +5088,258 @@ function PlanFoundation({
         />
       </CollapsibleSection>
     </section>
+  );
+}
+
+function LongTermPlanningHub({
+  planning,
+  setPlanning,
+  activePlans,
+  sendLongTermTaskToToday
+}: {
+  planning: LongTermPlanningState;
+  setPlanning: Dispatch<SetStateAction<LongTermPlanningState>>;
+  activePlans: ActivePlan[];
+  sendLongTermTaskToToday: (source: "Weekly Mission" | "Next Action", item: WeeklyMission | NextAction) => void;
+}) {
+  const normalized = normalizeLongTermPlanning(planning);
+  const [bigGoalDraft, setBigGoalDraft] = useState<BigGoal>(() => createDefaultBigGoal());
+  const [ninetyDayDraft, setNinetyDayDraft] = useState<NinetyDayPlan>(() => createDefaultNinetyDayPlan(normalized.bigGoals[0]?.id));
+  const [monthlyDraft, setMonthlyDraft] = useState<MonthlyFocus>(() => createDefaultMonthlyFocus(normalized.ninetyDayPlans[0]?.id));
+  const [weeklyDraft, setWeeklyDraft] = useState<WeeklyMission>(() => createDefaultWeeklyMission(normalized.monthlyFocuses[0]?.id));
+  const [actionDraft, setActionDraft] = useState<NextAction>(() => createDefaultNextAction(normalized.weeklyMissions[0]?.id));
+  const activeCount = activePlans.filter((plan) => plan.status === "active").length;
+  const pausedCount = activePlans.filter((plan) => plan.status === "paused").length;
+  const archivedCount = activePlans.filter((plan) => plan.status === "archived" || plan.status === "completed").length;
+
+  function updatePlanning(updater: (current: LongTermPlanningState) => LongTermPlanningState) {
+    setPlanning((current) => normalizeLongTermPlanning(updater(normalizeLongTermPlanning(current))));
+  }
+
+  return (
+    <CollapsibleSection title="Long-Term Planning Hub" subtitle="Big goals, 90-day plans, monthly focus, weekly missions, and next actions." defaultOpen={true}>
+      <div className="grid gap-5">
+        <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Active Plans</p>
+              <h3 className="mt-2 text-xl font-black text-white">Strategy layer summary</h3>
+            </div>
+            <button type="button" onClick={() => document.getElementById("active-plan-control-center")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="secondary-button min-h-9 px-3 py-2 text-xs">Open Active Plan Control Center</button>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <MiniMetric compact label="Active" value={activeCount} />
+            <MiniMetric compact label="Paused" value={pausedCount} />
+            <MiniMetric compact label="Archived / Done" value={archivedCount} />
+          </div>
+        </section>
+
+        <PlanningFlowHelper />
+
+        <section className="grid gap-5 xl:grid-cols-2">
+          <PlanningFormCard title="Big Goals" emptyText="No big goals yet. Create one clear direction.">
+            <div className="grid gap-3">
+              <Field label="Title"><input value={bigGoalDraft.title} onChange={(event) => setBigGoalDraft({ ...bigGoalDraft, title: event.target.value })} className="form-control" placeholder="Build KPM Sunny into my daily Life OS" /></Field>
+              <SelectField label="Category" value={bigGoalDraft.category} options={longTermCategories} onChange={(category) => setBigGoalDraft({ ...bigGoalDraft, category: category as LongTermCategory })} />
+              <Field label="Why this matters"><textarea value={bigGoalDraft.why} onChange={(event) => setBigGoalDraft({ ...bigGoalDraft, why: event.target.value })} className="form-control min-h-20" /></Field>
+              <Field label="Target result"><input value={bigGoalDraft.targetResult} onChange={(event) => setBigGoalDraft({ ...bigGoalDraft, targetResult: event.target.value })} className="form-control" /></Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Target date"><input type="date" value={bigGoalDraft.targetDate} onChange={(event) => setBigGoalDraft({ ...bigGoalDraft, targetDate: event.target.value })} className="form-control" /></Field>
+                <SelectField label="Priority" value={bigGoalDraft.priority} options={priorities} onChange={(priority) => setBigGoalDraft({ ...bigGoalDraft, priority: priority as Priority })} />
+              </div>
+              <Field label="Notes"><textarea value={bigGoalDraft.notes} onChange={(event) => setBigGoalDraft({ ...bigGoalDraft, notes: event.target.value })} className="form-control min-h-20" /></Field>
+              <button type="button" onClick={() => {
+                if (!bigGoalDraft.title.trim()) return;
+                updatePlanning((current) => ({ ...current, bigGoals: upsertById(current.bigGoals, { ...bigGoalDraft, title: bigGoalDraft.title.trim() }) }));
+                setBigGoalDraft(createDefaultBigGoal());
+              }} className="primary-button justify-center">{normalized.bigGoals.some((goal) => goal.id === bigGoalDraft.id) ? "Save Big Goal" : "Create Big Goal"}</button>
+            </div>
+          </PlanningFormCard>
+          <PlanningList title="Big Goal List" items={normalized.bigGoals} emptyText="No big goals yet. Create one clear direction." render={(goal) => (
+            <LongTermCard key={goal.id} title={goal.title} badge={goal.priority} meta={`${goal.category} · ${goal.status}`} detail={goal.targetResult || goal.why || "No target result yet"}>
+              <PlanningCardActions edit={() => setBigGoalDraft(goal)} complete={() => updatePlanning((current) => updateBigGoalStatus(current, goal.id, "completed"))} archive={() => updatePlanning((current) => updateBigGoalStatus(current, goal.id, "archived"))} remove={() => window.confirm("Delete this big goal?") && updatePlanning((current) => ({ ...current, bigGoals: current.bigGoals.filter((item) => item.id !== goal.id) }))} />
+            </LongTermCard>
+          )} />
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-2">
+          <PlanningFormCard title="90-Day Plan" emptyText="No 90-day plan yet. Build a bridge between your goal and weekly missions.">
+            <div className="grid gap-3">
+              <Field label="Title"><input value={ninetyDayDraft.title} onChange={(event) => setNinetyDayDraft({ ...ninetyDayDraft, title: event.target.value })} className="form-control" /></Field>
+              <SelectField label="Linked big goal" value={ninetyDayDraft.linkedBigGoalId} options={["", ...normalized.bigGoals.map((goal) => goal.id)]} optionLabels={getBigGoalLabels(normalized.bigGoals)} onChange={(linkedBigGoalId) => setNinetyDayDraft({ ...ninetyDayDraft, linkedBigGoalId })} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Start date"><input type="date" value={ninetyDayDraft.startDate} onChange={(event) => setNinetyDayDraft({ ...ninetyDayDraft, startDate: event.target.value })} className="form-control" /></Field>
+                <Field label="End date"><input type="date" value={ninetyDayDraft.endDate} onChange={(event) => setNinetyDayDraft({ ...ninetyDayDraft, endDate: event.target.value })} className="form-control" /></Field>
+              </div>
+              <Field label="Main outcome"><input value={ninetyDayDraft.mainOutcome} onChange={(event) => setNinetyDayDraft({ ...ninetyDayDraft, mainOutcome: event.target.value })} className="form-control" /></Field>
+              <Field label="Success definition"><textarea value={ninetyDayDraft.successDefinition} onChange={(event) => setNinetyDayDraft({ ...ninetyDayDraft, successDefinition: event.target.value })} className="form-control min-h-20" /></Field>
+              <Field label="3 key milestones"><textarea value={ninetyDayDraft.milestones.map((milestone) => milestone.title).join("\n")} onChange={(event) => setNinetyDayDraft({ ...ninetyDayDraft, milestones: linesToMilestones(event.target.value) })} className="form-control min-h-24" placeholder={"Use app daily for 7 days\nTrack food and money for 30 days\nBuild one feature weekly"} /></Field>
+              <Field label="Risks / blockers"><textarea value={ninetyDayDraft.risks} onChange={(event) => setNinetyDayDraft({ ...ninetyDayDraft, risks: event.target.value })} className="form-control min-h-20" /></Field>
+              <button type="button" onClick={() => {
+                if (!ninetyDayDraft.title.trim()) return;
+                updatePlanning((current) => ({ ...current, ninetyDayPlans: upsertById(current.ninetyDayPlans, { ...ninetyDayDraft, title: ninetyDayDraft.title.trim() }) }));
+                setNinetyDayDraft(createDefaultNinetyDayPlan(normalized.bigGoals[0]?.id));
+              }} className="primary-button justify-center">{normalized.ninetyDayPlans.some((item) => item.id === ninetyDayDraft.id) ? "Save 90-Day Plan" : "Create 90-Day Plan"}</button>
+            </div>
+          </PlanningFormCard>
+          <PlanningList title="90-Day Plans" items={normalized.ninetyDayPlans} emptyText="No 90-day plan yet. Build a bridge between your goal and weekly missions." render={(item) => (
+            <LongTermCard key={item.id} title={item.title} badge={item.status} meta={`${item.startDate || "No start"} -> ${item.endDate || "No end"}`} detail={item.mainOutcome || item.successDefinition || "No main outcome yet"}>
+              <PlanningCardActions edit={() => setNinetyDayDraft(item)} complete={() => updatePlanning((current) => updateNinetyDayStatus(current, item.id, "completed"))} archive={() => updatePlanning((current) => updateNinetyDayStatus(current, item.id, "archived"))} remove={() => window.confirm("Delete this 90-day plan?") && updatePlanning((current) => ({ ...current, ninetyDayPlans: current.ninetyDayPlans.filter((plan) => plan.id !== item.id) }))} />
+            </LongTermCard>
+          )} />
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-2">
+          <PlanningFormCard title="Monthly Focus" emptyText="No monthly focus yet. Choose what matters most this month.">
+            <div className="grid gap-3">
+              <Field label="Month"><input type="month" value={monthlyDraft.month} onChange={(event) => setMonthlyDraft({ ...monthlyDraft, month: event.target.value })} className="form-control" /></Field>
+              <Field label="Focus title"><input value={monthlyDraft.focusTitle} onChange={(event) => setMonthlyDraft({ ...monthlyDraft, focusTitle: event.target.value })} className="form-control" /></Field>
+              <SelectField label="Linked 90-day plan" value={monthlyDraft.linkedNinetyDayPlanId} options={["", ...normalized.ninetyDayPlans.map((item) => item.id)]} optionLabels={getNinetyDayLabels(normalized.ninetyDayPlans)} onChange={(linkedNinetyDayPlanId) => setMonthlyDraft({ ...monthlyDraft, linkedNinetyDayPlanId })} />
+              <SelectField label="Focus area" value={monthlyDraft.focusArea} options={monthlyFocusAreas} onChange={(focusArea) => setMonthlyDraft({ ...monthlyDraft, focusArea: focusArea as MonthlyFocus["focusArea"] })} />
+              <Field label="Main target"><input value={monthlyDraft.mainTarget} onChange={(event) => setMonthlyDraft({ ...monthlyDraft, mainTarget: event.target.value })} className="form-control" /></Field>
+              <Field label="Must-do list"><textarea value={monthlyDraft.mustDo} onChange={(event) => setMonthlyDraft({ ...monthlyDraft, mustDo: event.target.value })} className="form-control min-h-20" /></Field>
+              <Field label="Avoid list"><textarea value={monthlyDraft.avoid} onChange={(event) => setMonthlyDraft({ ...monthlyDraft, avoid: event.target.value })} className="form-control min-h-20" /></Field>
+              <button type="button" onClick={() => {
+                if (!monthlyDraft.focusTitle.trim()) return;
+                updatePlanning((current) => ({ ...current, monthlyFocuses: upsertById(current.monthlyFocuses, { ...monthlyDraft, focusTitle: monthlyDraft.focusTitle.trim() }) }));
+                setMonthlyDraft(createDefaultMonthlyFocus(normalized.ninetyDayPlans[0]?.id));
+              }} className="primary-button justify-center">{normalized.monthlyFocuses.some((item) => item.id === monthlyDraft.id) ? "Save Monthly Focus" : "Create Monthly Focus"}</button>
+            </div>
+          </PlanningFormCard>
+          <PlanningList title="Monthly Focuses" items={normalized.monthlyFocuses} emptyText="No monthly focus yet. Choose what matters most this month." render={(item) => (
+            <LongTermCard key={item.id} title={item.focusTitle} badge={item.status} meta={`${item.month || "No month"} · ${item.focusArea}`} detail={item.mainTarget || "No main target yet"}>
+              <PlanningCardActions edit={() => setMonthlyDraft(item)} complete={() => updatePlanning((current) => updateMonthlyFocusStatus(current, item.id, "completed"))} archive={() => updatePlanning((current) => updateMonthlyFocusStatus(current, item.id, "archived"))} remove={() => window.confirm("Delete this monthly focus?") && updatePlanning((current) => ({ ...current, monthlyFocuses: current.monthlyFocuses.filter((focus) => focus.id !== item.id) }))} />
+            </LongTermCard>
+          )} />
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-2">
+          <PlanningFormCard title="Weekly Missions" emptyText="No weekly missions yet. Create 1-3 missions for this week.">
+            <div className="grid gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Week start"><input type="date" value={weeklyDraft.weekStartDate} onChange={(event) => setWeeklyDraft({ ...weeklyDraft, weekStartDate: event.target.value })} className="form-control" /></Field>
+                <Field label="Week end"><input type="date" value={weeklyDraft.weekEndDate} onChange={(event) => setWeeklyDraft({ ...weeklyDraft, weekEndDate: event.target.value })} className="form-control" /></Field>
+              </div>
+              <Field label="Title"><input value={weeklyDraft.title} onChange={(event) => setWeeklyDraft({ ...weeklyDraft, title: event.target.value })} className="form-control" /></Field>
+              <SelectField label="Linked monthly focus" value={weeklyDraft.linkedMonthlyFocusId} options={["", ...normalized.monthlyFocuses.map((item) => item.id)]} optionLabels={getMonthlyFocusLabels(normalized.monthlyFocuses)} onChange={(linkedMonthlyFocusId) => setWeeklyDraft({ ...weeklyDraft, linkedMonthlyFocusId })} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SelectField label="Mission type" value={weeklyDraft.missionType} options={weeklyMissionTypes} onChange={(missionType) => setWeeklyDraft({ ...weeklyDraft, missionType: missionType as WeeklyMissionType })} />
+                <SelectField label="Category" value={weeklyDraft.category} options={longTermCategories} onChange={(category) => setWeeklyDraft({ ...weeklyDraft, category: category as LongTermCategory })} />
+                <SelectField label="Priority" value={weeklyDraft.priority} options={priorities} onChange={(priority) => setWeeklyDraft({ ...weeklyDraft, priority: priority as Priority })} />
+                <SelectField label="Status" value={weeklyDraft.status} options={weeklyMissionStatuses} onChange={(status) => setWeeklyDraft({ ...weeklyDraft, status: status as WeeklyMissionStatus })} />
+              </div>
+              <Field label="Target result"><input value={weeklyDraft.targetResult} onChange={(event) => setWeeklyDraft({ ...weeklyDraft, targetResult: event.target.value })} className="form-control" /></Field>
+              <Field label="Notes"><textarea value={weeklyDraft.notes} onChange={(event) => setWeeklyDraft({ ...weeklyDraft, notes: event.target.value })} className="form-control min-h-20" /></Field>
+              <button type="button" onClick={() => {
+                if (!weeklyDraft.title.trim()) return;
+                updatePlanning((current) => ({ ...current, weeklyMissions: upsertById(current.weeklyMissions, { ...weeklyDraft, title: weeklyDraft.title.trim() }) }));
+                setWeeklyDraft(createDefaultWeeklyMission(normalized.monthlyFocuses[0]?.id));
+              }} className="primary-button justify-center">{normalized.weeklyMissions.some((item) => item.id === weeklyDraft.id) ? "Save Weekly Mission" : "Create Weekly Mission"}</button>
+            </div>
+          </PlanningFormCard>
+          <PlanningList title="Weekly Mission List" items={normalized.weeklyMissions} emptyText="No weekly missions yet. Create 1-3 missions for this week." render={(item) => (
+            <LongTermCard key={item.id} title={item.title} badge={item.priority} meta={`${item.missionType} · ${item.status}`} detail={item.targetResult || item.notes || "No target result yet"}>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => sendLongTermTaskToToday("Weekly Mission", item)} className="secondary-button min-h-9 px-3 py-2 text-xs">Send to Today</button>
+                <PlanningCardActions edit={() => setWeeklyDraft(item)} complete={() => updatePlanning((current) => updateWeeklyMissionStatus(current, item.id, "completed"))} archive={() => updatePlanning((current) => updateWeeklyMissionStatus(current, item.id, "skipped"))} remove={() => window.confirm("Delete this weekly mission?") && updatePlanning((current) => ({ ...current, weeklyMissions: current.weeklyMissions.filter((mission) => mission.id !== item.id) }))} />
+              </div>
+            </LongTermCard>
+          )} />
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-2">
+          <PlanningFormCard title="Next Actions" emptyText="No next actions yet. Break a weekly mission into one small action.">
+            <div className="grid gap-3">
+              <Field label="Title"><input value={actionDraft.title} onChange={(event) => setActionDraft({ ...actionDraft, title: event.target.value })} className="form-control" /></Field>
+              <SelectField label="Linked weekly mission" value={actionDraft.linkedWeeklyMissionId} options={["", ...normalized.weeklyMissions.map((item) => item.id)]} optionLabels={getWeeklyMissionLabels(normalized.weeklyMissions)} onChange={(linkedWeeklyMissionId) => setActionDraft({ ...actionDraft, linkedWeeklyMissionId })} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SelectField label="Estimated time" value={actionDraft.estimatedTime} options={nextActionTimes} onChange={(estimatedTime) => setActionDraft({ ...actionDraft, estimatedTime: estimatedTime as NextAction["estimatedTime"] })} />
+                <SelectField label="Category" value={actionDraft.category} options={longTermCategories} onChange={(category) => setActionDraft({ ...actionDraft, category: category as LongTermCategory })} />
+                <SelectField label="Priority" value={actionDraft.priority} options={priorities} onChange={(priority) => setActionDraft({ ...actionDraft, priority: priority as Priority })} />
+                <SelectField label="Status" value={actionDraft.status} options={nextActionStatuses} onChange={(status) => setActionDraft({ ...actionDraft, status: status as NextActionStatus })} />
+              </div>
+              <button type="button" onClick={() => {
+                if (!actionDraft.title.trim()) return;
+                updatePlanning((current) => ({ ...current, nextActions: upsertById(current.nextActions, { ...actionDraft, title: actionDraft.title.trim() }) }));
+                setActionDraft(createDefaultNextAction(normalized.weeklyMissions[0]?.id));
+              }} className="primary-button justify-center">{normalized.nextActions.some((item) => item.id === actionDraft.id) ? "Save Next Action" : "Create Next Action"}</button>
+            </div>
+          </PlanningFormCard>
+          <PlanningList title="Next Action List" items={normalized.nextActions} emptyText="No next actions yet. Break a weekly mission into one small action." render={(item) => (
+            <LongTermCard key={item.id} title={item.title} badge={item.priority} meta={`${item.estimatedTime} · ${item.status}`} detail={getLinkedWeeklyMissionTitle(normalized.weeklyMissions, item.linkedWeeklyMissionId)}>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => sendLongTermTaskToToday("Next Action", item)} className="secondary-button min-h-9 px-3 py-2 text-xs">Send to Today</button>
+                <PlanningCardActions edit={() => setActionDraft(item)} complete={() => updatePlanning((current) => updateNextActionStatus(current, item.id, "completed"))} archive={() => updatePlanning((current) => updateNextActionStatus(current, item.id, "archived"))} remove={() => window.confirm("Delete this next action?") && updatePlanning((current) => ({ ...current, nextActions: current.nextActions.filter((action) => action.id !== item.id) }))} />
+              </div>
+            </LongTermCard>
+          )} />
+        </section>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+function PlanningFlowHelper() {
+  return (
+    <section className="rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Planning Flow Helper</p>
+      <div className="mt-3 grid gap-2 md:grid-cols-5">
+        {["Create Big Goal", "Create 90-Day Plan", "Create Monthly Focus", "Create Weekly Missions", "Create Next Actions"].map((step, index) => (
+          <div key={step} className="rounded-xl border border-white/10 bg-black/20 p-3">
+            <p className="text-xs font-black text-amber-100">Step {index + 1}</p>
+            <p className="mt-1 text-sm font-black text-white">{step}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PlanningFormCard({ title, emptyText, children }: { title: string; emptyText: string; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h3 className="font-black text-white">{title}</h3>
+      <p className="mt-1 text-sm text-slate-400">{emptyText}</p>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function PlanningList<T>({ title, items, emptyText, render }: { title: string; items: T[]; emptyText: string; render: (item: T) => ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h3 className="font-black text-white">{title}</h3>
+      <div className="mt-4 grid gap-3">
+        {items.length ? items.map(render) : <p className="text-sm text-slate-400">{emptyText}</p>}
+      </div>
+    </section>
+  );
+}
+
+function LongTermCard({ title, badge, meta, detail, children }: { title: string; badge: string; meta: string; detail: string; children: ReactNode }) {
+  return (
+    <article className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="break-words font-black text-white">{title || "Untitled"}</h4>
+          <p className="mt-1 break-words text-sm text-slate-400">{meta}</p>
+        </div>
+        <Badge tone="dark">{badge}</Badge>
+      </div>
+      <p className="mt-3 break-words text-sm leading-6 text-slate-300">{detail}</p>
+      <div className="mt-4">{children}</div>
+    </article>
+  );
+}
+
+function PlanningCardActions({ edit, complete, archive, remove }: { edit: () => void; complete: () => void; archive: () => void; remove: () => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button type="button" onClick={edit} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit</button>
+      <button type="button" onClick={complete} className="secondary-button min-h-9 px-3 py-2 text-xs">Complete</button>
+      <button type="button" onClick={archive} className="secondary-button min-h-9 px-3 py-2 text-xs">Archive</button>
+      <button type="button" onClick={remove} className="danger-button min-h-9 px-3 py-2 text-xs">Delete</button>
+    </div>
   );
 }
 
@@ -5271,6 +5636,25 @@ function LogSummaryCard({ title, value, detail }: { title: string; value: string
       <p className="mt-2 text-2xl font-black text-white">{value}</p>
       <p className="mt-1 break-words text-sm text-slate-400">{detail}</p>
     </article>
+  );
+}
+
+function LongTermPlanningProgressSummary({ planning, todayKey }: { planning: LongTermPlanningState; todayKey: string }) {
+  const normalized = normalizeLongTermPlanning(planning);
+  const overdueMissions = normalized.weeklyMissions.filter((mission) => mission.status !== "completed" && mission.status !== "skipped" && mission.weekEndDate && mission.weekEndDate < todayKey).length;
+  return (
+    <Panel>
+      <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Long-Term Planning Summary</p>
+      <h3 className="mt-2 text-2xl font-black text-white">Strategy progress</h3>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <MiniMetric label="Active Big Goals" value={normalized.bigGoals.filter((goal) => goal.status === "active").length} />
+        <MiniMetric label="Active 90-Day Plans" value={normalized.ninetyDayPlans.filter((plan) => plan.status === "active").length} />
+        <MiniMetric label="Monthly Focus Count" value={normalized.monthlyFocuses.length} />
+        <MiniMetric label="Weekly Missions Completed" value={normalized.weeklyMissions.filter((mission) => mission.status === "completed").length} />
+        <MiniMetric label="Next Actions Completed" value={normalized.nextActions.filter((action) => action.status === "completed").length} />
+        <MiniMetric label="Overdue Missions" value={overdueMissions} />
+      </div>
+    </Panel>
   );
 }
 
@@ -5687,7 +6071,8 @@ function ProgressFoundation({
   longStudyReviews,
   saveLongStudyReview,
   realUseTestLogs,
-  setRealUseTestLogs
+  setRealUseTestLogs,
+  longTermPlanning
 }: {
   review: Review;
   setReview: Dispatch<SetStateAction<Review>>;
@@ -5711,6 +6096,7 @@ function ProgressFoundation({
   saveLongStudyReview: (review: LongStudyReview) => void;
   realUseTestLogs: RealUseTestLog[];
   setRealUseTestLogs: Dispatch<SetStateAction<RealUseTestLog[]>>;
+  longTermPlanning: LongTermPlanningState;
 }) {
   const [progressFilter, setProgressFilter] = useState<ProgressTabFilter>("All");
   const [showWeeklyReviewTargets, setShowWeeklyReviewTargets] = useState(false);
@@ -5873,6 +6259,8 @@ function ProgressFoundation({
           </div>
         </Panel>
       ) : null}
+
+      {showPlans ? <LongTermPlanningProgressSummary planning={longTermPlanning} todayKey={todayKey} /> : null}
 
       {showLogs ? (
         <LogsCenter
@@ -6370,6 +6758,7 @@ function ProfileVersionSection() {
           <li>V3.4 Progress Review Center</li>
           <li>V3.5 Full stability + data safety pass</li>
           <li>V3.6 7-Day Real Use Test Mode</li>
+          <li>V3.7 Long-Term Planning Hub</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -9307,6 +9696,7 @@ function SettingsPanel({
               <li>V3.4 Progress Review Center</li>
               <li>V3.5 Full stability + data safety pass</li>
               <li>V3.6 7-Day Real Use Test Mode</li>
+              <li>V3.7 Long-Term Planning Hub</li>
             </ul>
           </div>
           <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -10201,6 +10591,159 @@ function getMostCommonNonEmptyText(values: string[]): string {
   return values.find((value) => value.trim().toLowerCase() === top[0])?.trim() ?? "Not enough data";
 }
 
+const longTermCategories: LongTermCategory[] = ["Body", "Money", "Skill", "Project", "Sleep/Energy", "Life", "Relationship", "Other"];
+const monthlyFocusAreas: MonthlyFocus["focusArea"][] = ["Body", "Money", "Skill", "Project", "Sleep", "Life"];
+const longTermStatuses: LongTermStatus[] = ["active", "paused", "completed", "archived"];
+const weeklyMissionStatuses: WeeklyMissionStatus[] = ["not started", "in progress", "completed", "skipped"];
+const weeklyMissionTypes: WeeklyMissionType[] = ["Main Mission", "Support Mission", "Maintenance Mission"];
+const nextActionTimes: NextAction["estimatedTime"][] = ["5 min", "15 min", "30 min", "60 min", "90 min"];
+const nextActionStatuses: NextActionStatus[] = ["open", "sent to today", "completed", "archived"];
+
+function createDefaultLongTermPlanning(): LongTermPlanningState {
+  return { bigGoals: [], ninetyDayPlans: [], monthlyFocuses: [], weeklyMissions: [], nextActions: [] };
+}
+
+function createLongTermId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createDefaultBigGoal(): BigGoal {
+  return { id: createLongTermId("big-goal"), title: "", category: "Project", why: "", targetResult: "", targetDate: "", priority: "A", status: "active", notes: "" };
+}
+
+function createDefaultNinetyDayPlan(linkedBigGoalId = ""): NinetyDayPlan {
+  const startDate = getDateKey(new Date());
+  return {
+    id: createLongTermId("ninety-day"),
+    title: "",
+    linkedBigGoalId,
+    startDate,
+    endDate: getDateKey(addDays(new Date(), 90)),
+    mainOutcome: "",
+    successDefinition: "",
+    milestones: linesToMilestones(""),
+    risks: "",
+    status: "active"
+  };
+}
+
+function createDefaultMonthlyFocus(linkedNinetyDayPlanId = ""): MonthlyFocus {
+  return { id: createLongTermId("monthly-focus"), month: getDateKey(new Date()).slice(0, 7), focusTitle: "", linkedNinetyDayPlanId, mainTarget: "", focusArea: "Life", mustDo: "", avoid: "", status: "active" };
+}
+
+function createDefaultWeeklyMission(linkedMonthlyFocusId = ""): WeeklyMission {
+  const start = getDateKey(new Date());
+  return { id: createLongTermId("weekly-mission"), weekStartDate: start, weekEndDate: getDateKey(addDays(new Date(), 6)), title: "", linkedMonthlyFocusId, category: "Project", priority: "A", targetResult: "", status: "not started", notes: "", missionType: "Main Mission" };
+}
+
+function createDefaultNextAction(linkedWeeklyMissionId = ""): NextAction {
+  return { id: createLongTermId("next-action"), title: "", linkedWeeklyMissionId, estimatedTime: "30 min", category: "Project", priority: "B", status: "open" };
+}
+
+function normalizeLongTermPlanning(value: unknown): LongTermPlanningState {
+  const source = value && typeof value === "object" ? value as Partial<LongTermPlanningState> : {};
+  return {
+    bigGoals: Array.isArray(source.bigGoals) ? source.bigGoals.map(normalizeBigGoal) : [],
+    ninetyDayPlans: Array.isArray(source.ninetyDayPlans) ? source.ninetyDayPlans.map(normalizeNinetyDayPlan) : [],
+    monthlyFocuses: Array.isArray(source.monthlyFocuses) ? source.monthlyFocuses.map(normalizeMonthlyFocus) : [],
+    weeklyMissions: Array.isArray(source.weeklyMissions) ? source.weeklyMissions.map(normalizeWeeklyMission) : [],
+    nextActions: Array.isArray(source.nextActions) ? source.nextActions.map(normalizeNextAction) : []
+  };
+}
+
+function normalizeBigGoal(goal: Partial<BigGoal>): BigGoal {
+  return {
+    ...createDefaultBigGoal(),
+    ...goal,
+    id: goal.id || createLongTermId("big-goal"),
+    category: longTermCategories.includes(goal.category as LongTermCategory) ? goal.category as LongTermCategory : "Other",
+    priority: priorities.includes(goal.priority as Priority) ? goal.priority as Priority : "B",
+    status: longTermStatuses.includes(goal.status as LongTermStatus) ? goal.status as LongTermStatus : "active"
+  };
+}
+
+function normalizeNinetyDayPlan(plan: Partial<NinetyDayPlan>): NinetyDayPlan {
+  return {
+    ...createDefaultNinetyDayPlan(),
+    ...plan,
+    id: plan.id || createLongTermId("ninety-day"),
+    milestones: Array.isArray(plan.milestones) ? plan.milestones.map(normalizeMilestone) : [],
+    status: longTermStatuses.includes(plan.status as LongTermStatus) ? plan.status as LongTermStatus : "active"
+  };
+}
+
+function normalizeMilestone(milestone: Partial<NinetyDayMilestone>): NinetyDayMilestone {
+  return { id: milestone.id || createLongTermId("milestone"), title: milestone.title || "", targetDate: milestone.targetDate || "", status: longTermStatuses.includes(milestone.status as LongTermStatus) ? milestone.status as LongTermStatus : "active", notes: milestone.notes || "" };
+}
+
+function normalizeMonthlyFocus(focus: Partial<MonthlyFocus>): MonthlyFocus {
+  return { ...createDefaultMonthlyFocus(), ...focus, id: focus.id || createLongTermId("monthly-focus"), focusArea: monthlyFocusAreas.includes(focus.focusArea as MonthlyFocus["focusArea"]) ? focus.focusArea as MonthlyFocus["focusArea"] : "Life", status: longTermStatuses.includes(focus.status as LongTermStatus) ? focus.status as LongTermStatus : "active" };
+}
+
+function normalizeWeeklyMission(mission: Partial<WeeklyMission>): WeeklyMission {
+  return { ...createDefaultWeeklyMission(), ...mission, id: mission.id || createLongTermId("weekly-mission"), category: longTermCategories.includes(mission.category as LongTermCategory) ? mission.category as LongTermCategory : "Other", priority: priorities.includes(mission.priority as Priority) ? mission.priority as Priority : "B", status: weeklyMissionStatuses.includes(mission.status as WeeklyMissionStatus) ? mission.status as WeeklyMissionStatus : "not started", missionType: weeklyMissionTypes.includes(mission.missionType as WeeklyMissionType) ? mission.missionType as WeeklyMissionType : "Support Mission" };
+}
+
+function normalizeNextAction(action: Partial<NextAction>): NextAction {
+  return { ...createDefaultNextAction(), ...action, id: action.id || createLongTermId("next-action"), category: longTermCategories.includes(action.category as LongTermCategory) ? action.category as LongTermCategory : "Other", priority: priorities.includes(action.priority as Priority) ? action.priority as Priority : "B", estimatedTime: nextActionTimes.includes(action.estimatedTime as NextAction["estimatedTime"]) ? action.estimatedTime as NextAction["estimatedTime"] : "30 min", status: nextActionStatuses.includes(action.status as NextActionStatus) ? action.status as NextActionStatus : "open" };
+}
+
+function upsertById<T extends { id: string }>(items: T[], item: T): T[] {
+  return items.some((existing) => existing.id === item.id) ? items.map((existing) => existing.id === item.id ? item : existing) : [item, ...items];
+}
+
+function linesToMilestones(value: string): NinetyDayMilestone[] {
+  const lines = value.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 3);
+  return (lines.length ? lines : ["", "", ""]).map((title, index) => ({ id: createLongTermId(`milestone-${index}`), title, targetDate: "", status: "active", notes: "" }));
+}
+
+function getBigGoalLabels(goals: BigGoal[]): Record<string, string> {
+  return { "": "No linked big goal", ...Object.fromEntries(goals.map((goal) => [goal.id, goal.title || "Untitled big goal"])) };
+}
+
+function getNinetyDayLabels(plans: NinetyDayPlan[]): Record<string, string> {
+  return { "": "No linked 90-day plan", ...Object.fromEntries(plans.map((plan) => [plan.id, plan.title || "Untitled 90-day plan"])) };
+}
+
+function getMonthlyFocusLabels(focuses: MonthlyFocus[]): Record<string, string> {
+  return { "": "No linked monthly focus", ...Object.fromEntries(focuses.map((focus) => [focus.id, focus.focusTitle || "Untitled monthly focus"])) };
+}
+
+function getWeeklyMissionLabels(missions: WeeklyMission[]): Record<string, string> {
+  return { "": "No linked weekly mission", ...Object.fromEntries(missions.map((mission) => [mission.id, mission.title || "Untitled weekly mission"])) };
+}
+
+function getLinkedWeeklyMissionTitle(missions: WeeklyMission[], id: string): string {
+  return missions.find((mission) => mission.id === id)?.title || "No linked weekly mission";
+}
+
+function updateBigGoalStatus(planning: LongTermPlanningState, id: string, status: LongTermStatus): LongTermPlanningState {
+  return { ...planning, bigGoals: planning.bigGoals.map((item) => item.id === id ? { ...item, status } : item) };
+}
+
+function updateNinetyDayStatus(planning: LongTermPlanningState, id: string, status: LongTermStatus): LongTermPlanningState {
+  return { ...planning, ninetyDayPlans: planning.ninetyDayPlans.map((item) => item.id === id ? { ...item, status } : item) };
+}
+
+function updateMonthlyFocusStatus(planning: LongTermPlanningState, id: string, status: LongTermStatus): LongTermPlanningState {
+  return { ...planning, monthlyFocuses: planning.monthlyFocuses.map((item) => item.id === id ? { ...item, status } : item) };
+}
+
+function updateWeeklyMissionStatus(planning: LongTermPlanningState, id: string, status: WeeklyMissionStatus): LongTermPlanningState {
+  return { ...planning, weeklyMissions: planning.weeklyMissions.map((item) => item.id === id ? { ...item, status } : item) };
+}
+
+function updateNextActionStatus(planning: LongTermPlanningState, id: string, status: NextActionStatus): LongTermPlanningState {
+  return { ...planning, nextActions: planning.nextActions.map((item) => item.id === id ? { ...item, status } : item) };
+}
+
+function mapLongTermCategoryToTaskCategory(category: LongTermCategory): Category {
+  if (category === "Skill" || category === "Project") return "Knowledge";
+  if (category === "Money" || category === "Life") return "Plan";
+  if (category === "Body" || category === "Sleep/Energy" || category === "Relationship") return "Sunny";
+  return "Monitoring";
+}
+
 function createGetLeanSetupFromProfile(profile: ProfileState): GetLeanSetup {
   const normalized = normalizeProfile(profile);
   return {
@@ -10315,6 +10858,7 @@ function getPlanTaskSourceLabel(plan: ActivePlan): string {
 
 function getTaskSourceLabel(task: Task): string {
   if (task.displayLabel === "Long Study Mode" || task.notes.toLowerCase().includes("source: long study mode")) return "Long Study Mode";
+  if (task.notes.toLowerCase().includes("source: long-term planning")) return "Long-Term Planning";
   if (task.insertedGoal) return "Plan Tomorrow";
   if (task.custom) return "Manual Today Mission";
   return "Build Today";
