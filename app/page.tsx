@@ -686,6 +686,23 @@ type SevenDayTestSummary = {
   days: SevenDayTestDay[];
 };
 
+type RealUseTestLog = {
+  date: string;
+  openedApp: boolean;
+  usedBuildToday: boolean;
+  todayHelpfulness: number;
+  usedStartMission: boolean;
+  loggedFood: boolean;
+  loggedMoney: boolean;
+  loggedSleepEnergy: boolean;
+  useful: string;
+  annoying: string;
+  tooManyClicks: string;
+  ignored: string;
+  broke: string;
+  improveNext: string;
+};
+
 type CategoryStats = {
   total: number;
   completed: number;
@@ -862,6 +879,7 @@ const MONEY_SPENDING_LOGS_KEY = "kpm-sunny-money-spending-logs";
 const MONEY_INCOME_LOGS_KEY = "kpm-sunny-money-income-logs";
 const MONEY_SAVING_LOGS_KEY = "kpm-sunny-money-saving-logs";
 const MONEY_OPPORTUNITY_LOGS_KEY = "kpm-sunny-money-opportunity-logs";
+const REAL_USE_TEST_LOGS_KEY = "kpm-sunny-real-use-test-logs";
 const LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-events";
 const LONG_STUDY_REVIEWS_KEY = "kpm-sunny-long-study-event-reviews";
 const TODAY_BACKUP_BEFORE_EVENT_KEY = "kpm-sunny-today-backup-before-event";
@@ -879,7 +897,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.5";
+const APP_VERSION = "V3.6";
 const APP_LAST_UPDATED = "June 21, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -1335,6 +1353,7 @@ function HomeApp() {
   const [moneyIncomeLogs, setMoneyIncomeLogs] = useLocalStorage<MoneyIncomeLog[]>(MONEY_INCOME_LOGS_KEY, []);
   const [moneySavingLogs, setMoneySavingLogs] = useLocalStorage<MoneySavingLog[]>(MONEY_SAVING_LOGS_KEY, []);
   const [moneyOpportunityLogs, setMoneyOpportunityLogs] = useLocalStorage<MoneyOpportunityLog[]>(MONEY_OPPORTUNITY_LOGS_KEY, []);
+  const [realUseTestLogs, setRealUseTestLogs] = useLocalStorage<RealUseTestLog[]>(REAL_USE_TEST_LOGS_KEY, []);
   const [longStudySessions, setLongStudySessions] = useLocalStorage<LongStudySession[]>(LONG_STUDY_SESSIONS_KEY, []);
   const [longStudyReviews, setLongStudyReviews] = useLocalStorage<LongStudyReview[]>(LONG_STUDY_REVIEWS_KEY, []);
   const [todayBackupBeforeEvent, setTodayBackupBeforeEvent] = useLocalStorage<TodayBackupBeforeEvent | null>(TODAY_BACKUP_BEFORE_EVENT_KEY, null);
@@ -1690,6 +1709,7 @@ function HomeApp() {
     setMoneyIncomeLogs([]);
     setMoneySavingLogs([]);
     setMoneyOpportunityLogs([]);
+    setRealUseTestLogs([]);
     setLongStudySessions([]);
     setLongStudyReviews([]);
     setTodayBackupBeforeEvent(null);
@@ -1735,6 +1755,7 @@ function HomeApp() {
     setMoneyIncomeLogs([]);
     setMoneySavingLogs([]);
     setMoneyOpportunityLogs([]);
+    setRealUseTestLogs([]);
     setLongStudySessions([]);
     setLongStudyReviews([]);
     setTodayBackupBeforeEvent(null);
@@ -2223,6 +2244,8 @@ function HomeApp() {
                 longStudySessions={normalizeLongStudySessions(longStudySessions)}
                 longStudyReviews={normalizeLongStudyReviews(longStudyReviews)}
                 saveLongStudyReview={saveLongStudyReview}
+                realUseTestLogs={normalizeRealUseTestLogs(realUseTestLogs)}
+                setRealUseTestLogs={setRealUseTestLogs}
               />
             )}
             {activeSection === "Profile" && (
@@ -5251,6 +5274,98 @@ function LogSummaryCard({ title, value, detail }: { title: string; value: string
   );
 }
 
+function RealUseTestSection({ logs, setLogs, todayKey }: { logs: RealUseTestLog[]; setLogs: Dispatch<SetStateAction<RealUseTestLog[]>>; todayKey: string }) {
+  const normalizedLogs = normalizeRealUseTestLogs(logs);
+  const existingTodayLog = normalizedLogs.find((log) => log.date === todayKey);
+  const [draft, setDraft] = useState<RealUseTestLog>(() => existingTodayLog ?? createDefaultRealUseTestLog(todayKey));
+  const summary = getRealUseTestSummary(normalizedLogs, todayKey);
+
+  useEffect(() => {
+    setDraft(existingTodayLog ?? createDefaultRealUseTestLog(todayKey));
+  }, [existingTodayLog, todayKey]);
+
+  function updateDraft(patch: Partial<RealUseTestLog>) {
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function saveLog() {
+    setLogs((current) => {
+      const nextLog = normalizeRealUseTestLog(draft);
+      return [nextLog, ...normalizeRealUseTestLogs(current).filter((log) => log.date !== nextLog.date)]
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 30);
+    });
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">7-Day Real Use Test</p>
+          <h3 className="mt-2 text-2xl font-black text-white">What works in real life?</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">One small daily log for testing friction, usefulness, bugs, and what to improve next.</p>
+        </div>
+        <Badge tone={existingTodayLog ? "green" : "orange"}>{existingTodayLog ? "Today saved" : "Today not saved"}</Badge>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <MiniMetric label="Days App Opened" value={`${summary.daysOpened}/7`} />
+        <MiniMetric label="Build Today Used" value={`${summary.buildTodayDays}/7`} />
+        <MiniMetric label="Avg Usefulness" value={`${summary.averageUsefulness}/10`} />
+        <MiniMetric label="Common Annoyance" value={summary.commonAnnoyance} />
+        <MiniMetric label="Requested Improvement" value={summary.requestedImprovement} />
+        <MiniMetric label="Bugs Reported" value={summary.bugsReported} />
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <h4 className="font-black text-white">Today&apos;s test log</h4>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <RealUseToggle label="Opened app today" checked={draft.openedApp} onChange={(openedApp) => updateDraft({ openedApp })} />
+            <RealUseToggle label="Used Build Today" checked={draft.usedBuildToday} onChange={(usedBuildToday) => updateDraft({ usedBuildToday })} />
+            <Field label="Today helped me know what to do">
+              <select value={draft.todayHelpfulness} onChange={(event) => updateDraft({ todayHelpfulness: Number(event.target.value) || 5 })} className="form-control">
+                {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => <option key={score} value={score}>{score}/10</option>)}
+              </select>
+            </Field>
+            <RealUseToggle label="Used Start Mission" checked={draft.usedStartMission} onChange={(usedStartMission) => updateDraft({ usedStartMission })} />
+            <RealUseToggle label="Logged food" checked={draft.loggedFood} onChange={(loggedFood) => updateDraft({ loggedFood })} />
+            <RealUseToggle label="Logged money" checked={draft.loggedMoney} onChange={(loggedMoney) => updateDraft({ loggedMoney })} />
+            <RealUseToggle label="Logged sleep / energy" checked={draft.loggedSleepEnergy} onChange={(loggedSleepEnergy) => updateDraft({ loggedSleepEnergy })} />
+          </div>
+          <div className="mt-4 grid gap-4">
+            <Field label="What felt useful?"><textarea value={draft.useful} onChange={(event) => updateDraft({ useful: event.target.value })} className="form-control min-h-20" /></Field>
+            <Field label="What felt annoying?"><textarea value={draft.annoying} onChange={(event) => updateDraft({ annoying: event.target.value })} className="form-control min-h-20" /></Field>
+            <Field label="What was too many clicks?"><textarea value={draft.tooManyClicks} onChange={(event) => updateDraft({ tooManyClicks: event.target.value })} className="form-control min-h-20" /></Field>
+            <Field label="What did I ignore?"><textarea value={draft.ignored} onChange={(event) => updateDraft({ ignored: event.target.value })} className="form-control min-h-20" /></Field>
+            <Field label="What broke?"><textarea value={draft.broke} onChange={(event) => updateDraft({ broke: event.target.value })} className="form-control min-h-20" /></Field>
+            <Field label="One thing to improve next"><textarea value={draft.improveNext} onChange={(event) => updateDraft({ improveNext: event.target.value })} className="form-control min-h-20" /></Field>
+          </div>
+          <button type="button" onClick={saveLog} className="primary-button mt-5 w-full justify-center">Save Today&apos;s Test Log</button>
+        </section>
+
+        <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <h4 className="font-black text-white">Recent test days</h4>
+          <div className="mt-4 grid gap-2">
+            {summary.recentLogs.length ? summary.recentLogs.map((log) => (
+              <SummaryRow key={log.date} label={log.date} value={`${log.todayHelpfulness}/10 · ${log.openedApp ? "opened" : "not opened"}${log.broke.trim() ? " · bug noted" : ""}`} />
+            )) : <p className="text-sm text-slate-400">No real-use test logs yet.</p>}
+          </div>
+        </section>
+      </div>
+    </Panel>
+  );
+}
+
+function RealUseToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white">
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 accent-cyan-300" />
+      {label}
+    </label>
+  );
+}
+
 function PlanControlDetail({
   plan,
   updatePlanStatus,
@@ -5570,7 +5685,9 @@ function ProgressFoundation({
   moneyOpportunityLogs,
   longStudySessions,
   longStudyReviews,
-  saveLongStudyReview
+  saveLongStudyReview,
+  realUseTestLogs,
+  setRealUseTestLogs
 }: {
   review: Review;
   setReview: Dispatch<SetStateAction<Review>>;
@@ -5592,6 +5709,8 @@ function ProgressFoundation({
   longStudySessions: LongStudySession[];
   longStudyReviews: LongStudyReview[];
   saveLongStudyReview: (review: LongStudyReview) => void;
+  realUseTestLogs: RealUseTestLog[];
+  setRealUseTestLogs: Dispatch<SetStateAction<RealUseTestLog[]>>;
 }) {
   const [progressFilter, setProgressFilter] = useState<ProgressTabFilter>("All");
   const [showWeeklyReviewTargets, setShowWeeklyReviewTargets] = useState(false);
@@ -5718,6 +5837,10 @@ function ProgressFoundation({
             </div>
           ) : null}
         </Panel>
+      ) : null}
+
+      {(progressFilter === "All" || progressFilter === "Today" || progressFilter === "Reviews Needed") ? (
+        <RealUseTestSection logs={realUseTestLogs} setLogs={setRealUseTestLogs} todayKey={todayKey} />
       ) : null}
 
       {showPlans ? (
@@ -6246,6 +6369,7 @@ function ProfileVersionSection() {
           <li>V3.3 Plan tab organization</li>
           <li>V3.4 Progress Review Center</li>
           <li>V3.5 Full stability + data safety pass</li>
+          <li>V3.6 7-Day Real Use Test Mode</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -9182,6 +9306,7 @@ function SettingsPanel({
               <li>V3.3 Plan tab organization</li>
               <li>V3.4 Progress Review Center</li>
               <li>V3.5 Full stability + data safety pass</li>
+              <li>V3.6 7-Day Real Use Test Mode</li>
             </ul>
           </div>
           <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -9999,6 +10124,81 @@ function normalizeHistoryEntries(history: unknown): HistoryEntry[] {
   return history
     .map((entry, index) => normalizeHistoryEntry(entry as Partial<HistoryEntry>, index))
     .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function createDefaultRealUseTestLog(date: string): RealUseTestLog {
+  return {
+    date,
+    openedApp: true,
+    usedBuildToday: false,
+    todayHelpfulness: 5,
+    usedStartMission: false,
+    loggedFood: false,
+    loggedMoney: false,
+    loggedSleepEnergy: false,
+    useful: "",
+    annoying: "",
+    tooManyClicks: "",
+    ignored: "",
+    broke: "",
+    improveNext: ""
+  };
+}
+
+function normalizeRealUseTestLog(log: Partial<RealUseTestLog>): RealUseTestLog {
+  const fallback = createDefaultRealUseTestLog(getDateKey(new Date()));
+  return {
+    date: /^\d{4}-\d{2}-\d{2}$/.test(log.date ?? "") ? log.date as string : fallback.date,
+    openedApp: Boolean(log.openedApp),
+    usedBuildToday: Boolean(log.usedBuildToday),
+    todayHelpfulness: clampNumber(Number(log.todayHelpfulness) || 5, 1, 10),
+    usedStartMission: Boolean(log.usedStartMission),
+    loggedFood: Boolean(log.loggedFood),
+    loggedMoney: Boolean(log.loggedMoney),
+    loggedSleepEnergy: Boolean(log.loggedSleepEnergy),
+    useful: log.useful ?? "",
+    annoying: log.annoying ?? "",
+    tooManyClicks: log.tooManyClicks ?? "",
+    ignored: log.ignored ?? "",
+    broke: log.broke ?? "",
+    improveNext: log.improveNext ?? ""
+  };
+}
+
+function normalizeRealUseTestLogs(logs: unknown): RealUseTestLog[] {
+  if (!Array.isArray(logs)) return [];
+  return logs.map((log) => normalizeRealUseTestLog(log as Partial<RealUseTestLog>)).sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function getRealUseTestSummary(logs: RealUseTestLog[], todayKey: string) {
+  const recentKeys = getLastDateKeys(todayKey, 7);
+  const recentLogs = normalizeRealUseTestLogs(logs).filter((log) => recentKeys.includes(log.date));
+  const averageUsefulness = recentLogs.length
+    ? Math.round((recentLogs.reduce((total, log) => total + log.todayHelpfulness, 0) / recentLogs.length) * 10) / 10
+    : 0;
+  return {
+    recentLogs,
+    daysOpened: recentLogs.filter((log) => log.openedApp).length,
+    buildTodayDays: recentLogs.filter((log) => log.usedBuildToday).length,
+    averageUsefulness,
+    commonAnnoyance: getMostCommonNonEmptyText(recentLogs.map((log) => log.annoying)),
+    requestedImprovement: getMostCommonNonEmptyText(recentLogs.map((log) => log.improveNext)),
+    bugsReported: recentLogs.filter((log) => log.broke.trim()).length
+  };
+}
+
+function getMostCommonNonEmptyText(values: string[]): string {
+  const counts = values
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .reduce<Record<string, number>>((nextCounts, value) => {
+      const key = value.toLowerCase();
+      nextCounts[key] = (nextCounts[key] ?? 0) + 1;
+      return nextCounts;
+    }, {});
+  const [top] = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (!top) return "Not enough data";
+  return values.find((value) => value.trim().toLowerCase() === top[0])?.trim() ?? "Not enough data";
 }
 
 function createGetLeanSetupFromProfile(profile: ProfileState): GetLeanSetup {
