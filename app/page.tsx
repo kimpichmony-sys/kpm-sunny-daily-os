@@ -834,6 +834,7 @@ type LongStudyReview = {
 
 type LongStudyPreview = LongStudySession;
 type PlanTabFilter = "All" | "Active" | "Presets" | "Events" | "Reviews Due" | "Archived";
+type ProgressTabFilter = "All" | "Today" | "This Week" | "Plans" | "Logs" | "Reviews Needed";
 
 type TodayBackupBeforeEvent = {
   date: string;
@@ -878,8 +879,8 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.3";
-const APP_LAST_UPDATED = "June 20, 2026";
+const APP_VERSION = "V3.4";
+const APP_LAST_UPDATED = "June 21, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
 const categories: Category[] = ["Knowledge", "Plan", "Monitoring", "Sunny"];
@@ -5099,6 +5100,126 @@ function PlanProgressSummaryCard({ activePlan }: { activePlan: ActivePlan }) {
   );
 }
 
+function ProgressPlanReviewCard({
+  plan,
+  todayKey,
+  dailyFoodLogs,
+  moneySpendingLogs,
+  moneyIncomeLogs,
+  moneySavingLogs,
+  moneyOpportunityLogs
+}: {
+  plan: ActivePlan;
+  todayKey: string;
+  dailyFoodLogs: DailyFoodLogs;
+  moneySpendingLogs: MoneySpendingLog[];
+  moneyIncomeLogs: MoneyIncomeLog[];
+  moneySavingLogs: MoneySavingLog[];
+  moneyOpportunityLogs: MoneyOpportunityLog[];
+}) {
+  const progress = getPlanCompletion(plan);
+  const rows = getProgressPlanRows(plan, todayKey, dailyFoodLogs, moneySpendingLogs, moneyIncomeLogs, moneySavingLogs, moneyOpportunityLogs);
+  const percent = progress.total ? Math.round((progress.completed / progress.total) * 100) : 0;
+
+  return (
+    <article className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="break-words text-lg font-black text-white">{getPlanDisplayName(plan)}</h4>
+          <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{formatPlanType(plan.type)}</p>
+        </div>
+        <Badge tone={plan.status === "active" ? "green" : plan.status === "paused" ? "orange" : "dark"}>{plan.status}</Badge>
+      </div>
+      <div className="mt-4">
+        <ProgressLine label="Today tasks" value={progress.completed} total={Math.max(progress.total, 1)} percent={percent} />
+      </div>
+      <div className="mt-4 grid gap-2 text-sm">
+        {rows.map((row) => <SummaryRow key={row.label} label={row.label} value={row.value} />)}
+      </div>
+    </article>
+  );
+}
+
+function LongStudyProgressCard({ sessions, reviews }: { sessions: LongStudySession[]; reviews: LongStudyReview[] }) {
+  const latest = [...sessions].sort((a, b) => b.date.localeCompare(a.date)).at(0);
+  if (!latest) {
+    return (
+      <article className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+        <h4 className="font-black text-white">Long Study Event</h4>
+        <p className="mt-2 text-sm text-slate-400">No long study events yet.</p>
+      </article>
+    );
+  }
+  const review = reviews.find((item) => item.sessionId === latest.id);
+  return (
+    <article className="rounded-[1.35rem] border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="break-words text-lg font-black text-white">{latest.eventName}</h4>
+          <p className="mt-1 text-sm text-slate-400">{latest.subject} · {latest.date}</p>
+        </div>
+        <Badge tone={review ? "green" : "orange"}>{review ? "reviewed" : "review due"}</Badge>
+      </div>
+      <div className="mt-4 grid gap-2 text-sm">
+        <SummaryRow label="Planned study" value={`${latest.plannedStudyMinutes} min`} />
+        <SummaryRow label="Completed study" value={review ? `${roundMacro(review.totalStudyHoursCompleted)}h` : "No review yet"} />
+        <SummaryRow label="Finish estimate" value={latest.estimatedFinishTime} />
+      </div>
+    </article>
+  );
+}
+
+function LogsCenter({
+  activePlans,
+  dailyFoodLogs,
+  moneySpendingLogs,
+  moneyIncomeLogs,
+  moneySavingLogs,
+  moneyOpportunityLogs,
+  longStudyReviews
+}: {
+  activePlans: ActivePlan[];
+  dailyFoodLogs: DailyFoodLogs;
+  moneySpendingLogs: MoneySpendingLog[];
+  moneyIncomeLogs: MoneyIncomeLog[];
+  moneySavingLogs: MoneySavingLog[];
+  moneyOpportunityLogs: MoneyOpportunityLog[];
+  longStudyReviews: LongStudyReview[];
+}) {
+  const foodDays = Object.entries(dailyFoodLogs).filter(([, entries]) => entries.length > 0).length;
+  const sleepLogs = activePlans.filter((plan): plan is SleepEnergyPlan => plan.type === "fix_sleep_energy").flatMap((plan) => normalizeSleepEnergyPlan(plan).logs);
+  const projectLogs = activePlans.filter((plan): plan is BuildProjectPlan => plan.type === "build_project").flatMap((plan) => normalizeBuildProjectPlan(plan).logs);
+  const lifeResetLogs = activePlans.filter((plan): plan is LifeResetPlan => plan.type === "life_reset").flatMap((plan) => normalizeLifeResetPlan(plan).logs);
+  const weeklyReviews = activePlans.flatMap((plan) => getPlanWeeklyReviews(plan).map((review) => ({ ...review, planName: getPlanDisplayName(plan) })));
+
+  return (
+    <Panel>
+      <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Logs Center</p>
+      <h3 className="mt-2 text-2xl font-black text-white">Everything recorded</h3>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Grouped logs stay readable here. Detailed log editors remain below when you need to update entries.</p>
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <LogSummaryCard title="Food Logs" value={`${foodDays} days`} detail={foodDays ? "Food entries saved" : "No food logs yet"} />
+        <LogSummaryCard title="Sleep Logs" value={sleepLogs.length} detail={sleepLogs.at(-1)?.date ?? "No sleep logs yet"} />
+        <LogSummaryCard title="Money Logs" value={moneySpendingLogs.length + moneyIncomeLogs.length + moneySavingLogs.length + moneyOpportunityLogs.length} detail={`${moneySpendingLogs.length} spending · ${moneyIncomeLogs.length} income · ${moneySavingLogs.length} saving`} />
+        <LogSummaryCard title="Project Logs" value={projectLogs.length} detail={projectLogs.at(-1)?.date ?? "No project logs yet"} />
+        <LogSummaryCard title="Life Reset Logs" value={lifeResetLogs.length} detail={lifeResetLogs.at(-1)?.date ?? "No life reset logs yet"} />
+        <LogSummaryCard title="Long Study Event Reviews" value={longStudyReviews.length} detail={longStudyReviews.at(-1)?.date ?? "No long study reviews yet"} />
+        <LogSummaryCard title="Weekly Reviews" value={weeklyReviews.length} detail={weeklyReviews.at(-1) ? `${weeklyReviews.at(-1)?.planName} · ${weeklyReviews.at(-1)?.date}` : "No weekly reviews yet"} />
+      </div>
+    </Panel>
+  );
+}
+
+function LogSummaryCard({ title, value, detail }: { title: string; value: string | number; detail: string }) {
+  return (
+    <article className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{title}</p>
+      <p className="mt-2 text-2xl font-black text-white">{value}</p>
+      <p className="mt-1 break-words text-sm text-slate-400">{detail}</p>
+    </article>
+  );
+}
+
 function PlanControlDetail({
   plan,
   updatePlanStatus,
@@ -5441,26 +5562,182 @@ function ProgressFoundation({
   longStudyReviews: LongStudyReview[];
   saveLongStudyReview: (review: LongStudyReview) => void;
 }) {
-  const activeProgressPlans = activePlans;
-  const activePlanCount = activeProgressPlans.filter((plan) => plan.status === "active").length;
-  const pausedPlanCount = activeProgressPlans.filter((plan) => plan.status === "paused").length;
-  const weeklyReviewCount = activeProgressPlans.reduce((total, plan) => total + getPlanWeeklyReviews(plan).length, 0);
+  const [progressFilter, setProgressFilter] = useState<ProgressTabFilter>("All");
+  const [showWeeklyReviewTargets, setShowWeeklyReviewTargets] = useState(false);
+  const progressFilters: ProgressTabFilter[] = ["All", "Today", "This Week", "Plans", "Logs", "Reviews Needed"];
+  const activeProgressPlans = activePlans.filter((plan) => plan.status === "active");
+  const inactiveProgressPlans = activePlans.filter((plan) => plan.status !== "active");
+  const activePlanCount = activeProgressPlans.length;
+  const weeklyReviewCount = activePlans.reduce((total, plan) => total + getPlanWeeklyReviews(plan).length, 0);
   const planLogCount = activeProgressPlans.reduce((total, plan) => total + getPlanLogCount(plan), 0);
+  const mainMission = getMainMissionForDay(tasks);
+  const todayCompletionPercent = tasks.length ? Math.round((stats.completed / tasks.length) * 100) : 0;
+  const skippedToday = tasks.filter((task) => task.skipped).length;
+  const activePlanTaskTotals = activeProgressPlans.reduce((total, plan) => {
+    const progress = getPlanCompletion(plan);
+    return {
+      completed: total.completed + progress.completed,
+      total: total.total + progress.total
+    };
+  }, { completed: 0, total: 0 });
+  const weeklySnapshot = getWeeklyProgressSnapshot(history, todayKey, tasks, activePlans);
+  const reviewReminders = getProgressReviewReminders(activePlans, dailyFoodLogs, moneySpendingLogs, moneySavingLogs, longStudySessions, longStudyReviews, todayKey);
+  const plansNeedingWeeklyReview = activeProgressPlans.filter((plan) => !hasPlanReviewThisWeek(plan, todayKey));
+  const showToday = progressFilter === "All" || progressFilter === "Today";
+  const showWeek = progressFilter === "All" || progressFilter === "This Week";
+  const showPlans = progressFilter === "All" || progressFilter === "Plans";
+  const showLogs = progressFilter === "All" || progressFilter === "Logs";
+  const showReviews = progressFilter === "All" || progressFilter === "Reviews Needed";
 
   return (
     <section className="grid gap-6">
-      <Panel>
-        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Progress</p>
-        <h2 className="mt-2 text-3xl font-black text-white">What progress am I making?</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Evening review, history, streaks, analytics, and daily logs live here.</p>
+      <Panel compact>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Progress Review Center</p>
+            <h2 className="mt-2 text-3xl font-black text-white">What is improving, and what needs attention?</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Daily completion, active plan progress, logs, weekly reviews, history, and analytics in one place.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {progressFilters.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setProgressFilter(filter)}
+                className={`min-h-9 rounded-xl px-3 py-2 text-xs font-black transition ${progressFilter === filter ? "bg-amber-300 text-slate-950" : "border border-white/10 bg-white/[0.05] text-slate-300 hover:border-cyan-200/40"}`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
       </Panel>
+
+      {showToday ? (
+        <Panel>
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Today Progress Summary</p>
+              <h3 className="mt-2 text-2xl font-black text-white">{todayKey}</h3>
+            </div>
+            <Badge tone={todayCompletionPercent >= 70 ? "green" : todayCompletionPercent >= 40 ? "orange" : "dark"}>{todayCompletionPercent}% complete</Badge>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <MiniMetric label="Completion" value={`${todayCompletionPercent}%`} />
+            <MiniMetric label="Completed" value={stats.completed} />
+            <MiniMetric label="Skipped" value={skippedToday} />
+            <MiniMetric label="KPM Score" value={stats.points} />
+            <MiniMetric label="Day Level" value={dayLevel} />
+            <MiniMetric label="Main Mission" value={mainMission ? mainMission.completed ? "Done" : mainMission.skipped ? "Skipped" : "Open" : "None"} />
+            <MiniMetric label="Active Plan Tasks" value={`${activePlanTaskTotals.completed}/${activePlanTaskTotals.total}`} />
+            <MiniMetric label="Remaining" value={stats.remaining} />
+          </div>
+          <div className="mt-5">
+            <ProgressLine label="Today missions" value={stats.completed} total={Math.max(tasks.length, 1)} percent={todayCompletionPercent} />
+          </div>
+        </Panel>
+      ) : null}
+
+      {showWeek ? (
+        <Panel>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Weekly Snapshot</p>
+          <h3 className="mt-2 text-2xl font-black text-white">Last 7 days</h3>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <MiniMetric label="Days Active" value={`${weeklySnapshot.daysActive}/7`} />
+            <MiniMetric label="Total Tasks Completed" value={weeklySnapshot.totalCompleted} />
+            <MiniMetric label="Average Completion" value={`${weeklySnapshot.averageCompletion}%`} />
+            <MiniMetric label="Weekly Reviews Completed" value={weeklySnapshot.weeklyReviewsCompleted} />
+            <MiniMetric label="Best Day" value={weeklySnapshot.bestDay} />
+            <MiniMetric label="Weakest Day" value={weeklySnapshot.weakestDay} />
+          </div>
+        </Panel>
+      ) : null}
+
+      {showReviews ? (
+        <Panel>
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Review Needed</p>
+              <h3 className="mt-2 text-2xl font-black text-white">What should I review next?</h3>
+            </div>
+            <button type="button" onClick={() => setShowWeeklyReviewTargets((current) => !current)} className="primary-button justify-center">Start Weekly Review</button>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {reviewReminders.length ? reviewReminders.map((reminder) => (
+              <article key={`${reminder.title}-${reminder.detail}`} className="rounded-2xl border border-amber-200/15 bg-amber-300/[0.055] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-black text-white">{reminder.title}</h4>
+                    <p className="mt-1 text-sm leading-6 text-slate-400">{reminder.detail}</p>
+                  </div>
+                  <Badge tone={reminder.tone}>{reminder.label}</Badge>
+                </div>
+              </article>
+            )) : <p className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-400">No reviews are due right now.</p>}
+          </div>
+          {showWeeklyReviewTargets ? (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h4 className="font-black text-white">Plans needing weekly review</h4>
+              <div className="mt-3 grid gap-2">
+                {plansNeedingWeeklyReview.length ? plansNeedingWeeklyReview.map((plan) => (
+                  <SummaryRow key={plan.id} label={getPlanDisplayName(plan)} value={`Last review: ${getPlanWeeklyReviews(plan).at(-1)?.date ?? "No review yet"}`} />
+                )) : <p className="text-sm text-slate-400">All active plans have a weekly review this week.</p>}
+              </div>
+              <p className="mt-3 text-sm text-slate-400">Open the Plan tab, then use Weekly Review on the plan card to save a review.</p>
+            </div>
+          ) : null}
+        </Panel>
+      ) : null}
+
+      {showPlans ? (
+        <Panel>
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Progress</p>
+              <h3 className="mt-2 text-2xl font-black text-white">Plan-specific signals</h3>
+              <p className="mt-2 text-sm text-slate-400">Only active plans feed Today. Paused and archived plans stay out of Today tasks.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="green">{activePlanCount} active</Badge>
+              <Badge tone="orange">{inactiveProgressPlans.length} paused / archived</Badge>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {activeProgressPlans.length ? activeProgressPlans.map((plan) => (
+              <ProgressPlanReviewCard
+                key={plan.id}
+                plan={plan}
+                todayKey={todayKey}
+                dailyFoodLogs={dailyFoodLogs}
+                moneySpendingLogs={moneySpendingLogs}
+                moneyIncomeLogs={moneyIncomeLogs}
+                moneySavingLogs={moneySavingLogs}
+                moneyOpportunityLogs={moneyOpportunityLogs}
+              />
+            )) : <p className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-400">No active plans yet.</p>}
+            <LongStudyProgressCard sessions={longStudySessions} reviews={longStudyReviews} />
+          </div>
+        </Panel>
+      ) : null}
+
+      {showLogs ? (
+        <LogsCenter
+          activePlans={activePlans}
+          dailyFoodLogs={dailyFoodLogs}
+          moneySpendingLogs={moneySpendingLogs}
+          moneyIncomeLogs={moneyIncomeLogs}
+          moneySavingLogs={moneySavingLogs}
+          moneyOpportunityLogs={moneyOpportunityLogs}
+          longStudyReviews={longStudyReviews}
+        />
+      ) : null}
 
       <Panel compact>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MiniMetric label="Current Streak" value={streaks.current} />
           <MiniMetric label="Best Streak" value={streaks.best} />
           <MiniMetric label="Active Plans" value={activePlanCount} />
-          <MiniMetric label="Paused Plans" value={pausedPlanCount} />
+          <MiniMetric label="Paused / Archived" value={inactiveProgressPlans.length} />
           <MiniMetric label="Weekly Reviews" value={weeklyReviewCount} />
           <MiniMetric label="Recent Plan Logs" value={planLogCount} />
           <MiniMetric label="Productive" value={streaks.productive} />
@@ -5468,22 +5745,12 @@ function ProgressFoundation({
         </div>
       </Panel>
 
-      {activeProgressPlans.length ? (
-        <Panel>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Progress By Plan</p>
-          <h3 className="mt-2 text-2xl font-black text-white">Plan-specific progress</h3>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {activeProgressPlans.map((plan) => <PlanProgressSummaryCard key={plan.id} activePlan={plan} />)}
-          </div>
-        </Panel>
-      ) : null}
-
-      {longStudySessions.length ? (
+      {showLogs && longStudySessions.length ? (
         <LongStudyProgressPanel sessions={longStudySessions} reviews={longStudyReviews} todayKey={todayKey} saveReview={saveLongStudyReview} />
       ) : null}
 
-      {activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project" || plan.type === "money_plan" || plan.type === "life_reset") ? (
-        <CollapsibleSection title="Daily Logs" subtitle="Fitness, sleep, project, and study logs for active plans." defaultOpen={false}>
+      {showLogs && activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project" || plan.type === "money_plan" || plan.type === "life_reset") ? (
+        <CollapsibleSection title="Detailed Log Editors" subtitle="Fitness, sleep, project, money, reset, and study logs for active plans." defaultOpen={false}>
           <div className="grid gap-5">
             {activeProgressPlans.some((plan) => plan.type === "get_lean_shred") ? (
               <GetLeanNutritionSummary activePlans={activeProgressPlans} dailyFoodLogs={dailyFoodLogs} />
@@ -5946,6 +6213,7 @@ function ProfileVersionSection() {
           <li>V3.1 Life Reset preset plan</li>
           <li>V3.2 Long Study Event Planner</li>
           <li>V3.3 Plan tab organization</li>
+          <li>V3.4 Progress Review Center</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -8880,6 +9148,7 @@ function SettingsPanel({
               <li>V3.1 Life Reset preset plan</li>
               <li>V3.2 Long Study Event Planner</li>
               <li>V3.3 Plan tab organization</li>
+              <li>V3.4 Progress Review Center</li>
             </ul>
           </div>
           <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -10016,6 +10285,190 @@ function getPlanCompletion(plan: ActivePlan) {
     completed: rows.filter((row) => row.completed).length,
     total: rows.length
   };
+}
+
+function getProgressPlanRows(
+  plan: ActivePlan,
+  todayKey: string,
+  dailyFoodLogs: DailyFoodLogs,
+  moneySpendingLogs: MoneySpendingLog[],
+  moneyIncomeLogs: MoneyIncomeLog[],
+  moneySavingLogs: MoneySavingLog[],
+  moneyOpportunityLogs: MoneyOpportunityLog[]
+): Array<{ label: string; value: string }> {
+  if (plan.type === "everyday_essentials") {
+    const progress = getEssentialsProgress(normalizeEverydayEssentialsPlan(plan));
+    return [
+      { label: "Daily essentials", value: `${progress.daily.completed}/${progress.daily.total}` },
+      { label: "Weekly restock", value: `${progress.weekly.completed}/${progress.weekly.total}` },
+      { label: "Monthly inventory", value: `${progress.monthly.completed}/${progress.monthly.total}` }
+    ];
+  }
+  if (plan.type === "get_lean_shred") {
+    const normalized = normalizeGetLeanPlan(plan);
+    const targets = getMacroTargets(normalized);
+    const totals = getFoodTotals(dailyFoodLogs[todayKey] ?? []);
+    const latestWeight = normalized.logs.filter((log) => log.weightKg).at(-1)?.weightKg;
+    return [
+      { label: "Food logged today", value: totals.calories || totals.protein ? "Yes" : "No" },
+      { label: "Calories", value: `${Math.round(totals.calories)}/${targets.calories} kcal` },
+      { label: "Protein", value: `${roundMacro(totals.protein)}/${targets.protein}g` },
+      { label: "Carbs / fat", value: `${roundMacro(totals.carbs)}/${targets.carbs}g · ${roundMacro(totals.fat)}/${targets.fat}g` },
+      { label: "Latest weight log", value: latestWeight ? `${latestWeight} kg` : "No weight log yet" }
+    ];
+  }
+  if (plan.type === "fix_sleep_energy") {
+    const normalized = normalizeSleepEnergyPlan(plan);
+    const summary = getSleepEnergySummary(normalized);
+    return [
+      { label: "Average sleep", value: summary.daysLogged ? `${summary.averageSleepHours}h` : "No sleep logs yet" },
+      { label: "Average energy", value: summary.daysLogged ? `${summary.averageEnergy}/10` : "No energy logs yet" },
+      { label: "Caffeine cutoff", value: `${summary.caffeineCutoffSuccessDays}/${summary.daysLogged || 0} days` },
+      { label: "Night routine", value: `${summary.nightRoutineCompletedDays}/${summary.daysLogged || 0} days` }
+    ];
+  }
+  if (plan.type === "learn_master_subject") {
+    const normalized = normalizeLearnMasterPlan(plan);
+    const recent = normalized.logs.slice(-7);
+    const minutes = recent.reduce((total, log) => total + log.minutesStudied, 0);
+    const latest = normalized.logs.at(-1);
+    return [
+      { label: "Study days", value: `${recent.filter((log) => log.studyCompleted).length}/7` },
+      { label: "Minutes studied", value: `${minutes} min` },
+      { label: "Topic progress", value: latest?.topicStudied || "No topic logged yet" },
+      { label: "Recall / practice", value: latest?.studyCompleted ? `Focus ${latest.focusLevel}/10` : "No study log yet" }
+    ];
+  }
+  if (plan.type === "build_project") {
+    const normalized = normalizeBuildProjectPlan(plan);
+    const summary = getProjectSummary(normalized);
+    return [
+      { label: "Project minutes", value: `${summary.totalMinutes} min` },
+      { label: "Logs completed", value: String(summary.daysWorked) },
+      { label: "Current milestone", value: normalized.projectRoadmap.find((task) => !task.completed)?.title || "Milestones clear" },
+      { label: "Blocker", value: normalized.logs.at(-1)?.blocker || "No blocker logged" }
+    ];
+  }
+  if (plan.type === "money_plan") {
+    const normalized = normalizeMoneyPlan(plan);
+    const weekSpending = sumMoneyLogsThisWeek(moneySpendingLogs, todayKey, "amount");
+    const weekSaving = sumMoneyLogsThisWeek(moneySavingLogs, todayKey, "amountSaved");
+    const monthIncome = moneyIncomeLogs.filter((log) => log.date.slice(0, 7) === todayKey.slice(0, 7)).reduce((total, log) => total + log.amount, 0);
+    return [
+      { label: "Current savings", value: formatMoney(normalized.setup.currentSavings + moneySavingLogs.reduce((total, log) => total + log.amountSaved, 0), normalized.setup.currency) },
+      { label: "Target progress", value: `${normalized.calculations.progressPercent}%` },
+      { label: "Spending this week", value: formatMoney(weekSpending, normalized.setup.currency) },
+      { label: "Income this month", value: formatMoney(monthIncome, normalized.setup.currency) },
+      { label: "Income actions", value: `${moneyOpportunityLogs.length} tracked` },
+      { label: "Saved this week", value: formatMoney(weekSaving, normalized.setup.currency) }
+    ];
+  }
+  if (plan.type === "life_reset") {
+    const normalized = normalizeLifeResetPlan(plan);
+    const summary = getLifeResetSummary(normalized);
+    const latest = normalized.logs.at(-1);
+    return [
+      { label: "Reset days completed", value: String(summary.resetDaysCompleted) },
+      { label: "Room score", value: latest ? `${latest.roomCondition}/10` : "No room log yet" },
+      { label: "Mood / energy", value: latest ? `${latest.mood}/10 · ${latest.energy}/10` : "No mood log yet" },
+      { label: "Current reset focus", value: normalized.setup.mainResetFocus }
+    ];
+  }
+  return [];
+}
+
+function getWeeklyProgressSnapshot(history: HistoryEntry[], todayKey: string, tasks: Task[], activePlans: ActivePlan[]) {
+  const dateKeys = getLastDateKeys(todayKey, 7);
+  const todayEntry: HistoryEntry = {
+    date: todayKey,
+    totalScore: tasks.filter((task) => task.completed).reduce((sum, task) => sum + task.points, 0),
+    dayLevel: getDayLevel(tasks.filter((task) => task.completed).reduce((sum, task) => sum + task.points, 0)),
+    completedMissions: tasks.filter((task) => task.completed).length,
+    skippedMissions: tasks.filter((task) => task.skipped).length,
+    totalMissions: tasks.length,
+    mainMission: getMainMissionForDay(tasks)?.title ?? "",
+    mainMissionCompleted: Boolean(getMainMissionForDay(tasks)?.completed),
+    eveningReview: defaultReview,
+    taskSummary: tasks.map((task) => ({
+      id: task.id,
+      time: task.time,
+      title: task.title,
+      category: task.category,
+      priority: task.priority,
+      points: task.points,
+      completed: task.completed,
+      skipped: task.skipped,
+      notes: task.notes
+    }))
+  };
+  const entriesByDate = new Map(history.map((entry) => [entry.date, entry]));
+  entriesByDate.set(todayKey, todayEntry);
+  const entries = dateKeys
+    .map((date) => entriesByDate.get(date))
+    .filter((entry): entry is HistoryEntry => entry !== undefined)
+    .filter((entry) => entry.totalMissions > 0);
+  const totalCompleted = entries.reduce((total, entry) => total + entry.completedMissions, 0);
+  const averageCompletion = entries.length ? Math.round(entries.reduce((total, entry) => total + (entry.totalMissions ? (entry.completedMissions / entry.totalMissions) * 100 : 0), 0) / entries.length) : 0;
+  const weeklyReviewsCompleted = activePlans.reduce((total, plan) => total + getPlanWeeklyReviews(plan).filter((review) => dateKeys.includes(review.date)).length, 0);
+  const best = [...entries].sort((a, b) => b.totalScore - a.totalScore).at(0);
+  const weakest = [...entries].sort((a, b) => (a.totalMissions ? a.completedMissions / a.totalMissions : 0) - (b.totalMissions ? b.completedMissions / b.totalMissions : 0)).at(0);
+  return {
+    daysActive: entries.length,
+    totalCompleted,
+    averageCompletion,
+    weeklyReviewsCompleted,
+    bestDay: best ? `${best.date} · ${best.totalScore}` : "No days yet",
+    weakestDay: weakest ? `${weakest.date} · ${weakest.totalMissions ? Math.round((weakest.completedMissions / weakest.totalMissions) * 100) : 0}%` : "No days yet"
+  };
+}
+
+function getProgressReviewReminders(
+  activePlans: ActivePlan[],
+  dailyFoodLogs: DailyFoodLogs,
+  moneySpendingLogs: MoneySpendingLog[],
+  moneySavingLogs: MoneySavingLog[],
+  longStudySessions: LongStudySession[],
+  longStudyReviews: LongStudyReview[],
+  todayKey: string
+): Array<{ title: string; detail: string; label: string; tone: "gold" | "dark" | "green" | "orange" }> {
+  const reminders: Array<{ title: string; detail: string; label: string; tone: "gold" | "dark" | "green" | "orange" }> = [];
+  const activeOnly = activePlans.filter((plan) => plan.status === "active");
+  activeOnly.filter((plan) => !hasPlanReviewThisWeek(plan, todayKey)).slice(0, 3).forEach((plan) => {
+    reminders.push({ title: "Weekly review due", detail: getPlanDisplayName(plan), label: "Review", tone: "orange" });
+  });
+  if (activeOnly.some((plan) => plan.type === "get_lean_shred") && !(dailyFoodLogs[todayKey] ?? []).length) {
+    reminders.push({ title: "Food log missing today", detail: "Get Lean progress needs today's food log.", label: "Food", tone: "orange" });
+  }
+  const moneyActive = activeOnly.some((plan) => plan.type === "money_plan");
+  if (moneyActive && !moneySpendingLogs.some((log) => isDateInLastDateKeys(log.date, todayKey, 7)) && !moneySavingLogs.some((log) => isDateInLastDateKeys(log.date, todayKey, 7))) {
+    reminders.push({ title: "Money log missing", detail: "No spending or saving log has been recorded this week.", label: "Money", tone: "orange" });
+  }
+  const latestStudy = [...longStudySessions].sort((a, b) => b.date.localeCompare(a.date)).at(0);
+  if (latestStudy && !longStudyReviews.some((review) => review.sessionId === latestStudy.id)) {
+    reminders.push({ title: "Review latest study event", detail: latestStudy.eventName, label: "Study", tone: "gold" });
+  }
+  activeOnly.filter((plan): plan is BuildProjectPlan => plan.type === "build_project").forEach((plan) => {
+    const recentLog = normalizeBuildProjectPlan(plan).logs.some((log) => isDateInLastDateKeys(log.date, todayKey, 3));
+    if (!recentLog) reminders.push({ title: "Project log missing", detail: getPlanDisplayName(plan), label: "Project", tone: "orange" });
+  });
+  return reminders;
+}
+
+function hasPlanReviewThisWeek(plan: ActivePlan, todayKey: string): boolean {
+  return getPlanWeeklyReviews(plan).some((review) => isDateInLastDateKeys(review.date, todayKey, 7));
+}
+
+function getLastDateKeys(todayKey: string, count: number): string[] {
+  const today = parseDateKey(todayKey);
+  return Array.from({ length: count }, (_, index) => getDateKey(addDays(today, -(count - 1 - index))));
+}
+
+function isDateInLastDateKeys(dateKey: string, todayKey: string, count: number): boolean {
+  return getLastDateKeys(todayKey, count).includes(dateKey);
+}
+
+function sumMoneyLogsThisWeek<T extends { date: string }>(logs: T[], todayKey: string, amountKey: keyof T): number {
+  return logs.filter((log) => isDateInLastDateKeys(log.date, todayKey, 7)).reduce((total, log) => total + (Number(log[amountKey]) || 0), 0);
 }
 
 function normalizePlanWeeklyReviews(reviews: unknown): PlanWeeklyReview[] {
