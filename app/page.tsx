@@ -2265,7 +2265,7 @@ function HomeApp() {
 
         <main className="sunny-main min-w-0 max-w-full overflow-x-hidden px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-5 lg:px-4 lg:pb-6 lg:pt-4 xl:px-5">
           <CommandHeader stats={stats} dayLevel={dayLevel} activeSection={activeSection} todayKey={todayKey} todayMode={todayMode} dayMeta={dayMeta} />
-          {activeSection !== "Dashboard" ? <MobilePriorityPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} /> : null}
+          {activeSection !== "Dashboard" && activeSection !== "Plan" ? <MobilePriorityPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} /> : null}
 
           <div className="mx-auto mt-6 w-full max-w-[1180px]">
             {activeSection === "Dashboard" && (
@@ -5328,11 +5328,16 @@ function PlanFoundation({
 
   return (
     <section className="grid gap-5">
-      <Panel>
-        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Plan</p>
-        <h2 className="mt-2 text-3xl font-black text-white">What is my long-term plan?</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Active plans, preset systems, and tomorrow planning live here without crowding Today.</p>
-        <div className="mt-4 flex flex-wrap gap-2">
+      <Panel compact>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-200">Plan</p>
+            <h2 className="mt-1 text-2xl font-black text-white">Plan systems</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Control active plans, special events, reviews, and preset systems.</p>
+          </div>
+          <Badge tone="dark">{activePlanDetails}</Badge>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
           {(["All", "Active", "Presets", "Events", "Reviews Due", "Archived"] as PlanTabFilter[]).map((filter) => (
             <button key={filter} type="button" onClick={() => setPlanTabFilter(filter)} className={`rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] ${planTabFilter === filter ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}>
               {filter}
@@ -5349,47 +5354,6 @@ function PlanFoundation({
           <h3 className="mt-2 text-xl font-black text-white">{recommendation.title}</h3>
           <p className="mt-1 text-sm leading-6 text-slate-400">{recommendation.detail}</p>
         </Panel>
-      ) : null}
-
-      {showPresetsSection ? (
-      <Panel>
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Preset Plans Library</p>
-            <h3 className="mt-2 text-2xl font-black text-white">Choose the system you want to start</h3>
-          </div>
-          <Badge tone="dark">Grouped</Badge>
-        </div>
-        <div className="grid gap-5">
-          {presetGroups.map((group) => (
-            <section key={group.category} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <h4 className="text-lg font-black text-white">{group.category}</h4>
-              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {group.plans.map((preset) => {
-                  const isAvailable = true;
-                  const activeMatch = activePlans.find((plan) => plan.name === preset.name && plan.status === "active");
-                  return (
-                    <article key={preset.name} className="rounded-[1.1rem] border border-white/10 bg-white/[0.04] p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <h5 className="break-words text-base font-black text-white">{preset.name}</h5>
-                        <Badge tone={activeMatch ? "green" : isAvailable ? "gold" : "dark"}>{activeMatch ? "Active" : "Available"}</Badge>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">{preset.purpose}</p>
-                      <button
-                        type="button"
-                        onClick={() => activeMatch ? document.getElementById("active-plan-control-center")?.scrollIntoView({ behavior: "smooth", block: "start" }) : openPresetSetup(preset.name)}
-                        className="secondary-button mt-4 w-full justify-center"
-                      >
-                        {activeMatch ? "Open Active Plan" : "Set Up Plan"}
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
-      </Panel>
       ) : null}
 
       {showEventsSection ? (
@@ -5428,6 +5392,40 @@ function PlanFoundation({
           deleteEvent={deleteLongStudyEvent}
           updateEventStatus={updateLongStudyEventStatus}
         />
+      </CollapsibleSection>
+      ) : null}
+
+      {showPresetsSection ? (
+      <CollapsibleSection title="Preset Plans Library" subtitle="Choose a system to start. Active plans stay in the Control Center above." defaultOpen={planTabFilter === "Presets"}>
+        <div className="grid gap-4">
+          {presetGroups.map((group) => (
+            <section key={group.category} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <h4 className="text-lg font-black text-white">{group.category}</h4>
+              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {group.plans.map((preset) => {
+                  const isAvailable = true;
+                  const activeMatch = activePlans.find((plan) => plan.name === preset.name && plan.status === "active");
+                  return (
+                    <article key={preset.name} className="rounded-[1.1rem] border border-white/10 bg-white/[0.04] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <h5 className="break-words text-base font-black text-white">{preset.name}</h5>
+                        <Badge tone={activeMatch ? "green" : isAvailable ? "gold" : "dark"}>{activeMatch ? "Active" : "Available"}</Badge>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">{preset.purpose}</p>
+                      <button
+                        type="button"
+                        onClick={() => activeMatch ? document.getElementById("active-plan-control-center")?.scrollIntoView({ behavior: "smooth", block: "start" }) : openPresetSetup(preset.name)}
+                        className="secondary-button mt-4 w-full justify-center"
+                      >
+                        {activeMatch ? "Open Active Plan" : "Set Up Plan"}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
       </CollapsibleSection>
       ) : null}
 
@@ -5612,7 +5610,7 @@ function LongTermPlanningHub({
   }
 
   return (
-    <CollapsibleSection title="Long-Term Planning Hub" subtitle="Big goals, 90-day plans, monthly focus, weekly missions, and next actions." defaultOpen={true}>
+    <CollapsibleSection title="Long-Term Planning Hub" subtitle="Big goals, 90-day plans, monthly focus, weekly missions, and next actions." defaultOpen={false}>
       <div className="grid gap-5">
         <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
