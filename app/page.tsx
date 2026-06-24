@@ -999,8 +999,8 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.7.1";
-const APP_LAST_UPDATED = "June 24, 2026";
+const APP_VERSION = "V3.7.2";
+const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
 const categories: Category[] = ["Knowledge", "Plan", "Monitoring", "Sunny"];
@@ -3596,7 +3596,17 @@ function LongStudyEventWorkspace({
   const studyMinutesDone = blocks
     .filter((block) => state.blockStatuses[block.id] === "completed" && getLongStudyBlockType(block) === "study")
     .reduce((sum, block) => sum + getDurationFromTaskNotes(block), 0);
+  const nextBlocks = blocks
+    .filter((block, index) => index > activeIndex && state.blockStatuses[block.id] !== "completed" && state.blockStatuses[block.id] !== "skipped")
+    .slice(0, 3);
+  const studyBlocks = blocks.filter((block) => getLongStudyBlockType(block) === "study");
+  const breakBlocks = blocks.filter((block) => getLongStudyBlockType(block) === "break");
+  const mealBlocks = blocks.filter((block) => getLongStudyBlockType(block) === "meal");
+  const hygieneBlocks = blocks.filter((block) => getLongStudyBlockType(block) === "hygiene" || getLongStudyBlockType(block) === "follow-up");
+  const completedByType = (items: Task[]) => items.filter((block) => state.blockStatuses[block.id] === "completed").length;
   const existingReview = reviews.find((review) => review.sessionId === session.id);
+  const [workspaceTab, setWorkspaceTab] = useState<"Run" | "Schedule" | "Review">("Run");
+  const [showFullTimeline, setShowFullTimeline] = useState(false);
   const [reviewDraft, setReviewDraft] = useState<LongStudyReview>(() => existingReview ?? createDefaultLongStudyReview(session, session.date));
 
   useEffect(() => {
@@ -3660,6 +3670,22 @@ function LongStudyEventWorkspace({
     setState((current) => skipLongStudyBlock(normalizeLongStudySessionState(current, session), session, activeIndex));
   }
 
+  function setBlockCompleted(index: number, checked: boolean) {
+    const block = blocks[index];
+    if (!block) return;
+    setState((current) => {
+      const normalized = normalizeLongStudySessionState(current, session);
+      const nextStatuses = { ...normalized.blockStatuses, [block.id]: checked ? "completed" as LongStudyBlockStatus : "upcoming" as LongStudyBlockStatus };
+      return {
+        ...normalized,
+        eventStatus: normalized.eventStatus === "completed" && !checked ? "paused" : normalized.eventStatus,
+        blockStatuses: nextStatuses,
+        completedStudyMinutes: getLongStudyCompletedStudyMinutes(session, nextStatuses),
+        remainingSeconds: index === normalized.activeBlockIndex && !checked ? getDurationFromTaskNotes(block) * 60 : normalized.remainingSeconds
+      };
+    });
+  }
+
   function jumpToBlock(index: number) {
     const block = blocks[index];
     if (!block) return;
@@ -3698,78 +3724,117 @@ function LongStudyEventWorkspace({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <section className="min-w-0 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="dark">{activeBlock?.time ?? session.startTime}</Badge>
-            <Badge tone="dark">{activeBlock ? getLongStudyBlockType(activeBlock) : "event"}</Badge>
-            <Badge tone="gold">{activeDuration} min</Badge>
-          </div>
-          <h3 className="mt-3 break-words text-2xl font-black text-white">{activeBlock?.title ?? "No block selected"}</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-300">{activeBlock?.notes.replace("Source: Long Study Mode. ", "") ?? "This event has no blocks yet."}</p>
-          <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-5 text-center">
-            <p className="font-mono text-5xl font-black text-white">{formatTimerSeconds(state.remainingSeconds || activeDuration * 60)}</p>
-            <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Block timer</p>
-          </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            {state.eventStatus === "running" ? (
-              <button type="button" onClick={pauseEvent} className="primary-button justify-center">Pause</button>
-            ) : (
-              <button type="button" onClick={startEvent} className="primary-button justify-center">{state.eventStatus === "planned" ? "Start Event" : "Resume"}</button>
-            )}
-            <button type="button" onClick={resetBlock} className="secondary-button justify-center">Reset Block</button>
-            <button type="button" onClick={endEvent} className="danger-button justify-center">End Event</button>
-            <button type="button" onClick={completeActiveBlock} className="secondary-button justify-center">Complete Block</button>
-            <button type="button" onClick={skipActiveBlock} className="secondary-button justify-center">Skip Block</button>
-            <label className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-black text-white">
-              <input
-                type="checkbox"
-                checked={state.autoStartNextBlock}
-                onChange={(event) => setState((current) => ({ ...normalizeLongStudySessionState(current, session), autoStartNextBlock: event.target.checked }))}
-                className="h-4 w-4 accent-cyan-300"
-              />
-              Auto next
-            </label>
-          </div>
-        </section>
-
-        <aside className="grid gap-3">
-          <MiniMetric label="Progress" value={`${progressPercent}%`} />
-          <MiniMetric label="Blocks" value={`${completedBlocks}/${blocks.length}`} />
-          <MiniMetric label="Skipped" value={`${skippedBlocks}`} />
-          <MiniMetric label="Study done" value={`${Math.round((studyMinutesDone / 60) * 10) / 10}h`} />
-        </aside>
+      <div className="mt-5 flex flex-wrap gap-2">
+        {(["Run", "Schedule", "Review"] as const).map((tab) => (
+          <button key={tab} type="button" onClick={() => setWorkspaceTab(tab)} className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] ${workspaceTab === tab ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}>
+            {tab}
+          </button>
+        ))}
       </div>
 
-      <section className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-        <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Event Timeline</p>
-        <div className="mt-4 grid gap-2">
-          {blocks.map((block, index) => {
-            const blockStatus = state.blockStatuses[block.id] ?? "upcoming";
-            const isActive = index === activeIndex;
-            return (
-              <button
-                key={block.id}
-                type="button"
-                onClick={() => jumpToBlock(index)}
-                className={`min-w-0 rounded-2xl border p-3 text-left transition ${isActive ? "border-cyan-200/50 bg-cyan-300/[0.1]" : "border-white/10 bg-white/[0.035] hover:border-cyan-200/25"}`}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="dark">{block.time}</Badge>
-                  <Badge tone={blockStatus === "completed" ? "green" : blockStatus === "skipped" ? "orange" : blockStatus === "running" ? "gold" : "dark"}>{blockStatus}</Badge>
-                  <Badge tone="dark">{getLongStudyBlockType(block)}</Badge>
-                  <Badge tone="dark">{getDurationFromTaskNotes(block)} min</Badge>
-                </div>
-                <p className="mt-2 break-words font-black text-white">{block.title}</p>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      {workspaceTab === "Run" ? (
+        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="grid min-w-0 gap-4">
+            <section className="min-w-0 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone="dark">{activeBlock?.time ?? session.startTime}</Badge>
+                <Badge tone="dark">{activeBlock ? getLongStudyBlockType(activeBlock) : "event"}</Badge>
+                <Badge tone="gold">{activeDuration} min</Badge>
+                <Badge tone="dark">Block {blocks.length ? activeIndex + 1 : 0}/{blocks.length}</Badge>
+              </div>
+              <h3 className="mt-3 break-words text-xl font-black text-white sm:text-2xl">{activeBlock?.title ?? "No block selected"}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-300">{activeBlock?.notes.replace("Source: Long Study Mode. ", "") ?? "This event has no blocks yet."}</p>
+              <p className="mt-3 text-sm font-bold text-slate-400">Next: {nextBlocks[0]?.title ?? "No next block"}</p>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-center">
+                <p className="font-mono text-4xl font-black text-white sm:text-5xl">{formatTimerSeconds(state.remainingSeconds || activeDuration * 60)}</p>
+                <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Current block timer</p>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                {state.eventStatus === "running" ? (
+                  <button type="button" onClick={pauseEvent} className="primary-button justify-center py-2.5 text-sm">Pause</button>
+                ) : (
+                  <button type="button" onClick={startEvent} className="primary-button justify-center py-2.5 text-sm">{state.eventStatus === "planned" ? "Start" : "Resume"}</button>
+                )}
+                <button type="button" onClick={completeActiveBlock} className="secondary-button justify-center py-2.5 text-sm">Complete</button>
+                <button type="button" onClick={skipActiveBlock} className="secondary-button justify-center py-2.5 text-sm">Skip</button>
+                <button type="button" onClick={resetBlock} className="secondary-button justify-center py-2.5 text-sm">Reset</button>
+                <button type="button" onClick={endEvent} className="danger-button justify-center py-2.5 text-sm">End Event</button>
+                <label className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-black text-white">
+                  <input
+                    type="checkbox"
+                    checked={state.autoStartNextBlock}
+                    onChange={(event) => setState((current) => ({ ...normalizeLongStudySessionState(current, session), autoStartNextBlock: event.target.checked }))}
+                    className="h-4 w-4 accent-cyan-300"
+                  />
+                  Auto next
+                </label>
+              </div>
+            </section>
 
-      {state.eventStatus === "completed" || state.eventStatus === "abandoned" ? (
+            <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-100">Up Next</p>
+              <div className="mt-3 grid gap-2">
+                {nextBlocks.length ? nextBlocks.map((block) => (
+                  <CompactLongStudyBlockRow key={block.id} block={block} status={state.blockStatuses[block.id] ?? "upcoming"} />
+                )) : <p className="text-sm leading-6 text-slate-400">No upcoming blocks. Finish with Review when ready.</p>}
+              </div>
+            </section>
+          </div>
+
+          <aside className="grid gap-3 content-start">
+            <MiniMetric label="Study Progress" value={`${formatDayLength(studyMinutesDone)} / ${formatDayLength(session.plannedStudyMinutes || session.studyMinutes)}`} />
+            <MiniMetric label="Current Block" value={`${blocks.length ? activeIndex + 1 : 0}/${blocks.length}`} />
+            <MiniMetric label="Study Blocks" value={`${completedByType(studyBlocks)}/${studyBlocks.length}`} />
+            <MiniMetric label="Break Blocks" value={`${completedByType(breakBlocks)}/${breakBlocks.length}`} />
+            <MiniMetric label="Meal Blocks" value={`${completedByType(mealBlocks)}/${mealBlocks.length}`} />
+            <MiniMetric label="Hygiene Blocks" value={`${completedByType(hygieneBlocks)}/${hygieneBlocks.length}`} />
+            <MiniMetric label="Total Progress" value={`${progressPercent}%`} />
+          </aside>
+        </div>
+      ) : null}
+
+      {workspaceTab === "Schedule" ? (
+        <section className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Schedule Timeline</p>
+              <p className="mt-1 text-sm leading-6 text-slate-400">The full schedule is compact and collapsed by default for long events.</p>
+            </div>
+            <button type="button" onClick={() => setShowFullTimeline((current) => !current)} className="secondary-button min-h-10 px-4 py-2 text-sm">
+              {showFullTimeline ? "Hide Full Timeline" : "Show Full Timeline"}
+            </button>
+          </div>
+          {showFullTimeline ? (
+            <div className="mt-4 grid gap-2">
+              {blocks.map((block, index) => {
+                const blockStatus = state.blockStatuses[block.id] ?? "upcoming";
+                const isActive = index === activeIndex;
+                return (
+                  <div key={block.id} className={`grid min-w-0 gap-2 rounded-xl border p-3 sm:grid-cols-[auto_5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center ${isActive ? "border-cyan-200/50 bg-cyan-300/[0.1]" : "border-white/10 bg-white/[0.035]"}`}>
+                    <input type="checkbox" checked={blockStatus === "completed"} onChange={(event) => setBlockCompleted(index, event.target.checked)} className="h-5 w-5 accent-cyan-300" />
+                    <span className="text-sm font-black text-white">{block.time}</span>
+                    <span className="text-sm font-bold text-slate-300">{getDurationFromTaskNotes(block)} min</span>
+                    <Badge tone="dark">{getLongStudyBlockType(block)}</Badge>
+                    <button type="button" onClick={() => jumpToBlock(index)} className="min-w-0 break-words text-left text-sm font-black text-white hover:text-cyan-100">{block.title}</button>
+                    <Badge tone={blockStatus === "completed" ? "green" : blockStatus === "skipped" ? "orange" : blockStatus === "running" ? "gold" : "dark"}>{blockStatus}</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-2">
+              {blocks.slice(Math.max(0, activeIndex - 1), activeIndex + 4).map((block, index) => (
+                <CompactLongStudyBlockRow key={block.id} block={block} status={state.blockStatuses[block.id] ?? "upcoming"} onClick={() => jumpToBlock(Math.max(0, activeIndex - 1) + index)} />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {workspaceTab === "Review" ? (
         <section className="mt-5 rounded-2xl border border-amber-200/20 bg-amber-300/[0.06] p-4">
           <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-100">Event Review</p>
+          {state.eventStatus !== "completed" && state.eventStatus !== "abandoned" ? <p className="mt-2 text-sm leading-6 text-slate-400">Finish or end the event when you are ready, then save the review here.</p> : null}
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Field label="Total study hours completed"><input type="number" min="0" step="0.25" value={reviewDraft.totalStudyHoursCompleted} onChange={(event) => updateReviewDraft({ totalStudyHoursCompleted: Number(event.target.value) || 0 })} className="form-control" /></Field>
             <Field label="Focus 1-10"><input type="number" min="1" max="10" value={reviewDraft.focus} onChange={(event) => updateReviewDraft({ focus: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
@@ -3788,6 +3853,30 @@ function LongStudyEventWorkspace({
         </section>
       ) : null}
     </Panel>
+  );
+}
+
+function CompactLongStudyBlockRow({ block, status, onClick }: { block: Task; status: LongStudyBlockStatus; onClick?: () => void }) {
+  const content = (
+    <>
+      <span className="text-sm font-black text-white">{block.time}</span>
+      <span className="text-sm font-bold text-slate-300">{getDurationFromTaskNotes(block)} min</span>
+      <Badge tone="dark">{getLongStudyBlockType(block)}</Badge>
+      <span className="min-w-0 break-words text-sm font-black text-white">{block.title}</span>
+      <Badge tone={status === "completed" ? "green" : status === "skipped" ? "orange" : status === "running" ? "gold" : "dark"}>{status}</Badge>
+    </>
+  );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className="grid min-w-0 gap-2 rounded-xl border border-white/10 bg-white/[0.035] p-3 text-left sm:grid-cols-[5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center">
+        {content}
+      </button>
+    );
+  }
+  return (
+    <div className="grid min-w-0 gap-2 rounded-xl border border-white/10 bg-white/[0.035] p-3 sm:grid-cols-[5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center">
+      {content}
+    </div>
   );
 }
 
@@ -13832,13 +13921,14 @@ function buildLongStudyPreview(draft: LongStudyDraft, date: string): LongStudyPr
   tasks.push(buildLongStudyTask("review-notes", startTime, offset, "Review notes", 20, "Knowledge", "A", 20, "Summarize what you learned, what you practiced, and what confused you.", 20));
   offset += 20;
 
-  const estimatedFinishTime = shiftTime(startTime, offset);
   if (draft.includeSleepFollowUp) {
     followUpTasks.push(...buildLongStudyFollowUpTasks(draft, startTime, offset, targetStudyHours));
   }
+  const totalEventDurationMinutes = offset + followUpTasks.reduce((sum, task) => sum + getDurationFromTaskNotes(task), 0);
+  const estimatedFinishTime = formatLongStudyFinishTime(startTime, totalEventDurationMinutes);
   const warningParts = [
-    isLateLongStudyFinish(startTime, offset) ? "This study event may end very late. Consider reducing study hours or starting earlier." : "",
-    targetStudyHours >= 15 ? "Extreme study events are for rare use. Protect food, hygiene, sleep, and recovery." : ""
+    isLateLongStudyFinish(startTime, totalEventDurationMinutes) ? "This study event may end very late. Consider reducing study hours or starting earlier." : "",
+    targetStudyHours >= 15 ? "Extreme study events are rare. This will create a very long schedule including breaks, meals, hygiene, and recovery. Consider starting earlier or reducing hours." : ""
   ].filter(Boolean);
 
   return {
@@ -13850,7 +13940,7 @@ function buildLongStudyPreview(draft: LongStudyDraft, date: string): LongStudyPr
     plannedStudyMinutes: studiedMinutes,
     startTime,
     estimatedFinishTime,
-    totalEventDurationMinutes: offset,
+    totalEventDurationMinutes,
     studyMinutes: studiedMinutes,
     breakMinutes,
     mealHygieneMinutes,
@@ -13946,25 +14036,50 @@ function isLateLongStudyFinish(startTime: string, durationMinutes: number): bool
   return finish >= 23 * 60 || finish <= 4 * 60;
 }
 
+function formatLongStudyFinishTime(startTime: string, durationMinutes: number): string {
+  const startMinutes = timeToMinutes(startTime);
+  const finishAbsolute = startMinutes + Math.max(0, durationMinutes);
+  const dayOffset = Math.floor(finishAbsolute / 1440);
+  const finishTime = minutesToTime(finishAbsolute);
+  if (dayOffset <= 0) return finishTime;
+  if (dayOffset === 1) return `${finishTime} next day`;
+  return `${finishTime} +${dayOffset} days`;
+}
+
+function getLongStudySessionTotalDuration(session: LongStudySession): number {
+  const blockDuration = getLongStudyBlocks(session).reduce((sum, task) => sum + getDurationFromTaskNotes(task), 0);
+  return blockDuration || Number(session.totalEventDurationMinutes) || 0;
+}
+
 function normalizeLongStudySessions(sessions: LongStudySession[] = []): LongStudySession[] {
-  return Array.isArray(sessions) ? sessions.filter(Boolean).map((session) => ({
-    id: session.id || `long-study-${session.date || getDateKey(new Date())}`,
-    date: session.date || getDateKey(new Date()),
-    eventName: session.eventName || session.subject || "Long Study Event",
-    subject: session.subject || "Study",
-    targetStudyHours: Number(session.targetStudyHours) || 4,
-    plannedStudyMinutes: Number(session.plannedStudyMinutes) || 0,
-    startTime: session.startTime || "8:00 AM",
-    estimatedFinishTime: session.estimatedFinishTime || shiftTime(session.startTime || "8:00 AM", Number(session.totalEventDurationMinutes) || 0),
-    totalEventDurationMinutes: Number(session.totalEventDurationMinutes) || 0,
-    studyMinutes: Number(session.studyMinutes) || Number(session.plannedStudyMinutes) || 0,
-    breakMinutes: Number(session.breakMinutes) || 0,
-    mealHygieneMinutes: Number(session.mealHygieneMinutes) || 0,
-    pomodoroStyle: session.pomodoroStyle || "Deep Work 50/10",
-    warning: session.warning || "",
-    tasks: Array.isArray(session.tasks) ? session.tasks : [],
-    followUpTasks: Array.isArray((session as LongStudyPreview).followUpTasks) ? (session as LongStudyPreview).followUpTasks : []
-  })) : [];
+  return Array.isArray(sessions) ? sessions.filter(Boolean).map((session) => {
+    const tasks = Array.isArray(session.tasks) ? session.tasks : [];
+    const followUpTasks = Array.isArray((session as LongStudyPreview).followUpTasks) ? (session as LongStudyPreview).followUpTasks : [];
+    const normalizedSession = {
+      id: session.id || `long-study-${session.date || getDateKey(new Date())}`,
+      date: session.date || getDateKey(new Date()),
+      eventName: session.eventName || session.subject || "Long Study Event",
+      subject: session.subject || "Study",
+      targetStudyHours: Number(session.targetStudyHours) || 4,
+      plannedStudyMinutes: Number(session.plannedStudyMinutes) || 0,
+      startTime: session.startTime || "8:00 AM",
+      estimatedFinishTime: session.estimatedFinishTime || "",
+      totalEventDurationMinutes: Number(session.totalEventDurationMinutes) || 0,
+      studyMinutes: Number(session.studyMinutes) || Number(session.plannedStudyMinutes) || 0,
+      breakMinutes: Number(session.breakMinutes) || 0,
+      mealHygieneMinutes: Number(session.mealHygieneMinutes) || 0,
+      pomodoroStyle: session.pomodoroStyle || "Deep Work 50/10",
+      warning: session.warning || "",
+      tasks,
+      followUpTasks
+    };
+    const totalEventDurationMinutes = getLongStudySessionTotalDuration(normalizedSession);
+    return {
+      ...normalizedSession,
+      totalEventDurationMinutes,
+      estimatedFinishTime: formatLongStudyFinishTime(normalizedSession.startTime, totalEventDurationMinutes)
+    };
+  }) : [];
 }
 
 function normalizeLongStudyReviews(reviews: LongStudyReview[] = []): LongStudyReview[] {
