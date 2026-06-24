@@ -933,7 +933,7 @@ type LongStudyReview = {
 };
 
 type LongStudyPreview = LongStudySession;
-type LongStudyEventStatus = "planned" | "running" | "paused" | "completed" | "abandoned";
+type LongStudyEventStatus = "planned" | "running" | "paused" | "completed" | "abandoned" | "archived";
 type LongStudyBlockStatus = "upcoming" | "running" | "completed" | "skipped";
 type LongStudyBlockType = "study" | "break" | "meal" | "hygiene" | "review" | "follow-up" | "event";
 
@@ -999,7 +999,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.7.3";
+const APP_VERSION = "V3.7.4";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -2370,6 +2370,7 @@ function HomeApp() {
                 useLongStudyPreviewAsTodayEvent={useLongStudyPreviewAsTodayEvent}
                 cancelLongStudyPreview={() => setLongStudyPreview(null)}
                 longStudySessions={normalizedLongStudySessions}
+                setLongStudySessions={setLongStudySessions}
                 longStudyReviews={normalizedLongStudyReviews}
                 saveLongStudyReview={saveLongStudyReview}
                 longStudySessionStates={normalizedLongStudySessionStates}
@@ -3416,8 +3417,12 @@ function LongStudyModePanel({
   useAsTodayMainEvent,
   cancel,
   events = [],
+  eventStates = {},
   copyKeyBlocksToToday,
-  openEventWorkspace
+  openEventWorkspace,
+  openEventSchedule,
+  deleteEvent,
+  updateEventStatus
 }: {
   draft: LongStudyDraft;
   setDraft: Dispatch<SetStateAction<LongStudyDraft>>;
@@ -3428,9 +3433,21 @@ function LongStudyModePanel({
   useAsTodayMainEvent: () => void;
   cancel: () => void;
   events?: LongStudySession[];
+  eventStates?: Record<string, LongStudySessionState>;
   copyKeyBlocksToToday?: (session: LongStudySession) => void;
   openEventWorkspace?: (eventId: string) => void;
+  openEventSchedule?: (eventId: string) => void;
+  deleteEvent?: (eventId: string) => void;
+  updateEventStatus?: (eventId: string, status: LongStudyEventStatus) => void;
 }) {
+  const activeEvent = getActiveLongStudyEvent(events, eventStates);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const shouldShowCreateForm = !activeEvent || showCreateForm || Boolean(preview);
+
+  useEffect(() => {
+    if (activeEvent && !preview) setShowCreateForm(false);
+  }, [activeEvent?.id, preview?.id]);
+
   function updateDraft(patch: Partial<LongStudyDraft>) {
     setDraft((current) => ({ ...current, ...patch }));
   }
@@ -3438,6 +3455,21 @@ function LongStudyModePanel({
   function updateHours(targetStudyHours: string) {
     const nextHours = getLongStudyHours({ ...draft, targetStudyHours });
     updateDraft({ targetStudyHours, includeShower: nextHours >= 6 ? true : draft.includeShower });
+  }
+
+  function startCreateFlow() {
+    if (activeEvent && !window.confirm("You already have an active Long Study Event. Creating another one may be confusing. Continue?")) return;
+    setShowCreateForm(true);
+  }
+
+  function archiveEvent(eventId: string) {
+    if (!window.confirm("Archive this Long Study Event? It will leave the current active event area.")) return;
+    updateEventStatus?.(eventId, "archived");
+  }
+
+  function endEventFromCard(eventId: string) {
+    if (!window.confirm("End this Long Study Event now? It will stop being the current active event.")) return;
+    updateEventStatus?.(eventId, "abandoned");
   }
 
   return (
@@ -3448,28 +3480,54 @@ function LongStudyModePanel({
           <h2 className="mt-2 text-2xl font-black text-white">Long Study Event Planner</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Create a separate study event schedule. It will not change Today unless you manually copy key blocks.</p>
         </div>
-        <button type="button" onClick={cancel} className="secondary-button min-h-10 px-4 py-2 text-sm">Close</button>
+        <button type="button" onClick={() => {
+          cancel();
+          if (activeEvent) setShowCreateForm(false);
+        }} className="secondary-button min-h-10 px-4 py-2 text-sm">Close</button>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Field label="Event name"><input value={draft.eventName} onChange={(event) => updateDraft({ eventName: event.target.value })} className="form-control" placeholder="12-hour coding study day" /></Field>
-        <Field label="Study subject / topic"><input value={draft.subject} onChange={(event) => updateDraft({ subject: event.target.value })} className="form-control" placeholder="Coding, English, math..." /></Field>
-        <SelectField label="Target study hours" value={draft.targetStudyHours} options={longStudyHourOptions} onChange={updateHours} />
-        {draft.targetStudyHours === "custom" ? <Field label="Custom hours"><input type="number" min="4" max="18" value={draft.customStudyHours} onChange={(event) => updateDraft({ customStudyHours: clampNumber(Number(event.target.value) || 4, 4, 18) })} className="form-control" /></Field> : null}
-        <Field label="Event start time"><input type="time" value={timeToInputValue(draft.startTime)} onChange={(event) => updateDraft({ startTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
-        <SelectField label="Energy level" value={draft.energyLevel} options={["Low", "Medium", "High"]} onChange={(energyLevel) => updateDraft({ energyLevel: energyLevel as Energy })} />
-        <SelectField label="Pomodoro style" value={draft.pomodoroStyle} options={longStudyPomodoroOptions} onChange={(pomodoroStyle) => updateDraft({ pomodoroStyle: pomodoroStyle as LongStudyPomodoroStyle })} />
-        <SelectField label="Schedule strictness" value={draft.strictness} options={longStudyStrictnessOptions} onChange={(strictness) => updateDraft({ strictness: strictness as LongStudyStrictness })} />
-        <SelectField label="Meal plan style" value={draft.mealPlanStyle} options={longStudyMealOptions} onChange={(mealPlanStyle) => updateDraft({ mealPlanStyle: mealPlanStyle as LongStudyMealStyle })} />
-        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeHygieneReset} onChange={(event) => updateDraft({ includeHygieneReset: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Include hygiene reset</label>
-        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeShower} onChange={(event) => updateDraft({ includeShower: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Include shower / body clean</label>
-        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeSleepFollowUp} onChange={(event) => updateDraft({ includeSleepFollowUp: event.target.checked })} className="h-5 w-5 accent-cyan-300" />After Study Follow-up Routine</label>
-        <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeNannoSleepBoost} onChange={(event) => updateDraft({ includeNannoSleepBoost: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Nanno&apos;s Sleep Boost in follow-up</label>
-      </div>
+      {activeEvent ? (
+        <LongStudyCurrentEventCard
+          event={activeEvent}
+          state={normalizeLongStudySessionState(eventStates[activeEvent.id], activeEvent)}
+          openEventWorkspace={openEventWorkspace}
+          viewSchedule={openEventSchedule}
+          endEvent={endEventFromCard}
+          archiveEvent={archiveEvent}
+          createNewEvent={startCreateFlow}
+        />
+      ) : null}
 
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-        <button type="button" onClick={() => createPreview(draft)} className="primary-button justify-center">Generate Long Study Schedule</button>
-      </div>
+      {!shouldShowCreateForm ? (
+        <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <p className="font-black text-white">Create Long Study Event</p>
+          <p className="mt-1 text-sm leading-6 text-slate-400">You already have a current event above. Create a new one only when you really want another event saved.</p>
+          <button type="button" onClick={startCreateFlow} className="secondary-button mt-4 justify-center">Create New Event</button>
+        </div>
+      ) : (
+        <>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Field label="Event name"><input value={draft.eventName} onChange={(event) => updateDraft({ eventName: event.target.value })} className="form-control" placeholder="12-hour coding study day" /></Field>
+            <Field label="Study subject / topic"><input value={draft.subject} onChange={(event) => updateDraft({ subject: event.target.value })} className="form-control" placeholder="Coding, English, math..." /></Field>
+            <SelectField label="Target study hours" value={draft.targetStudyHours} options={longStudyHourOptions} onChange={updateHours} />
+            {draft.targetStudyHours === "custom" ? <Field label="Custom hours"><input type="number" min="4" max="18" value={draft.customStudyHours} onChange={(event) => updateDraft({ customStudyHours: clampNumber(Number(event.target.value) || 4, 4, 18) })} className="form-control" /></Field> : null}
+            <Field label="Event start time"><input type="time" value={timeToInputValue(draft.startTime)} onChange={(event) => updateDraft({ startTime: inputValueToTime(event.target.value) })} className="form-control" /></Field>
+            <SelectField label="Energy level" value={draft.energyLevel} options={["Low", "Medium", "High"]} onChange={(energyLevel) => updateDraft({ energyLevel: energyLevel as Energy })} />
+            <SelectField label="Pomodoro style" value={draft.pomodoroStyle} options={longStudyPomodoroOptions} onChange={(pomodoroStyle) => updateDraft({ pomodoroStyle: pomodoroStyle as LongStudyPomodoroStyle })} />
+            <SelectField label="Schedule strictness" value={draft.strictness} options={longStudyStrictnessOptions} onChange={(strictness) => updateDraft({ strictness: strictness as LongStudyStrictness })} />
+            <SelectField label="Meal plan style" value={draft.mealPlanStyle} options={longStudyMealOptions} onChange={(mealPlanStyle) => updateDraft({ mealPlanStyle: mealPlanStyle as LongStudyMealStyle })} />
+            <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeHygieneReset} onChange={(event) => updateDraft({ includeHygieneReset: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Include hygiene reset</label>
+            <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeShower} onChange={(event) => updateDraft({ includeShower: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Include shower / body clean</label>
+            <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeSleepFollowUp} onChange={(event) => updateDraft({ includeSleepFollowUp: event.target.checked })} className="h-5 w-5 accent-cyan-300" />After Study Follow-up Routine</label>
+            <label className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={draft.includeNannoSleepBoost} onChange={(event) => updateDraft({ includeNannoSleepBoost: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Nanno&apos;s Sleep Boost in follow-up</label>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+            <button type="button" onClick={() => createPreview(draft)} className="primary-button justify-center">Generate Long Study Schedule</button>
+            {activeEvent ? <button type="button" onClick={() => setShowCreateForm(false)} className="secondary-button justify-center">Cancel New Event</button> : null}
+          </div>
+        </>
+      )}
 
       {preview ? (
         <section className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
@@ -3524,8 +3582,11 @@ function LongStudyModePanel({
                       <p className="mt-1 text-sm leading-6 text-slate-400">{event.subject} · {event.targetStudyHours}h target · {event.startTime} to {event.estimatedFinishTime}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <Badge tone={getLongStudyEventStatus(event, eventStates) === "archived" ? "dark" : getLongStudyEventStatus(event, eventStates) === "completed" ? "green" : "gold"}>{getLongStudyEventStatus(event, eventStates)}</Badge>
                       {openEventWorkspace ? <button type="button" onClick={() => openEventWorkspace(event.id)} className="primary-button min-h-10 px-4 py-2 text-sm">Open Workspace</button> : null}
                       {copyKeyBlocksToToday ? <button type="button" onClick={() => copyKeyBlocksToToday(event)} className="secondary-button min-h-10 px-4 py-2 text-sm">Copy key blocks to Today</button> : null}
+                      {getLongStudyEventStatus(event, eventStates) !== "archived" ? <button type="button" onClick={() => archiveEvent(event.id)} className="secondary-button min-h-10 px-4 py-2 text-sm">Archive</button> : null}
+                      {deleteEvent ? <button type="button" onClick={() => deleteEvent(event.id)} className="danger-button min-h-10 px-4 py-2 text-sm">Delete</button> : null}
                     </div>
                   </div>
                   <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -3545,10 +3606,60 @@ function LongStudyModePanel({
   );
 }
 
+function LongStudyCurrentEventCard({
+  event,
+  state,
+  openEventWorkspace,
+  viewSchedule,
+  endEvent,
+  archiveEvent,
+  createNewEvent
+}: {
+  event: LongStudySession;
+  state: LongStudySessionState;
+  openEventWorkspace?: (eventId: string) => void;
+  viewSchedule?: (eventId: string) => void;
+  endEvent: (eventId: string) => void;
+  archiveEvent: (eventId: string) => void;
+  createNewEvent: () => void;
+}) {
+  const blocks = getLongStudyBlocks(event);
+  const completedBlocks = blocks.filter((block) => state.blockStatuses[block.id] === "completed" || state.blockStatuses[block.id] === "skipped").length;
+  const studyMinutesDone = getLongStudyCompletedStudyMinutes(event, state.blockStatuses);
+  const progress = blocks.length ? Math.round((completedBlocks / blocks.length) * 100) : 0;
+
+  return (
+    <section className="mt-5 rounded-2xl border border-cyan-200/20 bg-cyan-300/[0.06] p-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Current Long Study Event</p>
+          <h3 className="mt-2 break-words text-2xl font-black text-white">{event.eventName || event.subject}</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{event.subject} · {event.targetStudyHours}h target · Finish: {event.estimatedFinishTime}</p>
+        </div>
+        <Badge tone={state.eventStatus === "running" ? "green" : state.eventStatus === "paused" ? "gold" : "dark"}>{state.eventStatus}</Badge>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniMetric label="Progress" value={`${progress}%`} compact />
+        <MiniMetric label="Study Done" value={`${formatDayLength(studyMinutesDone)} / ${formatDayLength(event.plannedStudyMinutes || event.studyMinutes)}`} compact />
+        <MiniMetric label="Current Block" value={`${Math.min(state.activeBlockIndex + 1, blocks.length)}/${blocks.length}`} compact />
+        <MiniMetric label="Status" value={state.eventStatus} compact />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {openEventWorkspace ? <button type="button" onClick={() => openEventWorkspace(event.id)} className="primary-button min-h-10 px-4 py-2 text-sm">Continue Workspace</button> : null}
+        {viewSchedule ? <button type="button" onClick={() => viewSchedule(event.id)} className="secondary-button min-h-10 px-4 py-2 text-sm">View Schedule</button> : null}
+        <button type="button" onClick={() => endEvent(event.id)} className="secondary-button min-h-10 px-4 py-2 text-sm">End Event</button>
+        <button type="button" onClick={() => archiveEvent(event.id)} className="secondary-button min-h-10 px-4 py-2 text-sm">Archive Event</button>
+        <button type="button" onClick={createNewEvent} className="secondary-button min-h-10 px-4 py-2 text-sm">Create New Event</button>
+      </div>
+    </section>
+  );
+}
+
 function LongStudyEventWorkspace({
   session,
   state,
   setState,
+  initialTab = "Run",
   reviews,
   saveReview,
   close
@@ -3556,6 +3667,7 @@ function LongStudyEventWorkspace({
   session: LongStudySession;
   state: LongStudySessionState;
   setState: Dispatch<SetStateAction<LongStudySessionState>>;
+  initialTab?: "Run" | "Schedule" | "Review";
   reviews: LongStudyReview[];
   saveReview: (review: LongStudyReview) => void;
   close: () => void;
@@ -3579,8 +3691,12 @@ function LongStudyEventWorkspace({
   const hygieneBlocks = blocks.filter((block) => getLongStudyBlockType(block) === "hygiene" || getLongStudyBlockType(block) === "follow-up");
   const completedByType = (items: Task[]) => items.filter((block) => state.blockStatuses[block.id] === "completed").length;
   const existingReview = reviews.find((review) => review.sessionId === session.id);
-  const [workspaceTab, setWorkspaceTab] = useState<"Run" | "Schedule" | "Review">("Run");
+  const [workspaceTab, setWorkspaceTab] = useState<"Run" | "Schedule" | "Review">(initialTab);
   const [reviewDraft, setReviewDraft] = useState<LongStudyReview>(() => existingReview ?? createDefaultLongStudyReview(session, session.date));
+
+  useEffect(() => {
+    setWorkspaceTab(initialTab);
+  }, [initialTab, session.id]);
 
   useEffect(() => {
     setReviewDraft(existingReview ?? createDefaultLongStudyReview(session, session.date));
@@ -4945,6 +5061,7 @@ function PlanFoundation({
   useLongStudyPreviewAsTodayEvent,
   cancelLongStudyPreview,
   longStudySessions,
+  setLongStudySessions,
   longStudyReviews,
   saveLongStudyReview,
   longStudySessionStates,
@@ -4994,6 +5111,7 @@ function PlanFoundation({
   useLongStudyPreviewAsTodayEvent: () => void;
   cancelLongStudyPreview: () => void;
   longStudySessions: LongStudySession[];
+  setLongStudySessions: Dispatch<SetStateAction<LongStudySession[]>>;
   longStudyReviews: LongStudyReview[];
   saveLongStudyReview: (review: LongStudyReview) => void;
   longStudySessionStates: Record<string, LongStudySessionState>;
@@ -5025,6 +5143,7 @@ function PlanFoundation({
   const [moneySetup, setMoneySetup] = useState<MoneySetup>(defaultMoneySetup);
   const [lifeResetSetup, setLifeResetSetup] = useState<LifeResetSetup>(() => createLifeResetSetupFromProfile(profile));
   const [planTabFilter, setPlanTabFilter] = useState<PlanTabFilter>("All");
+  const [longStudyWorkspaceInitialTab, setLongStudyWorkspaceInitialTab] = useState<"Run" | "Schedule" | "Review">("Run");
   const presetPlans = [
     { name: "Get Lean / Shred", category: "Body & Energy", purpose: "Create a simple rule-based fat-loss plan using my profile data." },
     { name: "Fix Sleep & Energy", category: "Body & Energy", purpose: "Stabilize wake time, sunlight, meals, wind-down, and recovery." },
@@ -5172,6 +5291,41 @@ function PlanFoundation({
     }
   }
 
+  function updateLongStudyEventStatus(eventId: string, status: LongStudyEventStatus) {
+    const event = longStudySessions.find((session) => session.id === eventId);
+    if (!event) return;
+    setLongStudySessionStates((current) => {
+      const normalized = normalizeLongStudySessionState(current[eventId], event);
+      return {
+        ...current,
+        [eventId]: {
+          ...normalized,
+          eventStatus: status,
+          pausedAt: status === "paused" || status === "abandoned" || status === "archived" ? new Date().toISOString() : normalized.pausedAt
+        }
+      };
+    });
+    if (openLongStudyEventId === eventId && !isActiveLongStudyStatus(status)) {
+      setOpenLongStudyEventId(null);
+    }
+  }
+
+  function deleteLongStudyEvent(eventId: string) {
+    if (!window.confirm("Delete this saved Long Study Event? This cannot be undone on this device.")) return;
+    setLongStudySessions((current) => normalizeLongStudySessions(current).filter((session) => session.id !== eventId));
+    setLongStudySessionStates((current) => {
+      const next = { ...current };
+      delete next[eventId];
+      return next;
+    });
+    if (openLongStudyEventId === eventId) setOpenLongStudyEventId(null);
+  }
+
+  function openLongStudyWorkspace(eventId: string, tab: "Run" | "Schedule" | "Review" = "Run") {
+    setLongStudyWorkspaceInitialTab(tab);
+    setOpenLongStudyEventId(eventId);
+  }
+
   return (
     <section className="grid gap-5">
       <Panel>
@@ -5244,6 +5398,7 @@ function PlanFoundation({
           <div className="mb-5">
             <LongStudyEventWorkspace
               session={openLongStudyEvent}
+              initialTab={longStudyWorkspaceInitialTab}
               state={normalizeLongStudySessionState(longStudySessionStates[openLongStudyEvent.id], openLongStudyEvent)}
               setState={(updater) => setLongStudySessionStates((current) => {
                 const currentState = normalizeLongStudySessionState(current[openLongStudyEvent.id], openLongStudyEvent);
@@ -5266,8 +5421,12 @@ function PlanFoundation({
           useAsTodayMainEvent={useLongStudyPreviewAsTodayEvent}
           cancel={cancelLongStudyPreview}
           events={longStudySessions}
+          eventStates={longStudySessionStates}
           copyKeyBlocksToToday={copyLongStudyBlocksToToday}
-          openEventWorkspace={setOpenLongStudyEventId}
+          openEventWorkspace={(eventId) => openLongStudyWorkspace(eventId, "Run")}
+          openEventSchedule={(eventId) => openLongStudyWorkspace(eventId, "Schedule")}
+          deleteEvent={deleteLongStudyEvent}
+          updateEventStatus={updateLongStudyEventStatus}
         />
       </CollapsibleSection>
       ) : null}
@@ -14043,17 +14202,29 @@ function normalizeLongStudySessionStates(states: Record<string, LongStudySession
   }, {});
 }
 
+function isActiveLongStudyStatus(status: LongStudyEventStatus): boolean {
+  return status === "planned" || status === "running" || status === "paused";
+}
+
+function getLongStudyEventStatus(session: LongStudySession, states: Record<string, LongStudySessionState>): LongStudyEventStatus {
+  return normalizeLongStudySessionState(states[session.id], session).eventStatus;
+}
+
+function getActiveLongStudyEvent(sessions: LongStudySession[] = [], states: Record<string, LongStudySessionState> = {}): LongStudySession | null {
+  return normalizeLongStudySessions(sessions).find((session) => isActiveLongStudyStatus(getLongStudyEventStatus(session, states))) ?? null;
+}
+
 function normalizeLongStudySessionState(state: Partial<LongStudySessionState> | undefined, session: LongStudySession): LongStudySessionState {
   const blocks = getLongStudyBlocks(session);
   const existingStatuses = state?.blockStatuses && typeof state.blockStatuses === "object" ? state.blockStatuses : {};
   const blockStatuses = blocks.reduce<Record<string, LongStudyBlockStatus>>((next, block) => {
     const value = existingStatuses[block.id];
-    next[block.id] = value === "running" || value === "completed" || value === "skipped" || value === "upcoming" ? value : "upcoming";
+    next[block.id] = value === "running" || value === "completed" || value === "skipped" || value === "upcoming" ? value : block.completed ? "completed" : block.skipped ? "skipped" : "upcoming";
     return next;
   }, {});
   const activeBlockIndex = clampNumber(Number(state?.activeBlockIndex) || 0, 0, Math.max(blocks.length - 1, 0));
   const activeBlock = blocks[activeBlockIndex];
-  const eventStatus = ["planned", "running", "paused", "completed", "abandoned"].includes(state?.eventStatus ?? "")
+  const eventStatus = ["planned", "running", "paused", "completed", "abandoned", "archived"].includes(state?.eventStatus ?? "")
     ? state?.eventStatus as LongStudyEventStatus
     : blocks.length && blocks.every((block) => blockStatuses[block.id] === "completed" || blockStatuses[block.id] === "skipped") ? "completed" : "planned";
   return {
