@@ -999,7 +999,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.7.2";
+const APP_VERSION = "V3.7.3";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -2370,7 +2370,6 @@ function HomeApp() {
                 useLongStudyPreviewAsTodayEvent={useLongStudyPreviewAsTodayEvent}
                 cancelLongStudyPreview={() => setLongStudyPreview(null)}
                 longStudySessions={normalizedLongStudySessions}
-                setLongStudySessions={setLongStudySessions}
                 longStudyReviews={normalizedLongStudyReviews}
                 saveLongStudyReview={saveLongStudyReview}
                 longStudySessionStates={normalizedLongStudySessionStates}
@@ -3417,7 +3416,6 @@ function LongStudyModePanel({
   useAsTodayMainEvent,
   cancel,
   events = [],
-  setEvents,
   copyKeyBlocksToToday,
   openEventWorkspace
 }: {
@@ -3430,7 +3428,6 @@ function LongStudyModePanel({
   useAsTodayMainEvent: () => void;
   cancel: () => void;
   events?: LongStudySession[];
-  setEvents?: Dispatch<SetStateAction<LongStudySession[]>>;
   copyKeyBlocksToToday?: (session: LongStudySession) => void;
   openEventWorkspace?: (eventId: string) => void;
 }) {
@@ -3441,18 +3438,6 @@ function LongStudyModePanel({
   function updateHours(targetStudyHours: string) {
     const nextHours = getLongStudyHours({ ...draft, targetStudyHours });
     updateDraft({ targetStudyHours, includeShower: nextHours >= 6 ? true : draft.includeShower });
-  }
-
-  function toggleEventTask(eventId: string, taskId: string) {
-    setEvents?.((current) => normalizeLongStudySessions(current).map((event) => {
-      if (event.id !== eventId) return event;
-      const followUpTasks = ((event as LongStudyPreview).followUpTasks ?? []).map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task));
-      return {
-        ...event,
-        tasks: event.tasks.map((task) => (task.id === taskId ? { ...task, completed: !task.completed } : task)),
-        followUpTasks
-      };
-    }));
   }
 
   return (
@@ -3549,18 +3534,7 @@ function LongStudyModePanel({
                     <MiniMetric label="Meals" value={`${summary.mealsCompleted}/${summary.mealsTotal}`} compact />
                     <MiniMetric label="Hygiene" value={`${summary.hygieneCompleted}/${summary.hygieneTotal}`} compact />
                   </div>
-                  <div className="mt-4 grid gap-2">
-                    {event.tasks.map((task) => <LongStudyEventTaskRow key={task.id} task={task} onToggle={() => toggleEventTask(event.id, task.id)} />)}
-                  </div>
-                  {((event as LongStudyPreview).followUpTasks ?? []).length ? (
-                    <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
-                      <p className="font-black text-white">After Study Follow-up Routine</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-400">This happens after the calculated study event. It is not part of actual study hours.</p>
-                      <div className="mt-3 grid gap-2">
-                        {((event as LongStudyPreview).followUpTasks ?? []).map((task) => <LongStudyEventTaskRow key={task.id} task={task} onToggle={() => toggleEventTask(event.id, task.id)} />)}
-                      </div>
-                    </div>
-                  ) : null}
+                  <p className="mt-4 text-sm leading-6 text-slate-400">Open the workspace to run this event block by block. The full schedule stays hidden there until you open the timeline.</p>
                 </article>
               );
             })}
@@ -3606,7 +3580,6 @@ function LongStudyEventWorkspace({
   const completedByType = (items: Task[]) => items.filter((block) => state.blockStatuses[block.id] === "completed").length;
   const existingReview = reviews.find((review) => review.sessionId === session.id);
   const [workspaceTab, setWorkspaceTab] = useState<"Run" | "Schedule" | "Review">("Run");
-  const [showFullTimeline, setShowFullTimeline] = useState(false);
   const [reviewDraft, setReviewDraft] = useState<LongStudyReview>(() => existingReview ?? createDefaultLongStudyReview(session, session.date));
 
   useEffect(() => {
@@ -3772,7 +3745,10 @@ function LongStudyEventWorkspace({
             </section>
 
             <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-100">Up Next</p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-100">Up Next</p>
+                <button type="button" onClick={() => setWorkspaceTab("Schedule")} className="secondary-button min-h-10 px-4 py-2 text-sm">Open Full Timeline</button>
+              </div>
               <div className="mt-3 grid gap-2">
                 {nextBlocks.length ? nextBlocks.map((block) => (
                   <CompactLongStudyBlockRow key={block.id} block={block} status={state.blockStatuses[block.id] ?? "upcoming"} />
@@ -3798,14 +3774,12 @@ function LongStudyEventWorkspace({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Schedule Timeline</p>
-              <p className="mt-1 text-sm leading-6 text-slate-400">The full schedule is compact and collapsed by default for long events.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-400">Full event timeline. This panel scrolls internally so the workspace stays usable.</p>
             </div>
-            <button type="button" onClick={() => setShowFullTimeline((current) => !current)} className="secondary-button min-h-10 px-4 py-2 text-sm">
-              {showFullTimeline ? "Hide Full Timeline" : "Show Full Timeline"}
-            </button>
+            <button type="button" onClick={() => setWorkspaceTab("Run")} className="secondary-button min-h-10 px-4 py-2 text-sm">Close Timeline</button>
           </div>
-          {showFullTimeline ? (
-            <div className="mt-4 grid gap-2">
+          <div className="mt-4 max-h-[62vh] overflow-y-auto pr-1">
+            <div className="grid gap-2">
               {blocks.map((block, index) => {
                 const blockStatus = state.blockStatuses[block.id] ?? "upcoming";
                 const isActive = index === activeIndex;
@@ -3821,13 +3795,7 @@ function LongStudyEventWorkspace({
                 );
               })}
             </div>
-          ) : (
-            <div className="mt-4 grid gap-2">
-              {blocks.slice(Math.max(0, activeIndex - 1), activeIndex + 4).map((block, index) => (
-                <CompactLongStudyBlockRow key={block.id} block={block} status={state.blockStatuses[block.id] ?? "upcoming"} onClick={() => jumpToBlock(Math.max(0, activeIndex - 1) + index)} />
-              ))}
-            </div>
-          )}
+          </div>
         </section>
       ) : null}
 
@@ -3877,23 +3845,6 @@ function CompactLongStudyBlockRow({ block, status, onClick }: { block: Task; sta
     <div className="grid min-w-0 gap-2 rounded-xl border border-white/10 bg-white/[0.035] p-3 sm:grid-cols-[5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center">
       {content}
     </div>
-  );
-}
-
-function LongStudyEventTaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) {
-  return (
-    <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-black/20 p-3">
-      <input type="checkbox" checked={task.completed} onChange={onToggle} className="mt-1 h-5 w-5 accent-cyan-300" />
-      <span className="min-w-0">
-        <span className="flex flex-wrap gap-2">
-          <Badge tone="dark">{task.time}</Badge>
-          <Badge tone="dark">{task.subtitle ?? "Block"}</Badge>
-          <Badge tone="dark">{getLongStudyTaskType(task)}</Badge>
-        </span>
-        <span className="mt-2 block break-words font-black text-white">{task.title}</span>
-        <span className="mt-1 block text-sm leading-6 text-slate-400">{task.notes.replace("Source: Long Study Mode. ", "")}</span>
-      </span>
-    </label>
   );
 }
 
@@ -4994,7 +4945,6 @@ function PlanFoundation({
   useLongStudyPreviewAsTodayEvent,
   cancelLongStudyPreview,
   longStudySessions,
-  setLongStudySessions,
   longStudyReviews,
   saveLongStudyReview,
   longStudySessionStates,
@@ -5044,7 +4994,6 @@ function PlanFoundation({
   useLongStudyPreviewAsTodayEvent: () => void;
   cancelLongStudyPreview: () => void;
   longStudySessions: LongStudySession[];
-  setLongStudySessions: Dispatch<SetStateAction<LongStudySession[]>>;
   longStudyReviews: LongStudyReview[];
   saveLongStudyReview: (review: LongStudyReview) => void;
   longStudySessionStates: Record<string, LongStudySessionState>;
@@ -5317,7 +5266,6 @@ function PlanFoundation({
           useAsTodayMainEvent={useLongStudyPreviewAsTodayEvent}
           cancel={cancelLongStudyPreview}
           events={longStudySessions}
-          setEvents={setLongStudySessions}
           copyKeyBlocksToToday={copyLongStudyBlocksToToday}
           openEventWorkspace={setOpenLongStudyEventId}
         />
