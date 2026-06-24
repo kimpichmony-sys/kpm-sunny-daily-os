@@ -933,6 +933,23 @@ type LongStudyReview = {
 };
 
 type LongStudyPreview = LongStudySession;
+type LongStudyEventStatus = "planned" | "running" | "paused" | "completed" | "abandoned";
+type LongStudyBlockStatus = "upcoming" | "running" | "completed" | "skipped";
+type LongStudyBlockType = "study" | "break" | "meal" | "hygiene" | "review" | "follow-up" | "event";
+
+type LongStudySessionState = {
+  eventId: string;
+  activeBlockIndex: number;
+  eventStatus: LongStudyEventStatus;
+  blockStatuses: Record<string, LongStudyBlockStatus>;
+  autoStartNextBlock: boolean;
+  startedAt: string;
+  pausedAt: string;
+  remainingSeconds: number;
+  completedStudyMinutes: number;
+  skippedBlocks: string[];
+  restored: boolean;
+};
 type PlanTabFilter = "All" | "Active" | "Presets" | "Events" | "Reviews Due" | "Archived";
 type ProgressTabFilter = "All" | "Today" | "This Week" | "Plans" | "Logs" | "Reviews Needed";
 
@@ -966,6 +983,7 @@ const REAL_USE_TEST_LOGS_KEY = "kpm-sunny-real-use-test-logs";
 const LONG_TERM_PLANNING_KEY = "kpm-sunny-long-term-planning";
 const LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-events";
 const LONG_STUDY_REVIEWS_KEY = "kpm-sunny-long-study-event-reviews";
+const LONG_STUDY_SESSION_STATES_KEY = "kpm-sunny-long-study-session-states";
 const TODAY_BACKUP_BEFORE_EVENT_KEY = "kpm-sunny-today-backup-before-event";
 const TODAY_EVENT_MODE_KEY = "kpm-sunny-today-event-mode";
 const LEGACY_LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-sessions";
@@ -981,8 +999,8 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.7";
-const APP_LAST_UPDATED = "June 21, 2026";
+const APP_VERSION = "V3.7.1";
+const APP_LAST_UPDATED = "June 24, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
 const categories: Category[] = ["Knowledge", "Plan", "Monitoring", "Sunny"];
@@ -1441,6 +1459,7 @@ function HomeApp() {
   const [longTermPlanning, setLongTermPlanning] = useLocalStorage<LongTermPlanningState>(LONG_TERM_PLANNING_KEY, createDefaultLongTermPlanning());
   const [longStudySessions, setLongStudySessions] = useLocalStorage<LongStudySession[]>(LONG_STUDY_SESSIONS_KEY, []);
   const [longStudyReviews, setLongStudyReviews] = useLocalStorage<LongStudyReview[]>(LONG_STUDY_REVIEWS_KEY, []);
+  const [longStudySessionStates, setLongStudySessionStates] = useLocalStorage<Record<string, LongStudySessionState>>(LONG_STUDY_SESSION_STATES_KEY, {});
   const [todayBackupBeforeEvent, setTodayBackupBeforeEvent] = useLocalStorage<TodayBackupBeforeEvent | null>(TODAY_BACKUP_BEFORE_EVENT_KEY, null);
   const [todayEventMode, setTodayEventMode] = useLocalStorage<TodayEventMode | null>(TODAY_EVENT_MODE_KEY, null);
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
@@ -1458,6 +1477,7 @@ function HomeApp() {
   const [buildTodayPreview, setBuildTodayPreview] = useState<BuildTodayPreview | null>(null);
   const [longStudyDraft, setLongStudyDraft] = useState<LongStudyDraft>(defaultLongStudyDraft);
   const [longStudyPreview, setLongStudyPreview] = useState<LongStudyPreview | null>(null);
+  const [openLongStudyEventId, setOpenLongStudyEventId] = useState<string | null>(null);
   const [dailyNotes, setDailyNotes] = useState("");
   const [review, setReview] = useState<Review>(defaultReview);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -1698,6 +1718,9 @@ function HomeApp() {
   const normalizedMoneyIncomeLogs = useMemo(() => normalizeMoneyIncomeLogs(moneyIncomeLogs), [moneyIncomeLogs]);
   const normalizedMoneySavingLogs = useMemo(() => normalizeMoneySavingLogs(moneySavingLogs), [moneySavingLogs]);
   const normalizedMoneyOpportunityLogs = useMemo(() => normalizeMoneyOpportunityLogs(moneyOpportunityLogs), [moneyOpportunityLogs]);
+  const normalizedLongStudySessions = useMemo(() => normalizeLongStudySessions(longStudySessions), [longStudySessions]);
+  const normalizedLongStudyReviews = useMemo(() => normalizeLongStudyReviews(longStudyReviews), [longStudyReviews]);
+  const normalizedLongStudySessionStates = useMemo(() => normalizeLongStudySessionStates(longStudySessionStates, normalizedLongStudySessions), [longStudySessionStates, normalizedLongStudySessions]);
   const activeTodayPlans = useMemo(() => normalizedActivePlans.filter((plan) => plan.status === "active"), [normalizedActivePlans]);
   const todayPlanRows = useMemo(() => getPrioritizedPlanTaskRows(activeTodayPlans), [activeTodayPlans]);
   const todayFocusItems = useMemo(() => getTodayFocusItems(tasks, mainMission, todayPlanRows), [tasks, mainMission, todayPlanRows]);
@@ -1798,6 +1821,8 @@ function HomeApp() {
     setLongTermPlanning(createDefaultLongTermPlanning());
     setLongStudySessions([]);
     setLongStudyReviews([]);
+    setLongStudySessionStates({});
+    setOpenLongStudyEventId(null);
     setTodayBackupBeforeEvent(null);
     setTodayEventMode(null);
     const originalTemplate = createOriginalTemplate();
@@ -1845,6 +1870,8 @@ function HomeApp() {
     setLongTermPlanning(createDefaultLongTermPlanning());
     setLongStudySessions([]);
     setLongStudyReviews([]);
+    setLongStudySessionStates({});
+    setOpenLongStudyEventId(null);
     setTodayBackupBeforeEvent(null);
     setTodayEventMode(null);
     setTemplateTasks(originalTemplate);
@@ -2071,11 +2098,20 @@ function HomeApp() {
   function applyLongStudyPreview() {
     if (!longStudyPreview) return;
     saveLongStudyEvent(longStudyPreview);
+    setLongStudySessionStates((current) => ({
+      ...current,
+      [longStudyPreview.id]: normalizeLongStudySessionState(current[longStudyPreview.id], longStudyPreview)
+    }));
+    setOpenLongStudyEventId(longStudyPreview.id);
     setLongStudyPreview(null);
   }
 
   function saveLongStudyEvent(session: LongStudySession) {
     setLongStudySessions((current) => [session, ...normalizeLongStudySessions(current).filter((item) => item.id !== session.id)].slice(0, 50));
+    setLongStudySessionStates((current) => ({
+      ...current,
+      [session.id]: normalizeLongStudySessionState(current[session.id], session)
+    }));
   }
 
   function addLongStudyPreviewKeyBlocksToToday() {
@@ -2083,6 +2119,7 @@ function HomeApp() {
     if (!window.confirm("This will add selected Long Study blocks to Today. Continue?")) return;
     saveLongStudyEvent(longStudyPreview);
     addLongStudyKeyBlocksToToday(longStudyPreview);
+    setOpenLongStudyEventId(longStudyPreview.id);
     setLongStudyPreview(null);
   }
 
@@ -2132,6 +2169,7 @@ function HomeApp() {
     setTodayMode("Skill");
     setSelectedTodayMode("Skill");
     setTodayEventMode({ active: true, date: todayKey, eventId: longStudyPreview.id, eventName: longStudyPreview.eventName });
+    setOpenLongStudyEventId(longStudyPreview.id);
     setLongStudyPreview(null);
   }
 
@@ -2331,8 +2369,14 @@ function HomeApp() {
                 addLongStudyPreviewKeyBlocksToToday={addLongStudyPreviewKeyBlocksToToday}
                 useLongStudyPreviewAsTodayEvent={useLongStudyPreviewAsTodayEvent}
                 cancelLongStudyPreview={() => setLongStudyPreview(null)}
-                longStudySessions={normalizeLongStudySessions(longStudySessions)}
+                longStudySessions={normalizedLongStudySessions}
                 setLongStudySessions={setLongStudySessions}
+                longStudyReviews={normalizedLongStudyReviews}
+                saveLongStudyReview={saveLongStudyReview}
+                longStudySessionStates={normalizedLongStudySessionStates}
+                setLongStudySessionStates={setLongStudySessionStates}
+                openLongStudyEventId={openLongStudyEventId}
+                setOpenLongStudyEventId={setOpenLongStudyEventId}
                 copyLongStudyBlocksToToday={copyLongStudyBlocksToToday}
                 longTermPlanning={normalizeLongTermPlanning(longTermPlanning)}
                 setLongTermPlanning={setLongTermPlanning}
@@ -2358,8 +2402,8 @@ function HomeApp() {
                 moneyIncomeLogs={normalizedMoneyIncomeLogs}
                 moneySavingLogs={normalizedMoneySavingLogs}
                 moneyOpportunityLogs={normalizedMoneyOpportunityLogs}
-                longStudySessions={normalizeLongStudySessions(longStudySessions)}
-                longStudyReviews={normalizeLongStudyReviews(longStudyReviews)}
+                longStudySessions={normalizedLongStudySessions}
+                longStudyReviews={normalizedLongStudyReviews}
                 saveLongStudyReview={saveLongStudyReview}
                 realUseTestLogs={normalizeRealUseTestLogs(realUseTestLogs)}
                 setRealUseTestLogs={setRealUseTestLogs}
@@ -3374,7 +3418,8 @@ function LongStudyModePanel({
   cancel,
   events = [],
   setEvents,
-  copyKeyBlocksToToday
+  copyKeyBlocksToToday,
+  openEventWorkspace
 }: {
   draft: LongStudyDraft;
   setDraft: Dispatch<SetStateAction<LongStudyDraft>>;
@@ -3387,6 +3432,7 @@ function LongStudyModePanel({
   events?: LongStudySession[];
   setEvents?: Dispatch<SetStateAction<LongStudySession[]>>;
   copyKeyBlocksToToday?: (session: LongStudySession) => void;
+  openEventWorkspace?: (eventId: string) => void;
 }) {
   function updateDraft(patch: Partial<LongStudyDraft>) {
     setDraft((current) => ({ ...current, ...patch }));
@@ -3492,7 +3538,10 @@ function LongStudyModePanel({
                       <h3 className="text-xl font-black text-white">{event.eventName || event.subject}</h3>
                       <p className="mt-1 text-sm leading-6 text-slate-400">{event.subject} · {event.targetStudyHours}h target · {event.startTime} to {event.estimatedFinishTime}</p>
                     </div>
-                    {copyKeyBlocksToToday ? <button type="button" onClick={() => copyKeyBlocksToToday(event)} className="secondary-button min-h-10 px-4 py-2 text-sm">Copy key blocks to Today</button> : null}
+                    <div className="flex flex-wrap gap-2">
+                      {openEventWorkspace ? <button type="button" onClick={() => openEventWorkspace(event.id)} className="primary-button min-h-10 px-4 py-2 text-sm">Open Workspace</button> : null}
+                      {copyKeyBlocksToToday ? <button type="button" onClick={() => copyKeyBlocksToToday(event)} className="secondary-button min-h-10 px-4 py-2 text-sm">Copy key blocks to Today</button> : null}
+                    </div>
                   </div>
                   <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     <MiniMetric label="Blocks" value={`${summary.blocksCompleted}/${summary.blocksTotal}`} compact />
@@ -3516,6 +3565,226 @@ function LongStudyModePanel({
               );
             })}
           </div>
+        </section>
+      ) : null}
+    </Panel>
+  );
+}
+
+function LongStudyEventWorkspace({
+  session,
+  state,
+  setState,
+  reviews,
+  saveReview,
+  close
+}: {
+  session: LongStudySession;
+  state: LongStudySessionState;
+  setState: Dispatch<SetStateAction<LongStudySessionState>>;
+  reviews: LongStudyReview[];
+  saveReview: (review: LongStudyReview) => void;
+  close: () => void;
+}) {
+  const blocks = getLongStudyBlocks(session);
+  const activeIndex = Math.min(Math.max(state.activeBlockIndex, 0), Math.max(blocks.length - 1, 0));
+  const activeBlock = blocks[activeIndex];
+  const activeDuration = activeBlock ? getDurationFromTaskNotes(activeBlock) : 0;
+  const completedBlocks = blocks.filter((block) => state.blockStatuses[block.id] === "completed").length;
+  const skippedBlocks = blocks.filter((block) => state.blockStatuses[block.id] === "skipped").length;
+  const progressPercent = blocks.length ? Math.round(((completedBlocks + skippedBlocks) / blocks.length) * 100) : 0;
+  const studyMinutesDone = blocks
+    .filter((block) => state.blockStatuses[block.id] === "completed" && getLongStudyBlockType(block) === "study")
+    .reduce((sum, block) => sum + getDurationFromTaskNotes(block), 0);
+  const existingReview = reviews.find((review) => review.sessionId === session.id);
+  const [reviewDraft, setReviewDraft] = useState<LongStudyReview>(() => existingReview ?? createDefaultLongStudyReview(session, session.date));
+
+  useEffect(() => {
+    setReviewDraft(existingReview ?? createDefaultLongStudyReview(session, session.date));
+  }, [session.id, session.date, existingReview?.id]);
+
+  useEffect(() => {
+    if (state.eventStatus !== "running" || !activeBlock) return;
+    const interval = window.setInterval(() => {
+      setState((current) => {
+        const normalized = normalizeLongStudySessionState(current, session);
+        if (normalized.eventStatus !== "running") return normalized;
+        if (normalized.remainingSeconds > 1) {
+          return { ...normalized, remainingSeconds: normalized.remainingSeconds - 1 };
+        }
+        return completeLongStudyBlock(normalized, session, normalized.activeBlockIndex, true);
+      });
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [activeBlock?.id, session, setState, state.eventStatus]);
+
+  function updateReviewDraft(patch: Partial<LongStudyReview>) {
+    setReviewDraft((current) => ({ ...current, ...patch }));
+  }
+
+  function startEvent() {
+    if (!activeBlock) return;
+    setState((current) => {
+      const normalized = normalizeLongStudySessionState(current, session);
+      return {
+        ...normalized,
+        activeBlockIndex: activeIndex,
+        eventStatus: "running",
+        startedAt: normalized.startedAt || new Date().toISOString(),
+        remainingSeconds: normalized.remainingSeconds || activeDuration * 60,
+        blockStatuses: { ...normalized.blockStatuses, [activeBlock.id]: "running" }
+      };
+    });
+  }
+
+  function pauseEvent() {
+    setState((current) => ({ ...normalizeLongStudySessionState(current, session), eventStatus: "paused", pausedAt: new Date().toISOString() }));
+  }
+
+  function resetBlock() {
+    if (!activeBlock) return;
+    setState((current) => ({
+      ...normalizeLongStudySessionState(current, session),
+      eventStatus: "paused",
+      remainingSeconds: activeDuration * 60,
+      blockStatuses: { ...normalizeLongStudySessionState(current, session).blockStatuses, [activeBlock.id]: "upcoming" }
+    }));
+  }
+
+  function completeActiveBlock() {
+    setState((current) => completeLongStudyBlock(normalizeLongStudySessionState(current, session), session, activeIndex, false));
+  }
+
+  function skipActiveBlock() {
+    setState((current) => skipLongStudyBlock(normalizeLongStudySessionState(current, session), session, activeIndex));
+  }
+
+  function jumpToBlock(index: number) {
+    const block = blocks[index];
+    if (!block) return;
+    setState((current) => {
+      const normalized = normalizeLongStudySessionState(current, session);
+      return {
+        ...normalized,
+        activeBlockIndex: index,
+        eventStatus: "paused",
+        remainingSeconds: getDurationFromTaskNotes(block) * 60,
+        blockStatuses: { ...normalized.blockStatuses, [block.id]: normalized.blockStatuses[block.id] === "completed" ? "completed" : "upcoming" }
+      };
+    });
+  }
+
+  function endEvent() {
+    if (!window.confirm("End this Long Study Event now? You can still save a review afterward.")) return;
+    setState((current) => ({ ...normalizeLongStudySessionState(current, session), eventStatus: "abandoned", pausedAt: new Date().toISOString() }));
+  }
+
+  function saveWorkspaceReview() {
+    saveReview({ ...reviewDraft, totalStudyHoursCompleted: Math.round((studyMinutesDone / 60) * 10) / 10 });
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Long Study Event Workspace</p>
+          <h2 className="mt-2 break-words text-2xl font-black text-white">{session.eventName || session.subject}</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-400">{session.subject} · {session.startTime} to {session.estimatedFinishTime} · {session.pomodoroStyle}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge tone={state.eventStatus === "running" ? "green" : state.eventStatus === "completed" ? "gold" : "dark"}>{state.eventStatus}</Badge>
+          <button type="button" onClick={close} className="secondary-button min-h-10 px-4 py-2 text-sm">Close Workspace</button>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <section className="min-w-0 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="dark">{activeBlock?.time ?? session.startTime}</Badge>
+            <Badge tone="dark">{activeBlock ? getLongStudyBlockType(activeBlock) : "event"}</Badge>
+            <Badge tone="gold">{activeDuration} min</Badge>
+          </div>
+          <h3 className="mt-3 break-words text-2xl font-black text-white">{activeBlock?.title ?? "No block selected"}</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-300">{activeBlock?.notes.replace("Source: Long Study Mode. ", "") ?? "This event has no blocks yet."}</p>
+          <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-5 text-center">
+            <p className="font-mono text-5xl font-black text-white">{formatTimerSeconds(state.remainingSeconds || activeDuration * 60)}</p>
+            <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Block timer</p>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            {state.eventStatus === "running" ? (
+              <button type="button" onClick={pauseEvent} className="primary-button justify-center">Pause</button>
+            ) : (
+              <button type="button" onClick={startEvent} className="primary-button justify-center">{state.eventStatus === "planned" ? "Start Event" : "Resume"}</button>
+            )}
+            <button type="button" onClick={resetBlock} className="secondary-button justify-center">Reset Block</button>
+            <button type="button" onClick={endEvent} className="danger-button justify-center">End Event</button>
+            <button type="button" onClick={completeActiveBlock} className="secondary-button justify-center">Complete Block</button>
+            <button type="button" onClick={skipActiveBlock} className="secondary-button justify-center">Skip Block</button>
+            <label className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-black text-white">
+              <input
+                type="checkbox"
+                checked={state.autoStartNextBlock}
+                onChange={(event) => setState((current) => ({ ...normalizeLongStudySessionState(current, session), autoStartNextBlock: event.target.checked }))}
+                className="h-4 w-4 accent-cyan-300"
+              />
+              Auto next
+            </label>
+          </div>
+        </section>
+
+        <aside className="grid gap-3">
+          <MiniMetric label="Progress" value={`${progressPercent}%`} />
+          <MiniMetric label="Blocks" value={`${completedBlocks}/${blocks.length}`} />
+          <MiniMetric label="Skipped" value={`${skippedBlocks}`} />
+          <MiniMetric label="Study done" value={`${Math.round((studyMinutesDone / 60) * 10) / 10}h`} />
+        </aside>
+      </div>
+
+      <section className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Event Timeline</p>
+        <div className="mt-4 grid gap-2">
+          {blocks.map((block, index) => {
+            const blockStatus = state.blockStatuses[block.id] ?? "upcoming";
+            const isActive = index === activeIndex;
+            return (
+              <button
+                key={block.id}
+                type="button"
+                onClick={() => jumpToBlock(index)}
+                className={`min-w-0 rounded-2xl border p-3 text-left transition ${isActive ? "border-cyan-200/50 bg-cyan-300/[0.1]" : "border-white/10 bg-white/[0.035] hover:border-cyan-200/25"}`}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="dark">{block.time}</Badge>
+                  <Badge tone={blockStatus === "completed" ? "green" : blockStatus === "skipped" ? "orange" : blockStatus === "running" ? "gold" : "dark"}>{blockStatus}</Badge>
+                  <Badge tone="dark">{getLongStudyBlockType(block)}</Badge>
+                  <Badge tone="dark">{getDurationFromTaskNotes(block)} min</Badge>
+                </div>
+                <p className="mt-2 break-words font-black text-white">{block.title}</p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {state.eventStatus === "completed" || state.eventStatus === "abandoned" ? (
+        <section className="mt-5 rounded-2xl border border-amber-200/20 bg-amber-300/[0.06] p-4">
+          <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-100">Event Review</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Field label="Total study hours completed"><input type="number" min="0" step="0.25" value={reviewDraft.totalStudyHoursCompleted} onChange={(event) => updateReviewDraft({ totalStudyHoursCompleted: Number(event.target.value) || 0 })} className="form-control" /></Field>
+            <Field label="Focus 1-10"><input type="number" min="1" max="10" value={reviewDraft.focus} onChange={(event) => updateReviewDraft({ focus: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+            <Field label="Difficulty 1-10"><input type="number" min="1" max="10" value={reviewDraft.difficulty} onChange={(event) => updateReviewDraft({ difficulty: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
+            <Field label="What I learned"><input value={reviewDraft.learned} onChange={(event) => updateReviewDraft({ learned: event.target.value })} className="form-control" /></Field>
+            <Field label="What I practiced"><input value={reviewDraft.practiced} onChange={(event) => updateReviewDraft({ practiced: event.target.value })} className="form-control" /></Field>
+            <Field label="What confused me"><input value={reviewDraft.confused} onChange={(event) => updateReviewDraft({ confused: event.target.value })} className="form-control" /></Field>
+            <Field label="Next study step"><input value={reviewDraft.nextStep} onChange={(event) => updateReviewDraft({ nextStep: event.target.value })} className="form-control" /></Field>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.keptClean} onChange={(event) => updateReviewDraft({ keptClean: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Kept clean?</label>
+            <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.ateEnough} onChange={(event) => updateReviewDraft({ ateEnough: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Ate enough?</label>
+            <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.finishedFollowUp} onChange={(event) => updateReviewDraft({ finishedFollowUp: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Finished follow-up?</label>
+          </div>
+          <button type="button" onClick={saveWorkspaceReview} className="primary-button mt-5 justify-center">Save Event Review</button>
         </section>
       ) : null}
     </Panel>
@@ -4637,6 +4906,12 @@ function PlanFoundation({
   cancelLongStudyPreview,
   longStudySessions,
   setLongStudySessions,
+  longStudyReviews,
+  saveLongStudyReview,
+  longStudySessionStates,
+  setLongStudySessionStates,
+  openLongStudyEventId,
+  setOpenLongStudyEventId,
   copyLongStudyBlocksToToday,
   longTermPlanning,
   setLongTermPlanning,
@@ -4681,6 +4956,12 @@ function PlanFoundation({
   cancelLongStudyPreview: () => void;
   longStudySessions: LongStudySession[];
   setLongStudySessions: Dispatch<SetStateAction<LongStudySession[]>>;
+  longStudyReviews: LongStudyReview[];
+  saveLongStudyReview: (review: LongStudyReview) => void;
+  longStudySessionStates: Record<string, LongStudySessionState>;
+  setLongStudySessionStates: Dispatch<SetStateAction<Record<string, LongStudySessionState>>>;
+  openLongStudyEventId: string | null;
+  setOpenLongStudyEventId: Dispatch<SetStateAction<string | null>>;
   copyLongStudyBlocksToToday: (session: LongStudySession) => void;
   longTermPlanning: LongTermPlanningState;
   setLongTermPlanning: Dispatch<SetStateAction<LongTermPlanningState>>;
@@ -4727,6 +5008,7 @@ function PlanFoundation({
   const showEventsSection = planTabFilter === "All" || planTabFilter === "Events";
   const showReviewsSection = planTabFilter === "All" || planTabFilter === "Reviews Due";
   const showArchivedSection = planTabFilter === "All" || planTabFilter === "Archived";
+  const openLongStudyEvent = openLongStudyEventId ? longStudySessions.find((event) => event.id === openLongStudyEventId) ?? null : null;
 
   function setupEverydayEssentials() {
     const nextPlan = createEverydayEssentialsPlan(essentialsSetup);
@@ -4920,6 +5202,22 @@ function PlanFoundation({
 
       {showEventsSection ? (
       <CollapsibleSection title="Special Event Plans" subtitle="Special events do not replace your normal day unless you choose to connect them to Today." defaultOpen={true}>
+        {openLongStudyEvent ? (
+          <div className="mb-5">
+            <LongStudyEventWorkspace
+              session={openLongStudyEvent}
+              state={normalizeLongStudySessionState(longStudySessionStates[openLongStudyEvent.id], openLongStudyEvent)}
+              setState={(updater) => setLongStudySessionStates((current) => {
+                const currentState = normalizeLongStudySessionState(current[openLongStudyEvent.id], openLongStudyEvent);
+                const nextState = typeof updater === "function" ? (updater as (value: LongStudySessionState) => LongStudySessionState)(currentState) : updater;
+                return { ...current, [openLongStudyEvent.id]: normalizeLongStudySessionState(nextState, openLongStudyEvent) };
+              })}
+              reviews={longStudyReviews}
+              saveReview={saveLongStudyReview}
+              close={() => setOpenLongStudyEventId(null)}
+            />
+          </div>
+        ) : null}
         <LongStudyModePanel
           draft={longStudyDraft}
           setDraft={setLongStudyDraft}
@@ -4932,6 +5230,7 @@ function PlanFoundation({
           events={longStudySessions}
           setEvents={setLongStudySessions}
           copyKeyBlocksToToday={copyLongStudyBlocksToToday}
+          openEventWorkspace={setOpenLongStudyEventId}
         />
       </CollapsibleSection>
       ) : null}
@@ -13672,6 +13971,43 @@ function normalizeLongStudyReviews(reviews: LongStudyReview[] = []): LongStudyRe
   return Array.isArray(reviews) ? reviews.filter(Boolean).map(normalizeLongStudyReview) : [];
 }
 
+function normalizeLongStudySessionStates(states: Record<string, LongStudySessionState> = {}, sessions: LongStudySession[] = []): Record<string, LongStudySessionState> {
+  const sessionMap = new Map(normalizeLongStudySessions(sessions).map((session) => [session.id, session]));
+  return Object.entries(states ?? {}).reduce<Record<string, LongStudySessionState>>((next, [eventId, state]) => {
+    const session = sessionMap.get(eventId);
+    if (session) next[eventId] = normalizeLongStudySessionState(state, session);
+    return next;
+  }, {});
+}
+
+function normalizeLongStudySessionState(state: Partial<LongStudySessionState> | undefined, session: LongStudySession): LongStudySessionState {
+  const blocks = getLongStudyBlocks(session);
+  const existingStatuses = state?.blockStatuses && typeof state.blockStatuses === "object" ? state.blockStatuses : {};
+  const blockStatuses = blocks.reduce<Record<string, LongStudyBlockStatus>>((next, block) => {
+    const value = existingStatuses[block.id];
+    next[block.id] = value === "running" || value === "completed" || value === "skipped" || value === "upcoming" ? value : "upcoming";
+    return next;
+  }, {});
+  const activeBlockIndex = clampNumber(Number(state?.activeBlockIndex) || 0, 0, Math.max(blocks.length - 1, 0));
+  const activeBlock = blocks[activeBlockIndex];
+  const eventStatus = ["planned", "running", "paused", "completed", "abandoned"].includes(state?.eventStatus ?? "")
+    ? state?.eventStatus as LongStudyEventStatus
+    : blocks.length && blocks.every((block) => blockStatuses[block.id] === "completed" || blockStatuses[block.id] === "skipped") ? "completed" : "planned";
+  return {
+    eventId: session.id,
+    activeBlockIndex,
+    eventStatus,
+    blockStatuses,
+    autoStartNextBlock: Boolean(state?.autoStartNextBlock),
+    startedAt: state?.startedAt ?? "",
+    pausedAt: state?.pausedAt ?? "",
+    remainingSeconds: Number(state?.remainingSeconds) > 0 ? Number(state?.remainingSeconds) : (activeBlock ? getDurationFromTaskNotes(activeBlock) * 60 : 0),
+    completedStudyMinutes: Number(state?.completedStudyMinutes) || getLongStudyCompletedStudyMinutes(session, blockStatuses),
+    skippedBlocks: Array.isArray(state?.skippedBlocks) ? state?.skippedBlocks.filter(Boolean) : [],
+    restored: state?.restored ?? Boolean(state)
+  };
+}
+
 function normalizeLongStudyReview(review: Partial<LongStudyReview>): LongStudyReview {
   return {
     id: review.id || `long-study-review-${review.sessionId || "session"}-${review.date || getDateKey(new Date())}`,
@@ -13688,6 +14024,84 @@ function normalizeLongStudyReview(review: Partial<LongStudyReview>): LongStudyRe
     ateEnough: Boolean(review.ateEnough),
     finishedFollowUp: Boolean(review.finishedFollowUp)
   };
+}
+
+function getLongStudyBlocks(session: LongStudySession): Task[] {
+  return [...(Array.isArray(session.tasks) ? session.tasks : []), ...(Array.isArray(session.followUpTasks) ? session.followUpTasks : [])];
+}
+
+function getLongStudyBlockType(task: Task): LongStudyBlockType {
+  const type = getLongStudyTaskType(task);
+  if (type === "study" || type === "break" || type === "meal" || type === "hygiene" || type === "review" || type === "follow-up") return type;
+  return "event";
+}
+
+function getLongStudyCompletedStudyMinutes(session: LongStudySession, statuses: Record<string, LongStudyBlockStatus>): number {
+  return getLongStudyBlocks(session)
+    .filter((block) => statuses[block.id] === "completed" && getLongStudyBlockType(block) === "study")
+    .reduce((sum, block) => sum + getDurationFromTaskNotes(block), 0);
+}
+
+function completeLongStudyBlock(state: LongStudySessionState, session: LongStudySession, index: number, fromTimer: boolean): LongStudySessionState {
+  const blocks = getLongStudyBlocks(session);
+  const block = blocks[index];
+  if (!block) return { ...state, eventStatus: "completed", remainingSeconds: 0 };
+  const nextStatuses = { ...state.blockStatuses, [block.id]: "completed" as LongStudyBlockStatus };
+  const nextIndex = blocks.findIndex((item, itemIndex) => itemIndex > index && nextStatuses[item.id] !== "completed" && nextStatuses[item.id] !== "skipped");
+  if (nextIndex === -1) {
+    return {
+      ...state,
+      activeBlockIndex: index,
+      eventStatus: "completed",
+      blockStatuses: nextStatuses,
+      remainingSeconds: 0,
+      completedStudyMinutes: getLongStudyCompletedStudyMinutes(session, nextStatuses)
+    };
+  }
+  const nextBlock = blocks[nextIndex];
+  const shouldAutoStart = fromTimer && state.autoStartNextBlock;
+  return {
+    ...state,
+    activeBlockIndex: nextIndex,
+    eventStatus: shouldAutoStart ? "running" : "paused",
+    blockStatuses: { ...nextStatuses, [nextBlock.id]: shouldAutoStart ? "running" : nextStatuses[nextBlock.id] ?? "upcoming" },
+    remainingSeconds: getDurationFromTaskNotes(nextBlock) * 60,
+    completedStudyMinutes: getLongStudyCompletedStudyMinutes(session, nextStatuses)
+  };
+}
+
+function skipLongStudyBlock(state: LongStudySessionState, session: LongStudySession, index: number): LongStudySessionState {
+  const blocks = getLongStudyBlocks(session);
+  const block = blocks[index];
+  if (!block) return state;
+  const nextStatuses = { ...state.blockStatuses, [block.id]: "skipped" as LongStudyBlockStatus };
+  const nextIndex = blocks.findIndex((item, itemIndex) => itemIndex > index && nextStatuses[item.id] !== "completed" && nextStatuses[item.id] !== "skipped");
+  if (nextIndex === -1) {
+    return {
+      ...state,
+      activeBlockIndex: index,
+      eventStatus: "completed",
+      blockStatuses: nextStatuses,
+      skippedBlocks: Array.from(new Set([...state.skippedBlocks, block.id])),
+      remainingSeconds: 0
+    };
+  }
+  const nextBlock = blocks[nextIndex];
+  return {
+    ...state,
+    activeBlockIndex: nextIndex,
+    eventStatus: "paused",
+    blockStatuses: nextStatuses,
+    skippedBlocks: Array.from(new Set([...state.skippedBlocks, block.id])),
+    remainingSeconds: getDurationFromTaskNotes(nextBlock) * 60
+  };
+}
+
+function formatTimerSeconds(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
 function createDefaultLongStudyReview(session: LongStudySession, date: string): LongStudyReview {
