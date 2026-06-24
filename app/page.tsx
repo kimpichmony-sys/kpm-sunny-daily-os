@@ -114,6 +114,7 @@ type SettingsState = {
   defaultDailyMode?: DailyMode;
   mainLifeFocus?: MainLifeFocus;
   sevenDayTestStartDate?: string;
+  visualTheme?: "kpm-command" | "apple-calm";
 };
 
 type ProfileState = {
@@ -1018,7 +1019,8 @@ const defaultSettings: SettingsState = {
   scheduleVersion: "5:30",
   onboardingComplete: false,
   defaultDailyMode: "Full Day",
-  mainLifeFocus: "Stability"
+  mainLifeFocus: "Stability",
+  visualTheme: "kpm-command"
 };
 
 const defaultProfile: ProfileState = {
@@ -2257,8 +2259,8 @@ function HomeApp() {
   }
 
   return (
-    <div className="sunny-mobile-shell min-h-screen overflow-x-hidden bg-[#060A14] text-slate-100">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(89,195,255,0.14),transparent_30%),radial-gradient(circle_at_84%_14%,rgba(166,30,44,0.10),transparent_28%),radial-gradient(circle_at_58%_0%,rgba(216,194,122,0.055),transparent_26%),linear-gradient(135deg,#060A14_0%,#0A1020_48%,#030711_100%)]" />
+    <div className={`sunny-mobile-shell ${settings.visualTheme === "apple-calm" ? "theme-apple-calm" : "theme-kpm-command"} min-h-screen overflow-x-hidden bg-[#060A14] text-slate-100`}>
+      <div className="sunny-atmosphere pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(89,195,255,0.14),transparent_30%),radial-gradient(circle_at_84%_14%,rgba(166,30,44,0.10),transparent_28%),radial-gradient(circle_at_58%_0%,rgba(216,194,122,0.055),transparent_26%),linear-gradient(135deg,#060A14_0%,#0A1020_48%,#030711_100%)]" />
       {!isOnline ? <OfflineBanner /> : null}
       <div className={`app-shell relative grid min-h-screen min-w-0 max-w-full lg:grid-cols-[188px_minmax(0,1fr)] ${activeSection === "Dashboard" ? "" : "with-right-panel 2xl:grid-cols-[188px_minmax(0,1fr)_300px]"}`}>
         <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
@@ -7020,6 +7022,31 @@ function ProfileAppSettingsSection({
         <h3 className="mt-2 text-2xl font-black text-white">Daily defaults</h3>
         <div className="mt-5 grid gap-5">
           <div>
+            <h4 className="text-lg font-black text-white">Visual style</h4>
+            <p className="mt-1 text-sm text-slate-400">Switch the app mood without changing your data or daily systems.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {[
+                { value: "kpm-command" as const, title: "KPM Command", description: "Dark manhwa command center with sharp energy." },
+                { value: "apple-calm" as const, title: "Apple Calm", description: "Cleaner glass surfaces, softer contrast, and a quieter premium feel." }
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setSettings({ ...settings, visualTheme: option.value })}
+                  className={`rounded-2xl border p-4 text-left transition ${
+                    (settings.visualTheme ?? "kpm-command") === option.value
+                      ? "border-sky-200/60 bg-sky-200/[0.12] shadow-[0_0_30px_rgba(125,211,252,0.12)]"
+                      : "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]"
+                  }`}
+                >
+                  <p className="text-xl font-black text-white">{option.title}</p>
+                  <p className="mt-1 text-sm text-slate-400">{option.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <h4 className="text-lg font-black text-white">Default wake time / schedule start</h4>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {[
@@ -10913,12 +10940,14 @@ function normalizeSettings(settings: Partial<SettingsState>): SettingsState {
   const defaultDailyMode = settings.defaultDailyMode && dailyModes.includes(settings.defaultDailyMode) ? settings.defaultDailyMode : "Full Day";
   const mainLifeFocus = settings.mainLifeFocus && mainLifeFocusOptions.includes(settings.mainLifeFocus) ? settings.mainLifeFocus : "Stability";
   const sevenDayTestStartDate = settings.sevenDayTestStartDate && /^\d{4}-\d{2}-\d{2}$/.test(settings.sevenDayTestStartDate) ? settings.sevenDayTestStartDate : undefined;
+  const visualTheme = settings.visualTheme === "apple-calm" ? "apple-calm" : "kpm-command";
   return {
     scheduleVersion,
     onboardingComplete: Boolean(settings.onboardingComplete),
     defaultDailyMode,
     mainLifeFocus,
-    sevenDayTestStartDate
+    sevenDayTestStartDate,
+    visualTheme
   };
 }
 
