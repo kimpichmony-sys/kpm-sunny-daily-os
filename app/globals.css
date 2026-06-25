@@ -898,6 +898,18 @@ details {
     0 14px 34px rgba(0, 0, 0, 0.20);
 }
 
+.details-close-label {
+  display: none !important;
+}
+
+details[open] > summary .details-open-label {
+  display: none !important;
+}
+
+details[open] > summary .details-close-label {
+  display: inline-flex !important;
+}
+
 /* V4.4 visual consistency pass.
    Normalize older cards and controls so the app reads as one workspace system. */
 .app-consistency {

@@ -10893,8 +10893,8 @@ function CollapsibleSection({
           <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">{title}</p>
           {subtitle ? <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">{subtitle}</p> : null}
         </div>
-        <span className="secondary-button min-h-8 shrink-0 px-2.5 py-1 text-xs group-open:hidden">Open</span>
-        <span className="secondary-button hidden min-h-8 shrink-0 px-2.5 py-1 text-xs group-open:inline-flex">Close</span>
+        <span className="details-open-label secondary-button min-h-8 shrink-0 px-2.5 py-1 text-xs">Open</span>
+        <span className="details-close-label secondary-button min-h-8 shrink-0 px-2.5 py-1 text-xs">Close</span>
       </summary>
       <div className="mt-3 min-w-0">{children}</div>
     </details>
