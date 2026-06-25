@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.4";
+const APP_VERSION = "V4.5";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -2808,7 +2808,7 @@ function BottomNav({
   setActiveSection: (section: SectionId) => void;
 }) {
   return (
-    <nav className="sunny-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070b14]/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl lg:hidden">
+    <nav className="sunny-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070b14]/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl lg:hidden" aria-label="Primary mobile navigation">
       <div className="grid grid-cols-4 gap-1">
         {mobileNavItems.map((item) => {
           const Icon = item.icon;
@@ -2817,12 +2817,15 @@ function BottomNav({
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id)}
-              className={`sunny-bottom-nav-button flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-bold ${
-                active ? "bg-[#13213A] text-[#F5F3EE] shadow-[0_0_18px_rgba(111,214,209,0.16)]" : "text-slate-400"
+              aria-current={active ? "page" : undefined}
+              className={`sunny-bottom-nav-button ${active ? "is-active" : ""} flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-bold ${
+                active ? "text-[#F5F3EE]" : "text-slate-400"
               }`}
             >
-              <Icon size={19} />
-              {item.mobile}
+              <span className="sunny-bottom-nav-icon">
+                <Icon size={19} />
+              </span>
+              <span className="sunny-bottom-nav-label">{item.mobile}</span>
             </button>
           );
         })}
@@ -7862,6 +7865,7 @@ function ProfileVersionSection() {
           <li>V4.2 Today screen premium polish</li>
           <li>V4.3 Whole-app premium density + typography pass</li>
           <li>V4.4 Visual consistency pass</li>
+          <li>V4.5 Mobile bottom navigation polish</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
