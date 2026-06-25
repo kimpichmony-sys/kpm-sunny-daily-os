@@ -891,6 +891,64 @@ details {
   text-shadow: 0 0 22px rgba(139, 233, 255, 0.16);
 }
 
+.today-directive-card {
+  padding: 0.92rem !important;
+}
+
+.today-directive-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(139, 233, 255, 0.055), transparent 34%),
+    radial-gradient(circle at 72% 12%, rgba(139, 233, 255, 0.085), transparent 26%);
+  pointer-events: none;
+}
+
+.today-directive-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.today-directive-chip-row .sunny-badge {
+  padding: 0.36rem 0.58rem;
+}
+
+.today-directive-reason {
+  color: var(--sunny-text-soft);
+}
+
+.today-directive-details summary {
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 233, 255, 0.12);
+  background: rgba(19, 33, 58, 0.46);
+  padding: 0.34rem 0.58rem;
+  line-height: 1;
+}
+
+.today-directive-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.today-directive-actions {
+  border-radius: 0.86rem;
+  border: 1px solid rgba(139, 233, 255, 0.10);
+  background: rgba(3, 7, 17, 0.30);
+  padding: 0.45rem;
+}
+
+.today-start-mission-button {
+  box-shadow:
+    0 12px 26px rgba(216, 194, 122, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30);
+}
+
+.today-done-button {
+  border-color: rgba(139, 233, 255, 0.24) !important;
+  color: var(--sunny-cyan-soft) !important;
+}
+
 .today-support-panel,
 .active-plan-today-panel,
 .today-focus-panel {

@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.6";
+const APP_VERSION = "V4.7";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -3591,25 +3591,26 @@ function TodayCommand({
           </div>
         </Panel>
       ) : null}
-      <Panel compact className="mission-directive-panel">
+      <Panel compact className="mission-directive-panel today-directive-card">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Mission Directive</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Current Mission</p>
               {currentMission ? <span className="h-px w-10 rounded-full bg-cyan-200/35" /> : null}
+              {currentMission ? <Badge tone="dark">Now</Badge> : null}
             </div>
             {currentMission ? (
               <>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <div className="today-directive-chip-row mt-2 flex flex-wrap items-center gap-1.5">
                   <Badge tone="gold">{currentMission.time}</Badge>
                   <Badge tone={currentMission.category}>{currentMission.category}</Badge>
                   <Badge tone={currentMission.priority === "S" ? "gold" : "dark"}>{currentMission.priority}-Tier</Badge>
                   <Badge tone="dark">{currentMission.points} KPM</Badge>
                 </div>
-                <h2 className="mission-title mt-2 break-words text-2xl font-black leading-tight text-white sm:text-3xl xl:text-[2.15rem]">{currentMission.title}</h2>
-                <p className="mt-1.5 line-clamp-2 max-w-2xl text-sm leading-5 text-slate-300">{getMissionReason(currentMission)}</p>
-                <details className="mt-2 text-xs font-bold text-slate-400">
-                  <summary className="cursor-pointer text-amber-100">Details</summary>
+                <h2 className="mission-title mt-2 break-words text-2xl font-black leading-tight text-white sm:text-3xl xl:text-[2rem]">{currentMission.title}</h2>
+                <p className="today-directive-reason mt-1.5 line-clamp-2 max-w-2xl text-sm leading-5 text-slate-300">{getMissionReason(currentMission)}</p>
+                <details className="today-directive-details mt-2 text-xs font-bold text-slate-400">
+                  <summary className="cursor-pointer text-cyan-100">Mission details</summary>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Badge tone="dark">{getTaskSourceLabel(currentMission)}</Badge>
                     <Badge tone="dark">{dayMeta.dayType}</Badge>
@@ -3629,12 +3630,12 @@ function TodayCommand({
           </div>
 
           {currentMission ? (
-            <div className="grid min-w-0 gap-1.5 sm:grid-cols-2 lg:w-[250px] lg:grid-cols-2">
-              <button type="button" onClick={() => startMission(currentMission.id)} className="primary-button min-h-9 px-3 py-1.5 text-sm sm:col-span-2">
+            <div className="today-directive-actions grid min-w-0 gap-1.5 sm:grid-cols-3 lg:w-[280px] lg:grid-cols-3">
+              <button type="button" onClick={() => startMission(currentMission.id)} className="primary-button today-start-mission-button min-h-10 px-3 py-2 text-sm sm:col-span-3">
                 <Target size={18} />
                 Start Mission
               </button>
-              <button type="button" onClick={() => updateTask(currentMission.id, { completed: true, skipped: false })} className="primary-button min-h-9 px-3 py-1.5 text-sm">
+              <button type="button" onClick={() => updateTask(currentMission.id, { completed: true, skipped: false })} className="today-done-button secondary-button min-h-9 px-3 py-1.5 text-sm">
                 <CheckCircle2 size={18} />
                 Done
               </button>
@@ -3646,7 +3647,7 @@ function TodayCommand({
                 <Clock3 size={18} />
                 Snooze
               </button>
-              <button type="button" onClick={rebuildToday} className="secondary-button min-h-9 px-3 py-1.5 text-sm">
+              <button type="button" onClick={rebuildToday} className="secondary-button min-h-8 px-3 py-1.5 text-xs sm:col-span-3">
                 <RotateCcw size={18} />
                 Rebuild
               </button>
@@ -7867,6 +7868,7 @@ function ProfileVersionSection() {
           <li>V4.4 Visual consistency pass</li>
           <li>V4.5 Mobile bottom navigation polish</li>
           <li>V4.6 Collapsible section polish</li>
+          <li>V4.7 Today Mission Directive polish</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
