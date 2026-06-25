@@ -898,6 +898,77 @@ details {
     0 14px 34px rgba(0, 0, 0, 0.20);
 }
 
+/* V4.4 visual consistency pass.
+   Normalize older cards and controls so the app reads as one workspace system. */
+.app-consistency {
+  --card-radius: 0.9rem;
+  --row-radius: 0.72rem;
+  --control-radius: 0.64rem;
+  --panel-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+.app-consistency :where(.sunny-panel, .sunny-mission-section, .sunny-command-header, details) {
+  border-radius: var(--card-radius) !important;
+  box-shadow: var(--panel-shadow), inset 0 1px 0 rgba(139, 233, 255, 0.045) !important;
+}
+
+.app-consistency :where(
+  article,
+  .sunny-task-card,
+  .sunny-stat-tile,
+  .rounded-\[1\.25rem\],
+  .rounded-\[1\.35rem\],
+  .rounded-\[1\.5rem\],
+  .rounded-\[1\.75rem\],
+  .rounded-2xl
+) {
+  border-radius: var(--row-radius) !important;
+}
+
+.app-consistency :where(.primary-button, .secondary-button, .danger-button, .form-control, .rounded-lg) {
+  border-radius: var(--control-radius) !important;
+}
+
+.app-consistency :where(h2:not(.mission-title), h3:not(.mission-title)) {
+  letter-spacing: 0;
+}
+
+.app-consistency :where(.sunny-panel h2:not(.mission-title), .sunny-mission-section h2:not(.mission-title)) {
+  font-size: clamp(1.25rem, 2vw, 1.75rem);
+  line-height: 1.12;
+}
+
+.app-consistency :where(.sunny-panel h3:not(.mission-title), .sunny-mission-section h3:not(.mission-title)) {
+  font-size: clamp(1.05rem, 1.55vw, 1.35rem);
+  line-height: 1.18;
+}
+
+.app-consistency :where(.sunny-panel p, .sunny-mission-section p, article p) {
+  line-height: 1.48;
+}
+
+.app-consistency :where(article, .sunny-task-card, .sunny-stat-tile) {
+  border-color: rgba(139, 233, 255, 0.105) !important;
+}
+
+.app-consistency :where(.sunny-task-card, article) {
+  background:
+    linear-gradient(180deg, rgba(14, 24, 43, 0.74), rgba(6, 12, 24, 0.66)) !important;
+}
+
+.app-consistency :where(.sunny-panel > .grid.gap-5, .sunny-mission-section > .grid.gap-5) {
+  gap: 1rem !important;
+}
+
+.app-consistency :where(.sunny-panel .mt-5, .sunny-mission-section .mt-5) {
+  margin-top: 1rem !important;
+}
+
+.app-consistency :where(label.flex.rounded-2xl) {
+  min-height: 2.75rem;
+  padding: 0.62rem 0.78rem;
+}
+
 /* V4.3 premium density pass for secondary workspaces.
    Today keeps the main directive large; Plan, Progress, and Profile become tighter command panels. */
 .premium-density {

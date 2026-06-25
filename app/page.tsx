@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.3";
+const APP_VERSION = "V4.4";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -2360,7 +2360,7 @@ function HomeApp() {
   }
 
   return (
-    <div className={`sunny-mobile-shell ${settings.visualTheme === "apple-calm" ? "theme-apple-calm" : "theme-kpm-command"} min-h-screen overflow-x-hidden bg-[#060A14] text-slate-100`}>
+    <div className={`app-consistency sunny-mobile-shell ${settings.visualTheme === "apple-calm" ? "theme-apple-calm" : "theme-kpm-command"} min-h-screen overflow-x-hidden bg-[#060A14] text-slate-100`}>
       <div className="sunny-atmosphere pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(89,195,255,0.14),transparent_30%),radial-gradient(circle_at_84%_14%,rgba(166,30,44,0.10),transparent_28%),radial-gradient(circle_at_58%_0%,rgba(216,194,122,0.055),transparent_26%),linear-gradient(135deg,#060A14_0%,#0A1020_48%,#030711_100%)]" />
       {!isOnline ? <OfflineBanner /> : null}
       <div className={`app-shell relative grid min-h-screen min-w-0 max-w-full lg:grid-cols-[188px_minmax(0,1fr)] ${activeSection === "Dashboard" ? "" : "with-right-panel 2xl:grid-cols-[188px_minmax(0,1fr)_300px]"}`}>
@@ -7861,6 +7861,7 @@ function ProfileVersionSection() {
           <li>V4.1 Premium visual system</li>
           <li>V4.2 Today screen premium polish</li>
           <li>V4.3 Whole-app premium density + typography pass</li>
+          <li>V4.4 Visual consistency pass</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
