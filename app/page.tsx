@@ -937,6 +937,7 @@ type LongStudyPreview = LongStudySession;
 type LongStudyEventStatus = "planned" | "running" | "paused" | "completed" | "abandoned" | "archived";
 type LongStudyBlockStatus = "upcoming" | "running" | "completed" | "skipped";
 type LongStudyBlockType = "study" | "break" | "meal" | "hygiene" | "review" | "follow-up" | "event";
+type LongStudyTimerStatus = "idle" | "running" | "paused" | "time-up";
 
 type LongStudySessionState = {
   eventId: string;
@@ -946,6 +947,12 @@ type LongStudySessionState = {
   autoStartNextBlock: boolean;
   startedAt: string;
   pausedAt: string;
+  timerStatus: LongStudyTimerStatus;
+  blockStartedAt: number | null;
+  blockTargetEndAt: number | null;
+  pausedRemainingSeconds: number | null;
+  blockDurationSeconds: number;
+  updatedAt: number;
   remainingSeconds: number;
   completedStudyMinutes: number;
   skippedBlocks: string[];
@@ -1000,7 +1007,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.7.4";
+const APP_VERSION = "V3.7.5";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -3695,6 +3702,9 @@ function LongStudyEventWorkspace({
   const existingReview = reviews.find((review) => review.sessionId === session.id);
   const [workspaceTab, setWorkspaceTab] = useState<"Run" | "Schedule" | "Review">(initialTab);
   const [reviewDraft, setReviewDraft] = useState<LongStudyReview>(() => existingReview ?? createDefaultLongStudyReview(session, session.date));
+  const [timerNotice, setTimerNotice] = useState("");
+  const displayRemainingSeconds = getLongStudyDisplayRemainingSeconds(state, activeDuration);
+  const blockTimeIsUp = state.timerStatus === "time-up" || displayRemainingSeconds <= 0 && state.timerStatus === "running";
 
   useEffect(() => {
     setWorkspaceTab(initialTab);
@@ -3705,20 +3715,38 @@ function LongStudyEventWorkspace({
   }, [session.id, session.date, existingReview?.id]);
 
   useEffect(() => {
-    if (state.eventStatus !== "running" || !activeBlock) return;
-    const interval = window.setInterval(() => {
+    if (state.restored && state.timerStatus === "running" && state.blockTargetEndAt) {
+      setTimerNotice("Session restored. Timer synced with real time.");
+    }
+  }, [session.id]);
+
+  useEffect(() => {
+    if (!activeBlock) return;
+
+    const syncTimer = () => {
       setState((current) => {
         const normalized = normalizeLongStudySessionState(current, session);
-        if (normalized.eventStatus !== "running") return normalized;
-        if (normalized.remainingSeconds > 1) {
-          return { ...normalized, remainingSeconds: normalized.remainingSeconds - 1 };
-        }
-        return completeLongStudyBlock(normalized, session, normalized.activeBlockIndex, true);
+        const synced = syncLongStudyTimerState(normalized, session, true);
+        if (synced.timerStatus === "time-up") setTimerNotice("Block time is up.");
+        return synced;
       });
-    }, 1000);
+    };
 
-    return () => window.clearInterval(interval);
-  }, [activeBlock?.id, session, setState, state.eventStatus]);
+    syncTimer();
+
+    const interval = window.setInterval(syncTimer, 1000);
+    const syncOnReturn = () => syncTimer();
+    document.addEventListener("visibilitychange", syncOnReturn);
+    window.addEventListener("focus", syncOnReturn);
+    window.addEventListener("pageshow", syncOnReturn);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", syncOnReturn);
+      window.removeEventListener("focus", syncOnReturn);
+      window.removeEventListener("pageshow", syncOnReturn);
+    };
+  }, [activeBlock?.id, session, setState]);
 
   function updateReviewDraft(patch: Partial<LongStudyReview>) {
     setReviewDraft((current) => ({ ...current, ...patch }));
@@ -3728,19 +3756,23 @@ function LongStudyEventWorkspace({
     if (!activeBlock) return;
     setState((current) => {
       const normalized = normalizeLongStudySessionState(current, session);
-      return {
+      const remainingSeconds = normalized.timerStatus === "paused" && normalized.pausedRemainingSeconds
+        ? normalized.pausedRemainingSeconds
+        : normalized.remainingSeconds > 0 && normalized.remainingSeconds < activeDuration * 60
+          ? normalized.remainingSeconds
+          : activeDuration * 60;
+      return startLongStudyBlockTimer({
         ...normalized,
         activeBlockIndex: activeIndex,
         eventStatus: "running",
         startedAt: normalized.startedAt || new Date().toISOString(),
-        remainingSeconds: normalized.remainingSeconds || activeDuration * 60,
         blockStatuses: { ...normalized.blockStatuses, [activeBlock.id]: "running" }
-      };
+      }, activeBlock, remainingSeconds);
     });
   }
 
   function pauseEvent() {
-    setState((current) => ({ ...normalizeLongStudySessionState(current, session), eventStatus: "paused", pausedAt: new Date().toISOString() }));
+    setState((current) => pauseLongStudyTimer(normalizeLongStudySessionState(current, session)));
   }
 
   function resetBlock() {
@@ -3748,9 +3780,16 @@ function LongStudyEventWorkspace({
     setState((current) => ({
       ...normalizeLongStudySessionState(current, session),
       eventStatus: "paused",
+      timerStatus: "paused",
       remainingSeconds: activeDuration * 60,
+      pausedRemainingSeconds: activeDuration * 60,
+      blockDurationSeconds: activeDuration * 60,
+      blockStartedAt: null,
+      blockTargetEndAt: null,
+      updatedAt: Date.now(),
       blockStatuses: { ...normalizeLongStudySessionState(current, session).blockStatuses, [activeBlock.id]: "upcoming" }
     }));
+    setTimerNotice("");
   }
 
   function completeActiveBlock() {
@@ -3772,7 +3811,13 @@ function LongStudyEventWorkspace({
         eventStatus: normalized.eventStatus === "completed" && !checked ? "paused" : normalized.eventStatus,
         blockStatuses: nextStatuses,
         completedStudyMinutes: getLongStudyCompletedStudyMinutes(session, nextStatuses),
-        remainingSeconds: index === normalized.activeBlockIndex && !checked ? getDurationFromTaskNotes(block) * 60 : normalized.remainingSeconds
+        remainingSeconds: index === normalized.activeBlockIndex && !checked ? getDurationFromTaskNotes(block) * 60 : normalized.remainingSeconds,
+        pausedRemainingSeconds: index === normalized.activeBlockIndex && !checked ? getDurationFromTaskNotes(block) * 60 : normalized.pausedRemainingSeconds,
+        timerStatus: index === normalized.activeBlockIndex && !checked ? "paused" : normalized.timerStatus,
+        blockTargetEndAt: index === normalized.activeBlockIndex && !checked ? null : normalized.blockTargetEndAt,
+        blockStartedAt: index === normalized.activeBlockIndex && !checked ? null : normalized.blockStartedAt,
+        blockDurationSeconds: index === normalized.activeBlockIndex && !checked ? getDurationFromTaskNotes(block) * 60 : normalized.blockDurationSeconds,
+        updatedAt: Date.now()
       };
     });
   }
@@ -3786,15 +3831,30 @@ function LongStudyEventWorkspace({
         ...normalized,
         activeBlockIndex: index,
         eventStatus: "paused",
+        timerStatus: "paused",
         remainingSeconds: getDurationFromTaskNotes(block) * 60,
+        pausedRemainingSeconds: getDurationFromTaskNotes(block) * 60,
+        blockDurationSeconds: getDurationFromTaskNotes(block) * 60,
+        blockStartedAt: null,
+        blockTargetEndAt: null,
+        updatedAt: Date.now(),
         blockStatuses: { ...normalized.blockStatuses, [block.id]: normalized.blockStatuses[block.id] === "completed" ? "completed" : "upcoming" }
       };
     });
+    setTimerNotice("");
   }
 
   function endEvent() {
     if (!window.confirm("End this Long Study Event now? You can still save a review afterward.")) return;
-    setState((current) => ({ ...normalizeLongStudySessionState(current, session), eventStatus: "abandoned", pausedAt: new Date().toISOString() }));
+    setState((current) => ({
+      ...normalizeLongStudySessionState(current, session),
+      eventStatus: "abandoned",
+      timerStatus: "paused",
+      pausedAt: new Date().toISOString(),
+      pausedRemainingSeconds: getLongStudyDisplayRemainingSeconds(normalizeLongStudySessionState(current, session), activeDuration),
+      blockTargetEndAt: null,
+      updatedAt: Date.now()
+    }));
   }
 
   function saveWorkspaceReview() {
@@ -3832,12 +3892,15 @@ function LongStudyEventWorkspace({
                 <Badge tone="dark">{activeBlock ? getLongStudyBlockType(activeBlock) : "event"}</Badge>
                 <Badge tone="gold">{activeDuration} min</Badge>
                 <Badge tone="dark">Block {blocks.length ? activeIndex + 1 : 0}/{blocks.length}</Badge>
+                <Badge tone={state.timerStatus === "running" ? "green" : state.timerStatus === "time-up" ? "gold" : "dark"}>{state.timerStatus}</Badge>
               </div>
               <h3 className="mt-3 break-words text-xl font-black text-white sm:text-2xl">{activeBlock?.title ?? "No block selected"}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-300">{activeBlock?.notes.replace("Source: Long Study Mode. ", "") ?? "This event has no blocks yet."}</p>
               <p className="mt-3 text-sm font-bold text-slate-400">Next: {nextBlocks[0]?.title ?? "No next block"}</p>
+              {timerNotice ? <p className="mt-3 rounded-xl border border-cyan-200/20 bg-cyan-300/[0.08] px-3 py-2 text-sm font-bold text-cyan-100">{timerNotice}</p> : null}
+              {blockTimeIsUp && state.eventStatus !== "completed" ? <p className="mt-3 rounded-xl border border-amber-200/25 bg-amber-300/[0.10] px-3 py-2 text-sm font-bold text-amber-100">Block time is up. Complete this block when you are ready to start the next one.</p> : null}
               <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-center">
-                <p className="font-mono text-4xl font-black text-white sm:text-5xl">{formatTimerSeconds(state.remainingSeconds || activeDuration * 60)}</p>
+                <p className="font-mono text-4xl font-black text-white sm:text-5xl">{formatTimerSeconds(displayRemainingSeconds)}</p>
                 <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Current block timer</p>
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -14254,6 +14317,18 @@ function normalizeLongStudySessionState(state: Partial<LongStudySessionState> | 
   const eventStatus = ["planned", "running", "paused", "completed", "abandoned", "archived"].includes(state?.eventStatus ?? "")
     ? state?.eventStatus as LongStudyEventStatus
     : blocks.length && blocks.every((block) => blockStatuses[block.id] === "completed" || blockStatuses[block.id] === "skipped") ? "completed" : "planned";
+  const blockDurationSeconds = Number(state?.blockDurationSeconds) > 0
+    ? Number(state?.blockDurationSeconds)
+    : activeBlock ? getDurationFromTaskNotes(activeBlock) * 60 : 0;
+  const timerStatus = ["idle", "running", "paused", "time-up"].includes(state?.timerStatus ?? "")
+    ? state?.timerStatus as LongStudyTimerStatus
+    : eventStatus === "running" ? "running" : eventStatus === "paused" ? "paused" : "idle";
+  const blockTargetEndAt = Number(state?.blockTargetEndAt) > 0 ? Number(state?.blockTargetEndAt) : null;
+  const pausedRemainingSeconds = Number(state?.pausedRemainingSeconds) >= 0 ? Number(state?.pausedRemainingSeconds) : null;
+  const clockRemainingSeconds = timerStatus === "running" && blockTargetEndAt
+    ? Math.max(0, Math.ceil((blockTargetEndAt - Date.now()) / 1000))
+    : null;
+  const fallbackRemainingSeconds = Number(state?.remainingSeconds) > 0 ? Number(state?.remainingSeconds) : blockDurationSeconds;
   return {
     eventId: session.id,
     activeBlockIndex,
@@ -14262,7 +14337,13 @@ function normalizeLongStudySessionState(state: Partial<LongStudySessionState> | 
     autoStartNextBlock: Boolean(state?.autoStartNextBlock),
     startedAt: state?.startedAt ?? "",
     pausedAt: state?.pausedAt ?? "",
-    remainingSeconds: Number(state?.remainingSeconds) > 0 ? Number(state?.remainingSeconds) : (activeBlock ? getDurationFromTaskNotes(activeBlock) * 60 : 0),
+    timerStatus: clockRemainingSeconds === 0 && timerStatus === "running" ? "time-up" : timerStatus,
+    blockStartedAt: Number(state?.blockStartedAt) > 0 ? Number(state?.blockStartedAt) : null,
+    blockTargetEndAt,
+    pausedRemainingSeconds,
+    blockDurationSeconds,
+    updatedAt: Number(state?.updatedAt) > 0 ? Number(state?.updatedAt) : Date.now(),
+    remainingSeconds: clockRemainingSeconds ?? fallbackRemainingSeconds,
     completedStudyMinutes: Number(state?.completedStudyMinutes) || getLongStudyCompletedStudyMinutes(session, blockStatuses),
     skippedBlocks: Array.isArray(state?.skippedBlocks) ? state?.skippedBlocks.filter(Boolean) : [],
     restored: state?.restored ?? Boolean(state)
@@ -14303,25 +14384,97 @@ function getLongStudyCompletedStudyMinutes(session: LongStudySession, statuses: 
     .reduce((sum, block) => sum + getDurationFromTaskNotes(block), 0);
 }
 
+function getLongStudyDisplayRemainingSeconds(state: LongStudySessionState, fallbackMinutes: number): number {
+  if (state.timerStatus === "running" && state.blockTargetEndAt) {
+    return Math.max(0, Math.ceil((state.blockTargetEndAt - Date.now()) / 1000));
+  }
+  if (state.timerStatus === "paused" && state.pausedRemainingSeconds !== null) return Math.max(0, state.pausedRemainingSeconds);
+  if (state.timerStatus === "time-up") return 0;
+  return Math.max(0, state.remainingSeconds || fallbackMinutes * 60 || state.blockDurationSeconds || 0);
+}
+
+function startLongStudyBlockTimer(state: LongStudySessionState, block: Task, durationSeconds?: number): LongStudySessionState {
+  const now = Date.now();
+  const blockDurationSeconds = Math.max(0, Math.round(durationSeconds ?? getDurationFromTaskNotes(block) * 60));
+  return {
+    ...state,
+    eventStatus: "running",
+    timerStatus: "running",
+    blockStartedAt: now,
+    blockTargetEndAt: now + blockDurationSeconds * 1000,
+    pausedRemainingSeconds: null,
+    blockDurationSeconds,
+    remainingSeconds: blockDurationSeconds,
+    updatedAt: now
+  };
+}
+
+function pauseLongStudyTimer(state: LongStudySessionState): LongStudySessionState {
+  const now = Date.now();
+  const pausedRemainingSeconds = getLongStudyDisplayRemainingSeconds(state, Math.ceil((state.blockDurationSeconds || 0) / 60));
+  return {
+    ...state,
+    eventStatus: "paused",
+    timerStatus: "paused",
+    pausedAt: new Date(now).toISOString(),
+    pausedRemainingSeconds,
+    remainingSeconds: pausedRemainingSeconds,
+    blockTargetEndAt: null,
+    updatedAt: now
+  };
+}
+
+function clearLongStudyTimer(state: LongStudySessionState, nextRemainingSeconds = 0, timerStatus: LongStudyTimerStatus = "paused"): LongStudySessionState {
+  return {
+    ...state,
+    timerStatus,
+    blockStartedAt: null,
+    blockTargetEndAt: null,
+    pausedRemainingSeconds: nextRemainingSeconds,
+    blockDurationSeconds: nextRemainingSeconds,
+    remainingSeconds: nextRemainingSeconds,
+    updatedAt: Date.now()
+  };
+}
+
+function syncLongStudyTimerState(state: LongStudySessionState, session: LongStudySession, allowAutoAdvance: boolean): LongStudySessionState {
+  if (state.timerStatus !== "running" || !state.blockTargetEndAt) return state;
+  const remainingSeconds = Math.max(0, Math.ceil((state.blockTargetEndAt - Date.now()) / 1000));
+  if (remainingSeconds > 0) {
+    return { ...state, remainingSeconds, updatedAt: Date.now() };
+  }
+  if (allowAutoAdvance && state.autoStartNextBlock) {
+    return completeLongStudyBlock({ ...state, remainingSeconds: 0 }, session, state.activeBlockIndex, true);
+  }
+  return {
+    ...state,
+    eventStatus: "paused",
+    timerStatus: "time-up",
+    remainingSeconds: 0,
+    pausedRemainingSeconds: 0,
+    blockTargetEndAt: null,
+    updatedAt: Date.now()
+  };
+}
+
 function completeLongStudyBlock(state: LongStudySessionState, session: LongStudySession, index: number, fromTimer: boolean): LongStudySessionState {
   const blocks = getLongStudyBlocks(session);
   const block = blocks[index];
-  if (!block) return { ...state, eventStatus: "completed", remainingSeconds: 0 };
+  if (!block) return clearLongStudyTimer({ ...state, eventStatus: "completed" }, 0, "idle");
   const nextStatuses = { ...state.blockStatuses, [block.id]: "completed" as LongStudyBlockStatus };
   const nextIndex = blocks.findIndex((item, itemIndex) => itemIndex > index && nextStatuses[item.id] !== "completed" && nextStatuses[item.id] !== "skipped");
   if (nextIndex === -1) {
-    return {
+    return clearLongStudyTimer({
       ...state,
       activeBlockIndex: index,
       eventStatus: "completed",
       blockStatuses: nextStatuses,
-      remainingSeconds: 0,
       completedStudyMinutes: getLongStudyCompletedStudyMinutes(session, nextStatuses)
-    };
+    }, 0, "idle");
   }
   const nextBlock = blocks[nextIndex];
   const shouldAutoStart = fromTimer && state.autoStartNextBlock;
-  return {
+  const nextState: LongStudySessionState = {
     ...state,
     activeBlockIndex: nextIndex,
     eventStatus: shouldAutoStart ? "running" : "paused",
@@ -14329,6 +14482,9 @@ function completeLongStudyBlock(state: LongStudySessionState, session: LongStudy
     remainingSeconds: getDurationFromTaskNotes(nextBlock) * 60,
     completedStudyMinutes: getLongStudyCompletedStudyMinutes(session, nextStatuses)
   };
+  return shouldAutoStart
+    ? startLongStudyBlockTimer(nextState, nextBlock, getDurationFromTaskNotes(nextBlock) * 60)
+    : clearLongStudyTimer(nextState, getDurationFromTaskNotes(nextBlock) * 60, "paused");
 }
 
 function skipLongStudyBlock(state: LongStudySessionState, session: LongStudySession, index: number): LongStudySessionState {
@@ -14338,24 +14494,23 @@ function skipLongStudyBlock(state: LongStudySessionState, session: LongStudySess
   const nextStatuses = { ...state.blockStatuses, [block.id]: "skipped" as LongStudyBlockStatus };
   const nextIndex = blocks.findIndex((item, itemIndex) => itemIndex > index && nextStatuses[item.id] !== "completed" && nextStatuses[item.id] !== "skipped");
   if (nextIndex === -1) {
-    return {
+    return clearLongStudyTimer({
       ...state,
       activeBlockIndex: index,
       eventStatus: "completed",
       blockStatuses: nextStatuses,
       skippedBlocks: Array.from(new Set([...state.skippedBlocks, block.id])),
-      remainingSeconds: 0
-    };
+    }, 0, "idle");
   }
   const nextBlock = blocks[nextIndex];
-  return {
+  return clearLongStudyTimer({
     ...state,
     activeBlockIndex: nextIndex,
     eventStatus: "paused",
     blockStatuses: nextStatuses,
     skippedBlocks: Array.from(new Set([...state.skippedBlocks, block.id])),
     remainingSeconds: getDurationFromTaskNotes(nextBlock) * 60
-  };
+  }, getDurationFromTaskNotes(nextBlock) * 60, "paused");
 }
 
 function formatTimerSeconds(seconds: number): string {
