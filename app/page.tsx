@@ -4191,82 +4191,86 @@ function LongStudyEventWorkspace({
   }
 
   return (
-    <Panel>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <Panel compact className="long-study-workspace">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Long Study Event Workspace</p>
-          <h2 className="mt-2 break-words text-2xl font-black text-white">{session.eventName || session.subject}</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-400">{session.subject} · {session.startTime} to {session.estimatedFinishTime} · {session.pomodoroStyle}</p>
+          <h2 className="mt-1 break-words text-xl font-black leading-tight text-white sm:text-2xl">{session.eventName || session.subject}</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">{session.subject} · {session.startTime} to {session.estimatedFinishTime} · {session.pomodoroStyle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge tone={state.eventStatus === "running" ? "green" : state.eventStatus === "completed" ? "gold" : "dark"}>{state.eventStatus}</Badge>
-          <button type="button" onClick={close} className="secondary-button min-h-10 px-4 py-2 text-sm">Close Workspace</button>
+          <button type="button" onClick={close} className="secondary-button min-h-9 px-3 py-1.5 text-xs sm:text-sm">Close Workspace</button>
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         {(["Run", "Schedule", "Review"] as const).map((tab) => (
-          <button key={tab} type="button" onClick={() => setWorkspaceTab(tab)} className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] ${workspaceTab === tab ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}>
+          <button key={tab} type="button" onClick={() => setWorkspaceTab(tab)} className={`rounded-full border px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] ${workspaceTab === tab ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}>
             {tab}
           </button>
         ))}
       </div>
 
       {workspaceTab === "Run" ? (
-        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="grid min-w-0 gap-4">
-            <section className="min-w-0 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
-              <div className="flex flex-wrap items-center gap-2">
+        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="grid min-w-0 gap-3">
+            <section className="min-w-0 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-3 sm:p-4">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <Badge tone="dark">{activeBlock?.time ?? session.startTime}</Badge>
                 <Badge tone="dark">{activeBlock ? getLongStudyBlockType(activeBlock) : "event"}</Badge>
                 <Badge tone="gold">{activeDuration} min</Badge>
                 <Badge tone="dark">Block {blocks.length ? activeIndex + 1 : 0}/{blocks.length}</Badge>
                 <Badge tone={state.timerStatus === "running" ? "green" : state.timerStatus === "time-up" ? "gold" : "dark"}>{state.timerStatus}</Badge>
               </div>
-              <h3 className="mt-3 break-words text-xl font-black text-white sm:text-2xl">{activeBlock?.title ?? "No block selected"}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-300">{activeBlock?.notes.replace("Source: Long Study Mode. ", "") ?? "This event has no blocks yet."}</p>
-              <p className="mt-3 text-sm font-bold text-slate-400">Next: {nextBlocks[0]?.title ?? "No next block"}</p>
-              {timerNotice ? <p className="mt-3 rounded-xl border border-cyan-200/20 bg-cyan-300/[0.08] px-3 py-2 text-sm font-bold text-cyan-100">{timerNotice}</p> : null}
-              {blockTimeIsUp && state.eventStatus !== "completed" ? <p className="mt-3 rounded-xl border border-amber-200/25 bg-amber-300/[0.10] px-3 py-2 text-sm font-bold text-amber-100">Block time is up. Complete this block when you are ready to start the next one.</p> : null}
-              <div className={`mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-center ${lowPowerTimerMode ? "timer-low-power" : ""}`}>
+              <h3 className="mt-2 break-words text-lg font-black leading-snug text-white sm:text-2xl">{activeBlock?.title ?? "No block selected"}</h3>
+              <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-300">{activeBlock?.notes.replace("Source: Long Study Mode. ", "") ?? "This event has no blocks yet."}</p>
+              <p className="mt-2 text-xs font-bold text-slate-400">Next: {nextBlocks[0]?.title ?? "No next block"}</p>
+              {timerNotice ? <p className="mt-2 rounded-xl border border-cyan-200/20 bg-cyan-300/[0.08] px-3 py-1.5 text-xs font-bold text-cyan-100">{timerNotice}</p> : null}
+              {blockTimeIsUp && state.eventStatus !== "completed" ? <p className="mt-2 rounded-xl border border-amber-200/25 bg-amber-300/[0.10] px-3 py-1.5 text-xs font-bold text-amber-100">Block time is up. Complete this block when you are ready to start the next one.</p> : null}
+              <div className={`mt-3 rounded-2xl border border-white/10 bg-black/30 p-3 text-center ${lowPowerTimerMode ? "timer-low-power" : ""}`}>
                 <TimestampCountdown
                   targetEndAt={state.timerStatus === "running" ? state.blockTargetEndAt : null}
                   fallbackSeconds={displayRemainingSeconds}
                   running={state.timerStatus === "running"}
                   lowPower={lowPowerTimerMode}
-                  className="font-mono text-4xl font-black text-white sm:text-5xl"
+                  className="font-mono text-4xl font-black leading-none text-white sm:text-5xl"
                   onComplete={handleTimerComplete}
                 />
-                <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Current block timer</p>
+                <p className="mt-1 text-[0.65rem] font-black uppercase tracking-[0.16em] text-slate-500">Current block timer</p>
               </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <div className="mt-3 grid gap-2">
+                <div className="grid grid-cols-2 gap-2">
                 {state.eventStatus === "running" ? (
-                  <button type="button" onClick={pauseEvent} className="primary-button justify-center py-2.5 text-sm">Pause</button>
+                  <button type="button" onClick={pauseEvent} className="primary-button min-h-10 justify-center px-3 py-2 text-sm">Pause</button>
                 ) : (
-                  <button type="button" onClick={startEvent} className="primary-button justify-center py-2.5 text-sm">{state.eventStatus === "planned" ? "Start" : "Resume"}</button>
+                  <button type="button" onClick={startEvent} className="primary-button min-h-10 justify-center px-3 py-2 text-sm">{state.eventStatus === "planned" ? "Start" : "Resume"}</button>
                 )}
-                <button type="button" onClick={completeActiveBlock} className="secondary-button justify-center py-2.5 text-sm">Complete</button>
-                <button type="button" onClick={skipActiveBlock} className="secondary-button justify-center py-2.5 text-sm">Skip</button>
-                <button type="button" onClick={resetBlock} className="secondary-button justify-center py-2.5 text-sm">Reset</button>
-                <button type="button" onClick={endEvent} className="danger-button justify-center py-2.5 text-sm">End Event</button>
-                <label className="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-black text-white">
+                  <button type="button" onClick={completeActiveBlock} className="secondary-button min-h-10 justify-center px-3 py-2 text-sm">Complete</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={skipActiveBlock} className="secondary-button min-h-10 justify-center px-3 py-2 text-sm">Skip</button>
+                  <button type="button" onClick={resetBlock} className="secondary-button min-h-10 justify-center px-3 py-2 text-sm">Reset</button>
+                </div>
+                <button type="button" onClick={endEvent} className="danger-button min-h-10 justify-center px-3 py-2 text-sm">End Event</button>
+                <label className="flex min-h-9 items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-black text-white">
+                  <span>Auto next</span>
                   <input
                     type="checkbox"
                     checked={state.autoStartNextBlock}
                     onChange={(event) => setState((current) => ({ ...normalizeLongStudySessionState(current, session), autoStartNextBlock: event.target.checked }))}
                     className="h-4 w-4 accent-cyan-300"
                   />
-                  Auto next
                 </label>
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-100">Up Next</p>
-                <button type="button" onClick={() => setWorkspaceTab("Schedule")} className="secondary-button min-h-10 px-4 py-2 text-sm">Open Full Timeline</button>
+            <section className="rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
+              <div className="flex flex-row items-center justify-between gap-3">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Up Next</p>
+                <button type="button" onClick={() => setWorkspaceTab("Schedule")} className="secondary-button min-h-9 px-3 py-1.5 text-xs">Full Timeline</button>
               </div>
-              <div className="mt-3 grid gap-2">
+              <div className="mt-2 grid gap-1.5">
                 {nextBlocks.length ? nextBlocks.map((block) => (
                   <CompactLongStudyBlockRow key={block.id} block={block} status={state.blockStatuses[block.id] ?? "upcoming"} />
                 )) : <p className="text-sm leading-6 text-slate-400">No upcoming blocks. Finish with Review when ready.</p>}
@@ -4274,34 +4278,36 @@ function LongStudyEventWorkspace({
             </section>
           </div>
 
-          <aside className="grid gap-3 content-start">
-            <MiniMetric label="Study Progress" value={`${formatDayLength(studyMinutesDone)} / ${formatDayLength(session.plannedStudyMinutes || session.studyMinutes)}`} />
-            <MiniMetric label="Current Block" value={`${blocks.length ? activeIndex + 1 : 0}/${blocks.length}`} />
-            <MiniMetric label="Study Blocks" value={`${completedByType(studyBlocks)}/${studyBlocks.length}`} />
-            <MiniMetric label="Break Blocks" value={`${completedByType(breakBlocks)}/${breakBlocks.length}`} />
-            <MiniMetric label="Meal Blocks" value={`${completedByType(mealBlocks)}/${mealBlocks.length}`} />
-            <MiniMetric label="Hygiene Blocks" value={`${completedByType(hygieneBlocks)}/${hygieneBlocks.length}`} />
-            <MiniMetric label="Total Progress" value={`${progressPercent}%`} />
+          <aside className="grid content-start gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <CompactMetric label="Study Progress" value={`${formatDayLength(studyMinutesDone)} / ${formatDayLength(session.plannedStudyMinutes || session.studyMinutes)}`} />
+              <CompactMetric label="Current Block" value={`${blocks.length ? activeIndex + 1 : 0}/${blocks.length}`} />
+              <CompactMetric label="Study Blocks" value={`${completedByType(studyBlocks)}/${studyBlocks.length}`} />
+              <CompactMetric label="Break Blocks" value={`${completedByType(breakBlocks)}/${breakBlocks.length}`} />
+              <CompactMetric label="Meal Blocks" value={`${completedByType(mealBlocks)}/${mealBlocks.length}`} />
+              <CompactMetric label="Hygiene Blocks" value={`${completedByType(hygieneBlocks)}/${hygieneBlocks.length}`} />
+              <CompactMetric label="Total Progress" value={`${progressPercent}%`} className="col-span-2" />
+            </div>
           </aside>
         </div>
       ) : null}
 
       {workspaceTab === "Schedule" ? (
-        <section className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
+          <div className="flex flex-row items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Schedule Timeline</p>
-              <p className="mt-1 text-sm leading-6 text-slate-400">Full event timeline. This panel scrolls internally so the workspace stays usable.</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Schedule Timeline</p>
+              <p className="mt-0.5 text-xs leading-5 text-slate-400">Compact full event timeline.</p>
             </div>
-            <button type="button" onClick={() => setWorkspaceTab("Run")} className="secondary-button min-h-10 px-4 py-2 text-sm">Close Timeline</button>
+            <button type="button" onClick={() => setWorkspaceTab("Run")} className="secondary-button min-h-9 px-3 py-1.5 text-xs">Close</button>
           </div>
-          <div className="mt-4 max-h-[62vh] overflow-y-auto pr-1">
-            <div className="grid gap-2">
+          <div className="mt-3 max-h-[62vh] overflow-y-auto pr-1">
+            <div className="grid gap-1.5">
               {blocks.map((block, index) => {
                 const blockStatus = state.blockStatuses[block.id] ?? "upcoming";
                 const isActive = index === activeIndex;
                 return (
-                  <div key={block.id} className={`grid min-w-0 gap-2 rounded-xl border p-3 sm:grid-cols-[auto_5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center ${isActive ? "border-cyan-200/50 bg-cyan-300/[0.1]" : "border-white/10 bg-white/[0.035]"}`}>
+                  <div key={block.id} className={`grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-xl border p-2 sm:grid-cols-[auto_5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center ${isActive ? "border-cyan-200/50 bg-cyan-300/[0.1]" : "border-white/10 bg-white/[0.035]"}`}>
                     <input type="checkbox" checked={blockStatus === "completed"} onChange={(event) => setBlockCompleted(index, event.target.checked)} className="h-5 w-5 accent-cyan-300" />
                     <span className="text-sm font-black text-white">{block.time}</span>
                     <span className="text-sm font-bold text-slate-300">{getDurationFromTaskNotes(block)} min</span>
@@ -4317,10 +4323,10 @@ function LongStudyEventWorkspace({
       ) : null}
 
       {workspaceTab === "Review" ? (
-        <section className="mt-5 rounded-2xl border border-amber-200/20 bg-amber-300/[0.06] p-4">
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-100">Event Review</p>
-          {state.eventStatus !== "completed" && state.eventStatus !== "abandoned" ? <p className="mt-2 text-sm leading-6 text-slate-400">Finish or end the event when you are ready, then save the review here.</p> : null}
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <section className="mt-3 rounded-2xl border border-amber-200/20 bg-amber-300/[0.06] p-3 sm:p-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-100">Event Review</p>
+          {state.eventStatus !== "completed" && state.eventStatus !== "abandoned" ? <p className="mt-1 text-xs leading-5 text-slate-400">Finish or end the event when ready, then save the review.</p> : null}
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
             <Field label="Total study hours completed"><input type="number" min="0" step="0.25" value={reviewDraft.totalStudyHoursCompleted} onChange={(event) => updateReviewDraft({ totalStudyHoursCompleted: Number(event.target.value) || 0 })} className="form-control" /></Field>
             <Field label="Focus 1-10"><input type="number" min="1" max="10" value={reviewDraft.focus} onChange={(event) => updateReviewDraft({ focus: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
             <Field label="Difficulty 1-10"><input type="number" min="1" max="10" value={reviewDraft.difficulty} onChange={(event) => updateReviewDraft({ difficulty: clampNumber(Number(event.target.value) || 1, 1, 10) })} className="form-control" /></Field>
@@ -4329,12 +4335,12 @@ function LongStudyEventWorkspace({
             <Field label="What confused me"><input value={reviewDraft.confused} onChange={(event) => updateReviewDraft({ confused: event.target.value })} className="form-control" /></Field>
             <Field label="Next study step"><input value={reviewDraft.nextStep} onChange={(event) => updateReviewDraft({ nextStep: event.target.value })} className="form-control" /></Field>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.keptClean} onChange={(event) => updateReviewDraft({ keptClean: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Kept clean?</label>
-            <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.ateEnough} onChange={(event) => updateReviewDraft({ ateEnough: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Ate enough?</label>
-            <label className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.finishedFollowUp} onChange={(event) => updateReviewDraft({ finishedFollowUp: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Finished follow-up?</label>
+          <div className="mt-3 grid gap-2 md:grid-cols-3">
+            <label className="flex min-h-10 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.keptClean} onChange={(event) => updateReviewDraft({ keptClean: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Kept clean?</label>
+            <label className="flex min-h-10 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.ateEnough} onChange={(event) => updateReviewDraft({ ateEnough: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Ate enough?</label>
+            <label className="flex min-h-10 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.finishedFollowUp} onChange={(event) => updateReviewDraft({ finishedFollowUp: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Finished follow-up?</label>
           </div>
-          <button type="button" onClick={saveWorkspaceReview} className="primary-button mt-5 justify-center">Save Event Review</button>
+          <button type="button" onClick={saveWorkspaceReview} className="primary-button mt-3 min-h-10 justify-center px-4 py-2 text-sm">Save Event Review</button>
         </section>
       ) : null}
     </Panel>
@@ -4344,23 +4350,32 @@ function LongStudyEventWorkspace({
 function CompactLongStudyBlockRow({ block, status, onClick }: { block: Task; status: LongStudyBlockStatus; onClick?: () => void }) {
   const content = (
     <>
-      <span className="text-sm font-black text-white">{block.time}</span>
-      <span className="text-sm font-bold text-slate-300">{getDurationFromTaskNotes(block)} min</span>
+      <span className="text-xs font-black text-white sm:text-sm">{block.time}</span>
+      <span className="text-xs font-bold text-slate-300 sm:text-sm">{getDurationFromTaskNotes(block)} min</span>
       <Badge tone="dark">{getLongStudyBlockType(block)}</Badge>
-      <span className="min-w-0 break-words text-sm font-black text-white">{block.title}</span>
+      <span className="min-w-0 break-words text-sm font-black leading-snug text-white">{block.title}</span>
       <Badge tone={status === "completed" ? "green" : status === "skipped" ? "orange" : status === "running" ? "gold" : "dark"}>{status}</Badge>
     </>
   );
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className="grid min-w-0 gap-2 rounded-xl border border-white/10 bg-white/[0.035] p-3 text-left sm:grid-cols-[5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center">
+      <button type="button" onClick={onClick} className="grid min-w-0 grid-cols-[4.5rem_3.5rem_minmax(0,1fr)] gap-1.5 rounded-xl border border-white/10 bg-white/[0.035] p-2 text-left sm:grid-cols-[5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center">
         {content}
       </button>
     );
   }
   return (
-    <div className="grid min-w-0 gap-2 rounded-xl border border-white/10 bg-white/[0.035] p-3 sm:grid-cols-[5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center">
+    <div className="grid min-w-0 grid-cols-[4.5rem_3.5rem_minmax(0,1fr)] gap-1.5 rounded-xl border border-white/10 bg-white/[0.035] p-2 sm:grid-cols-[5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center">
       {content}
+    </div>
+  );
+}
+
+function CompactMetric({ label, value, className = "" }: { label: string; value: string | number; className?: string }) {
+  return (
+    <div className={`min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 ${className}`}>
+      <p className="truncate text-[0.65rem] font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-0.5 break-words text-base font-black leading-tight text-white">{value}</p>
     </div>
   );
 }
