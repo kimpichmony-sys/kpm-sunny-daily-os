@@ -806,6 +806,26 @@ details {
   box-shadow: inset 0 1px 0 rgba(139, 233, 255, 0.07);
 }
 
+.sunny-panel {
+  letter-spacing: 0;
+}
+
+.sunny-panel p,
+.sunny-panel li {
+  overflow-wrap: anywhere;
+}
+
+.sunny-panel button,
+.sunny-panel summary {
+  letter-spacing: 0;
+}
+
+.mission-directive-panel {
+  box-shadow:
+    inset 0 1px 0 rgba(139, 233, 255, 0.10),
+    0 18px 44px rgba(0, 0, 0, 0.24);
+}
+
 @media (max-width: 767px) {
   .workspace-tab-strip {
     margin-top: 0.35rem;
@@ -824,12 +844,19 @@ details {
     padding: 0.7rem !important;
   }
 
+  .sunny-panel {
+    border-radius: 0.95rem !important;
+  }
+
   .long-study-workspace .primary-button,
   .long-study-workspace .secondary-button,
   .long-study-workspace .danger-button,
   .workspace-control-center .primary-button,
   .workspace-control-center .secondary-button,
-  .workspace-control-center .danger-button {
+  .workspace-control-center .danger-button,
+  .sunny-panel .primary-button,
+  .sunny-panel .secondary-button,
+  .sunny-panel .danger-button {
     min-height: 2.15rem;
     border-radius: 0.65rem;
     padding: 0.4rem 0.6rem;

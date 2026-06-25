@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.8.2";
+const APP_VERSION = "V3.9";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -3574,8 +3574,8 @@ function TodayCommand({
   const mainMissionStatus = getMainMissionStatus(mainMission);
 
   return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.75fr)] xl:items-start">
-      <div className="grid min-w-0 gap-4">
+    <section className="grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.75fr)] xl:items-start">
+      <div className="grid min-w-0 gap-3">
       {todayEventMode ? (
         <Panel compact>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3589,7 +3589,7 @@ function TodayCommand({
         </Panel>
       ) : null}
       <Panel compact className="mission-directive-panel">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Mission Directive</p>
@@ -3602,8 +3602,8 @@ function TodayCommand({
                   <Badge tone={currentMission.priority === "S" ? "gold" : "dark"}>{currentMission.priority}-Tier</Badge>
                   <Badge tone="dark">{currentMission.points} KPM</Badge>
                 </div>
-                <h2 className="mt-3 break-words text-2xl font-black leading-tight text-white sm:text-3xl xl:text-4xl">{currentMission.title}</h2>
-                <p className="mt-2 line-clamp-2 max-w-2xl text-sm leading-6 text-slate-300">{getMissionReason(currentMission)}</p>
+                <h2 className="mt-2 break-words text-2xl font-black leading-tight text-white sm:text-3xl xl:text-[2.15rem]">{currentMission.title}</h2>
+                <p className="mt-1.5 line-clamp-2 max-w-2xl text-sm leading-5 text-slate-300">{getMissionReason(currentMission)}</p>
                 <details className="mt-2 text-xs font-bold text-slate-400">
                   <summary className="cursor-pointer text-amber-100">Details</summary>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -3625,24 +3625,24 @@ function TodayCommand({
           </div>
 
           {currentMission ? (
-            <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:w-[260px] lg:grid-cols-2">
-              <button type="button" onClick={() => startMission(currentMission.id)} className="primary-button text-sm sm:col-span-2">
+            <div className="grid min-w-0 gap-1.5 sm:grid-cols-2 lg:w-[250px] lg:grid-cols-2">
+              <button type="button" onClick={() => startMission(currentMission.id)} className="primary-button min-h-9 px-3 py-1.5 text-sm sm:col-span-2">
                 <Target size={18} />
                 Start Mission
               </button>
-              <button type="button" onClick={() => updateTask(currentMission.id, { completed: true, skipped: false })} className="primary-button text-sm">
+              <button type="button" onClick={() => updateTask(currentMission.id, { completed: true, skipped: false })} className="primary-button min-h-9 px-3 py-1.5 text-sm">
                 <CheckCircle2 size={18} />
                 Done
               </button>
-              <button type="button" onClick={() => updateTask(currentMission.id, { skipped: true, completed: false })} className="secondary-button border-orange-300/25 text-sm text-orange-100">
+              <button type="button" onClick={() => updateTask(currentMission.id, { skipped: true, completed: false })} className="secondary-button min-h-9 border-orange-300/25 px-3 py-1.5 text-sm text-orange-100">
                 <X size={18} />
                 Skip
               </button>
-              <button type="button" onClick={() => snoozeTask(currentMission.id)} className="secondary-button text-sm">
+              <button type="button" onClick={() => snoozeTask(currentMission.id)} className="secondary-button min-h-9 px-3 py-1.5 text-sm">
                 <Clock3 size={18} />
                 Snooze
               </button>
-              <button type="button" onClick={rebuildToday} className="secondary-button text-sm">
+              <button type="button" onClick={rebuildToday} className="secondary-button min-h-9 px-3 py-1.5 text-sm">
                 <RotateCcw size={18} />
                 Rebuild
               </button>
@@ -3663,7 +3663,7 @@ function TodayCommand({
       </Panel>
 
         <Panel compact>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Primary Objective</p>
               <h3 className="mt-1 break-words text-xl font-black leading-tight text-white sm:text-2xl">{mainMission?.title ?? "No main mission set"}</h3>
@@ -3687,38 +3687,38 @@ function TodayCommand({
       <Panel compact>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Next 3 Missions</p>
-            <h3 className="mt-1 text-xl font-black text-white">Keep the next step visible</h3>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Next 3 Missions</p>
+            <h3 className="mt-1 text-lg font-black text-white">Keep the next step visible</h3>
           </div>
           <Badge tone="dark">{nextMissions.length} upcoming</Badge>
         </div>
-        <div className="mt-4 grid gap-3">
+        <div className="mt-3 grid gap-2">
           {nextMissions.length > 0 ? (
             nextMissions.map((task) => (
-              <div key={task.id} className="flex min-w-0 flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div key={task.id} className="flex min-w-0 flex-col gap-2 rounded-lg border border-white/10 bg-black/20 p-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-amber-100">{task.time}</p>
-                  <p className="mt-1 break-words text-lg font-black leading-snug text-white">{task.title}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <p className="text-xs font-black text-amber-100">{task.time}</p>
+                  <p className="mt-0.5 break-words text-sm font-black leading-snug text-white sm:text-base">{task.title}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
                     <Badge tone={task.category}>{task.category}</Badge>
                     <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
                     <Badge tone="dark">{task.points} KPM</Badge>
                     <Badge tone="dark">{getTaskSourceLabel(task)}</Badge>
                   </div>
                 </div>
-                <button type="button" onClick={() => updateTask(task.id, { completed: true, skipped: false })} className="secondary-button sm:min-w-28">
+                <button type="button" onClick={() => updateTask(task.id, { completed: true, skipped: false })} className="secondary-button min-h-8 px-3 py-1.5 text-xs sm:min-w-24">
                   Done
                 </button>
               </div>
             ))
           ) : (
-            <p className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm font-semibold text-slate-300">No more upcoming missions. Evening Review is ready when you are.</p>
+            <p className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm font-semibold text-slate-300">No more upcoming missions. Evening Review is ready when you are.</p>
           )}
         </div>
       </Panel>
       </div>
 
-      <aside className="grid min-w-0 gap-4 xl:sticky xl:top-4">
+      <aside className="grid min-w-0 gap-3 xl:sticky xl:top-4">
         <TodayQuickActions rebuildToday={rebuildToday} setActiveSection={setActiveSection} />
         <Panel compact>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Progress Signal</p>
@@ -3743,18 +3743,18 @@ function TodayQuickActions({
 }) {
   return (
     <Panel compact>
-      <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Quick Actions</p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-        <button type="button" onClick={rebuildToday} className="secondary-button">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Quick Actions</p>
+      <div className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-1">
+        <button type="button" onClick={rebuildToday} className="secondary-button min-h-8 px-3 py-1.5 text-xs">
           Build / Rebuild Today
         </button>
-        <button type="button" onClick={() => setActiveSection("Today Task List")} className="secondary-button">
+        <button type="button" onClick={() => setActiveSection("Today Task List")} className="secondary-button min-h-8 px-3 py-1.5 text-xs">
           View Full Mission List
         </button>
-        <button type="button" onClick={() => setActiveSection("Plan")} className="secondary-button">
+        <button type="button" onClick={() => setActiveSection("Plan")} className="secondary-button min-h-8 px-3 py-1.5 text-xs">
           Plan Tomorrow
         </button>
-        <button type="button" onClick={() => setActiveSection("Progress")} className="secondary-button">
+        <button type="button" onClick={() => setActiveSection("Progress")} className="secondary-button min-h-8 px-3 py-1.5 text-xs">
           Evening Review
         </button>
       </div>
@@ -6591,18 +6591,18 @@ function ProgressPlanReviewCard({
   const percent = progress.total ? Math.round((progress.completed / progress.total) * 100) : 0;
 
   return (
-    <article className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+    <article className="rounded-xl border border-white/10 bg-black/20 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h4 className="break-words text-lg font-black text-white">{getPlanDisplayName(plan)}</h4>
+          <h4 className="break-words text-base font-black text-white">{getPlanDisplayName(plan)}</h4>
           <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{formatPlanType(plan.type)}</p>
         </div>
         <Badge tone={plan.status === "active" ? "green" : plan.status === "paused" ? "orange" : "dark"}>{plan.status}</Badge>
       </div>
-      <div className="mt-4">
+      <div className="mt-3">
         <ProgressLine label="Today tasks" value={progress.completed} total={Math.max(progress.total, 1)} percent={percent} />
       </div>
-      <div className="mt-4 grid gap-2 text-sm">
+      <div className="mt-3 grid gap-1.5 text-sm">
         {rows.map((row) => <SummaryRow key={row.label} label={row.label} value={row.value} />)}
       </div>
     </article>
@@ -6613,7 +6613,7 @@ function LongStudyProgressCard({ sessions, reviews }: { sessions: LongStudySessi
   const latest = [...sessions].sort((a, b) => b.date.localeCompare(a.date)).at(0);
   if (!latest) {
     return (
-      <article className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+      <article className="rounded-xl border border-white/10 bg-black/20 p-3">
         <h4 className="font-black text-white">Long Study Event</h4>
         <p className="mt-2 text-sm text-slate-400">No long study events yet.</p>
       </article>
@@ -6621,15 +6621,15 @@ function LongStudyProgressCard({ sessions, reviews }: { sessions: LongStudySessi
   }
   const review = reviews.find((item) => item.sessionId === latest.id);
   return (
-    <article className="rounded-[1.35rem] border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+    <article className="rounded-xl border border-cyan-200/15 bg-cyan-300/[0.055] p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h4 className="break-words text-lg font-black text-white">{latest.eventName}</h4>
-          <p className="mt-1 text-sm text-slate-400">{latest.subject} · {latest.date}</p>
+          <h4 className="break-words text-base font-black text-white">{latest.eventName}</h4>
+          <p className="mt-1 text-xs text-slate-400 sm:text-sm">{latest.subject} · {latest.date}</p>
         </div>
         <Badge tone={review ? "green" : "orange"}>{review ? "reviewed" : "review due"}</Badge>
       </div>
-      <div className="mt-4 grid gap-2 text-sm">
+      <div className="mt-3 grid gap-1.5 text-sm">
         <SummaryRow label="Planned study" value={`${latest.plannedStudyMinutes} min`} />
         <SummaryRow label="Completed study" value={review ? `${roundMacro(review.totalStudyHoursCompleted)}h` : "No review yet"} />
         <SummaryRow label="Finish estimate" value={latest.estimatedFinishTime} />
@@ -6662,11 +6662,11 @@ function LogsCenter({
   const weeklyReviews = activePlans.flatMap((plan) => getPlanWeeklyReviews(plan).map((review) => ({ ...review, planName: getPlanDisplayName(plan) })));
 
   return (
-    <Panel>
-      <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Logs Center</p>
-      <h3 className="mt-2 text-2xl font-black text-white">Everything recorded</h3>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Grouped logs stay readable here. Detailed log editors remain below when you need to update entries.</p>
-      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <Panel compact>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Logs Center</p>
+      <h3 className="mt-1 text-xl font-black text-white">Everything recorded</h3>
+      <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm">Grouped logs stay readable here. Editors stay collapsed below.</p>
+      <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
         <LogSummaryCard title="Food Logs" value={`${foodDays} days`} detail={foodDays ? "Food entries saved" : "No food logs yet"} />
         <LogSummaryCard title="Sleep Logs" value={sleepLogs.length} detail={sleepLogs.at(-1)?.date ?? "No sleep logs yet"} />
         <LogSummaryCard title="Money Logs" value={moneySpendingLogs.length + moneyIncomeLogs.length + moneySavingLogs.length + moneyOpportunityLogs.length} detail={`${moneySpendingLogs.length} spending · ${moneyIncomeLogs.length} income · ${moneySavingLogs.length} saving`} />
@@ -6681,10 +6681,10 @@ function LogsCenter({
 
 function LogSummaryCard({ title, value, detail }: { title: string; value: string | number; detail: string }) {
   return (
-    <article className="rounded-2xl border border-white/10 bg-black/20 p-4">
+    <article className="rounded-xl border border-white/10 bg-black/20 p-3">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{title}</p>
-      <p className="mt-2 text-2xl font-black text-white">{value}</p>
-      <p className="mt-1 break-words text-sm text-slate-400">{detail}</p>
+      <p className="mt-1 text-xl font-black text-white">{value}</p>
+      <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-slate-400 sm:text-sm">{detail}</p>
     </article>
   );
 }
@@ -7899,11 +7899,11 @@ function ActivePlanTasksSection({
 
   return (
     <Panel compact>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Active Disciplines</p>
-          <h3 className="mt-1 text-2xl font-black text-white">Plan systems for today</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">Showing the top 5 priority tasks from all active plans.</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Active Disciplines</p>
+          <h3 className="mt-1 text-lg font-black text-white">Plan systems for today</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">Top 5 priority tasks from active plans.</p>
         </div>
         <Badge tone="dark">{filteredRows.length} tasks</Badge>
       </div>
@@ -7920,7 +7920,7 @@ function ActivePlanTasksSection({
 
       {lifeResetPlan ? <CompactLifeResetSummary activePlan={normalizeLifeResetPlan(lifeResetPlan)} /> : null}
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-1.5">
         {(["All", "Main", "Body", "Skill", "Essentials"] as PlanTaskFilter[]).map((option) => (
           <button
             key={option}
@@ -7929,24 +7929,24 @@ function ActivePlanTasksSection({
               setFilter(option);
               setShowMore(false);
             }}
-            className={`rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${filter === option ? "border-cyan-200/40 bg-[#172033] text-[#F3F4F7] shadow-[0_0_18px_rgba(89,195,255,0.12)]" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-cyan-200/40 hover:text-white"}`}
+            className={`rounded-lg border px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.13em] transition ${filter === option ? "border-cyan-200/40 bg-[#172033] text-[#F3F4F7] shadow-[0_0_18px_rgba(89,195,255,0.12)]" : "border-white/10 bg-white/[0.035] text-slate-300 hover:border-cyan-200/40 hover:text-white"}`}
           >
             {option}
           </button>
         ))}
       </div>
 
-      <div className="mt-4 grid gap-2">
+      <div className="mt-3 grid gap-1.5">
         {visibleRows.length > 0 ? (
           visibleRows.map((row) => (
             <PlanTaskMiniRow key={`${row.plan.id}-${row.id}`} row={row} onToggle={() => togglePlanTask(row.plan, row.id, updateActivePlan)} />
           ))
         ) : (
-          <p className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm font-semibold text-slate-300">No plan tasks match this filter.</p>
+          <p className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm font-semibold text-slate-300">No plan tasks match this filter.</p>
         )}
       </div>
       {filteredRows.length > 5 ? (
-        <button type="button" onClick={() => setShowMore((current) => !current)} className="secondary-button mt-4 w-full justify-center">
+        <button type="button" onClick={() => setShowMore((current) => !current)} className="secondary-button mt-3 min-h-8 w-full justify-center px-3 py-1.5 text-xs">
           {showMore ? "Show Less Plan Tasks" : `View More Plan Tasks (${hiddenCount} hidden)`}
         </button>
       ) : null}
@@ -7959,8 +7959,8 @@ function TodayFocusCard({ focusItems }: { focusItems: TodayFocusItem[] }) {
     <Panel compact className="border-cyan-200/15 bg-[linear-gradient(135deg,rgba(111,214,209,0.075),rgba(19,33,58,0.70))]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Core Priorities</p>
-          <h3 className="mt-1 text-xl font-black text-white">Three directives to execute</h3>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Core Priorities</p>
+          <h3 className="mt-1 text-lg font-black text-white">Three directives to execute</h3>
         </div>
         <Badge tone="gold">{focusItems.length}/3 focus</Badge>
       </div>
@@ -10300,9 +10300,9 @@ function RatingControl({ label, value, onChange }: { label: string; value: numbe
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-1 rounded-2xl bg-white/[0.04] p-3 sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-sm font-bold text-slate-400">{label}</span>
-      <span className="font-black text-white">{value}</span>
+    <div className="flex flex-col gap-1 rounded-lg bg-white/[0.035] px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-xs font-bold text-slate-400 sm:text-sm">{label}</span>
+      <span className="break-words text-sm font-black text-white">{value}</span>
     </div>
   );
 }
@@ -10802,9 +10802,9 @@ function SettingsPanel({
 
 function InstallStep({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+    <div className="rounded-lg border border-white/10 bg-black/20 p-2.5">
       <p className="text-sm font-black text-amber-100">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-400">{body}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">{body}</p>
     </div>
   );
 }
