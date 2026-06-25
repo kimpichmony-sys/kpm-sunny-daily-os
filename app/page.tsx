@@ -4301,20 +4301,21 @@ function LongStudyEventWorkspace({
             </div>
             <button type="button" onClick={() => setWorkspaceTab("Run")} className="secondary-button min-h-8 px-2.5 py-1 text-xs">Close</button>
           </div>
-          <div className="mt-3 max-h-[62vh] overflow-y-auto pr-1">
+          <div className="mt-3 max-h-[62vh] overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] pr-1 sm:pb-1">
             <div className="grid gap-1.5">
               {blocks.map((block, index) => {
                 const blockStatus = state.blockStatuses[block.id] ?? "upcoming";
                 const isActive = index === activeIndex;
                 return (
-                  <div key={block.id} className={`grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-xl border p-2 sm:grid-cols-[auto_5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center ${isActive ? "border-cyan-200/50 bg-cyan-300/[0.1]" : "border-white/10 bg-white/[0.035]"}`}>
-                    <input type="checkbox" checked={blockStatus === "completed"} onChange={(event) => setBlockCompleted(index, event.target.checked)} className="h-5 w-5 accent-cyan-300" />
-                    <span className="text-sm font-black text-white">{block.time}</span>
-                    <span className="text-sm font-bold text-slate-300">{getDurationFromTaskNotes(block)} min</span>
-                    <Badge tone="dark">{getLongStudyBlockType(block)}</Badge>
-                    <button type="button" onClick={() => jumpToBlock(index)} className="min-w-0 break-words text-left text-sm font-black text-white hover:text-cyan-100">{block.title}</button>
-                    <Badge tone={blockStatus === "completed" ? "green" : blockStatus === "skipped" ? "orange" : blockStatus === "running" ? "gold" : "dark"}>{blockStatus}</Badge>
-                  </div>
+                  <LongStudyScheduleRow
+                    key={block.id}
+                    block={block}
+                    status={blockStatus}
+                    isActive={isActive}
+                    checked={blockStatus === "completed"}
+                    onCheckedChange={(checked) => setBlockCompleted(index, checked)}
+                    onSelect={() => jumpToBlock(index)}
+                  />
                 );
               })}
             </div>
@@ -4350,23 +4351,60 @@ function LongStudyEventWorkspace({
 function CompactLongStudyBlockRow({ block, status, onClick }: { block: Task; status: LongStudyBlockStatus; onClick?: () => void }) {
   const content = (
     <>
-      <span className="text-xs font-black text-white sm:text-sm">{block.time}</span>
-      <span className="text-xs font-bold text-slate-300 sm:text-sm">{getDurationFromTaskNotes(block)} min</span>
-      <Badge tone="dark">{getLongStudyBlockType(block)}</Badge>
-      <span className="min-w-0 break-words text-sm font-black leading-snug text-white">{block.title}</span>
-      <Badge tone={status === "completed" ? "green" : status === "skipped" ? "orange" : status === "running" ? "gold" : "dark"}>{status}</Badge>
+      <span className="block min-w-0 truncate text-sm font-black leading-snug text-white">{block.title}</span>
+      <span className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="shrink-0 whitespace-nowrap text-xs font-black text-white sm:text-sm">{block.time}</span>
+        <span className="shrink-0 whitespace-nowrap text-xs font-bold text-slate-400">·</span>
+        <span className="shrink-0 whitespace-nowrap text-xs font-bold text-slate-300 sm:text-sm">{getDurationFromTaskNotes(block)} min</span>
+        <Badge tone="dark">{getLongStudyBlockType(block)}</Badge>
+        <Badge tone={status === "completed" ? "green" : status === "skipped" ? "orange" : status === "running" ? "gold" : "dark"}>{status}</Badge>
+      </span>
     </>
   );
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className="grid min-w-0 grid-cols-[4rem_3.25rem_minmax(0,1fr)] gap-1.5 rounded-lg border border-white/10 bg-white/[0.035] p-1.5 text-left sm:grid-cols-[5rem_4rem_4.75rem_minmax(0,1fr)_5.5rem] sm:items-center">
+      <button type="button" onClick={onClick} className="block min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-2 text-left">
         {content}
       </button>
     );
   }
   return (
-    <div className="grid min-w-0 grid-cols-[4rem_3.25rem_minmax(0,1fr)] gap-1.5 rounded-lg border border-white/10 bg-white/[0.035] p-1.5 sm:grid-cols-[5rem_4rem_4.75rem_minmax(0,1fr)_5.5rem] sm:items-center">
+    <div className="block min-w-0 rounded-lg border border-white/10 bg-white/[0.035] p-2">
       {content}
+    </div>
+  );
+}
+
+function LongStudyScheduleRow({
+  block,
+  status,
+  isActive,
+  checked,
+  onCheckedChange,
+  onSelect
+}: {
+  block: Task;
+  status: LongStudyBlockStatus;
+  isActive: boolean;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  onSelect: () => void;
+}) {
+  return (
+    <div className={`min-w-0 rounded-lg border p-2 ${isActive ? "border-cyan-200/50 bg-cyan-300/[0.1]" : "border-white/10 bg-white/[0.035]"}`}>
+      <div className="flex min-w-0 items-start gap-2">
+        <input type="checkbox" checked={checked} onChange={(event) => onCheckedChange(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-cyan-300 sm:h-5 sm:w-5" />
+        <button type="button" onClick={onSelect} className="min-w-0 flex-1 truncate text-left text-sm font-black leading-snug text-white hover:text-cyan-100">
+          {block.title}
+        </button>
+      </div>
+      <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5 pl-6 sm:pl-7">
+        <span className="shrink-0 whitespace-nowrap text-xs font-black text-white sm:text-sm">{block.time}</span>
+        <span className="shrink-0 whitespace-nowrap text-xs font-bold text-slate-500">·</span>
+        <span className="shrink-0 whitespace-nowrap text-xs font-bold text-slate-300 sm:text-sm">{getDurationFromTaskNotes(block)} min</span>
+        <Badge tone="dark">{getLongStudyBlockType(block)}</Badge>
+        <Badge tone={status === "completed" ? "green" : status === "skipped" ? "orange" : status === "running" ? "gold" : "dark"}>{status}</Badge>
+      </div>
     </div>
   );
 }
@@ -11000,7 +11038,7 @@ function Badge({ children, tone = "dark" }: { children: ReactNode; tone?: Catego
     orange: "border-[#8B7BC6]/34 bg-[#8B7BC6]/12 text-[#d6d0ff]",
     dark: "border-[#B7C2D6]/12 bg-[#13213A]/70 text-[#B7C2D6]"
   };
-  return <span className={`inline-flex max-w-full items-center rounded-full border px-3 py-1 text-left text-xs font-black leading-snug break-words whitespace-normal ${tones[tone]}`}>{children}</span>;
+  return <span className={`inline-flex w-fit max-w-full shrink-0 items-center rounded-full border px-2.5 py-1 text-left text-xs font-black leading-none whitespace-nowrap ${tones[tone]}`}>{children}</span>;
 }
 
 function readStorage<T>(key: string, fallback: T): T {
