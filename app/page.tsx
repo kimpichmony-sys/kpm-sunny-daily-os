@@ -39,6 +39,16 @@ type TimeNeeded = "15 min" | "30 min" | "1 hour" | "2 hours" | "3 hours";
 type DailyMode = "Full Day" | "Low Energy" | "Recovery" | "Money" | "Skill" | "CEO";
 type MainLifeFocus = "Money" | "Health" | "Skill" | "Cleaning" | "Stability" | "Personal Growth";
 type SectionId = "Dashboard" | "Plan" | "Progress" | "Profile" | "Today Task List" | "Plan Tomorrow" | "Evening Review" | "More" | "Command Center" | "History" | "Analytics" | "Template Editor" | "Settings";
+type WorkspaceTabType = "today" | "plan" | "progress" | "profile" | "get_lean" | "money_plan" | "long_study_event" | "build_project" | "sleep_energy" | "life_reset" | "learn_master" | "everyday_essentials" | "long_term_planning" | "plan_detail";
+type WorkspaceTab = {
+  id: string;
+  type: WorkspaceTabType;
+  title: string;
+  relatedPlanId?: string;
+  relatedEventId?: string;
+  isPinned: boolean;
+  lastOpenedAt: string;
+};
 type BuildDayType = "Normal Day" | "Late Wake Day" | "Night Shift Day" | "Recovery Day" | "Appointment / Busy Day" | "Custom Day";
 type BuildEnergy = Energy | "Very Low";
 type DayLengthType = "Normal" | "Compact" | "Short" | "Night Shift";
@@ -992,6 +1002,8 @@ const LONG_TERM_PLANNING_KEY = "kpm-sunny-long-term-planning";
 const LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-events";
 const LONG_STUDY_REVIEWS_KEY = "kpm-sunny-long-study-event-reviews";
 const LONG_STUDY_SESSION_STATES_KEY = "kpm-sunny-long-study-session-states";
+const WORKSPACE_TABS_KEY = "kpm-sunny-workspace-tabs";
+const ACTIVE_WORKSPACE_TAB_KEY = "kpm-sunny-active-workspace-tab-id";
 const TODAY_BACKUP_BEFORE_EVENT_KEY = "kpm-sunny-today-backup-before-event";
 const TODAY_EVENT_MODE_KEY = "kpm-sunny-today-event-mode";
 const LEGACY_LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-sessions";
@@ -1007,7 +1019,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.7.5";
+const APP_VERSION = "V3.8";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -1469,6 +1481,8 @@ function HomeApp() {
   const [longStudySessions, setLongStudySessions] = useLocalStorage<LongStudySession[]>(LONG_STUDY_SESSIONS_KEY, []);
   const [longStudyReviews, setLongStudyReviews] = useLocalStorage<LongStudyReview[]>(LONG_STUDY_REVIEWS_KEY, []);
   const [longStudySessionStates, setLongStudySessionStates] = useLocalStorage<Record<string, LongStudySessionState>>(LONG_STUDY_SESSION_STATES_KEY, {});
+  const [workspaceTabs, setWorkspaceTabs] = useLocalStorage<WorkspaceTab[]>(WORKSPACE_TABS_KEY, createDefaultWorkspaceTabs());
+  const [activeWorkspaceTabId, setActiveWorkspaceTabId] = useLocalStorage<string>(ACTIVE_WORKSPACE_TAB_KEY, "today");
   const [todayBackupBeforeEvent, setTodayBackupBeforeEvent] = useLocalStorage<TodayBackupBeforeEvent | null>(TODAY_BACKUP_BEFORE_EVENT_KEY, null);
   const [todayEventMode, setTodayEventMode] = useLocalStorage<TodayEventMode | null>(TODAY_EVENT_MODE_KEY, null);
   const [templateTasks, setTemplateTasks] = useLocalStorage<TemplateTask[]>(TEMPLATE_KEY, createOriginalTemplate());
@@ -1730,9 +1744,83 @@ function HomeApp() {
   const normalizedLongStudySessions = useMemo(() => normalizeLongStudySessions(longStudySessions), [longStudySessions]);
   const normalizedLongStudyReviews = useMemo(() => normalizeLongStudyReviews(longStudyReviews), [longStudyReviews]);
   const normalizedLongStudySessionStates = useMemo(() => normalizeLongStudySessionStates(longStudySessionStates, normalizedLongStudySessions), [longStudySessionStates, normalizedLongStudySessions]);
+  const normalizedWorkspaceTabs = useMemo(() => normalizeWorkspaceTabs(workspaceTabs, normalizedActivePlans, normalizedLongStudySessions), [normalizedActivePlans, normalizedLongStudySessions, workspaceTabs]);
+  const activeWorkspaceTab = useMemo(
+    () => normalizedWorkspaceTabs.find((tab) => tab.id === activeWorkspaceTabId) ?? normalizedWorkspaceTabs[0] ?? createDefaultWorkspaceTabs()[0],
+    [activeWorkspaceTabId, normalizedWorkspaceTabs]
+  );
+  const isCustomWorkspaceActive = Boolean(activeWorkspaceTab && !activeWorkspaceTab.isPinned);
   const activeTodayPlans = useMemo(() => normalizedActivePlans.filter((plan) => plan.status === "active"), [normalizedActivePlans]);
   const todayPlanRows = useMemo(() => getPrioritizedPlanTaskRows(activeTodayPlans), [activeTodayPlans]);
   const todayFocusItems = useMemo(() => getTodayFocusItems(tasks, mainMission, todayPlanRows), [tasks, mainMission, todayPlanRows]);
+
+  useEffect(() => {
+    if (JSON.stringify(normalizedWorkspaceTabs) !== JSON.stringify(workspaceTabs)) setWorkspaceTabs(normalizedWorkspaceTabs);
+    if (!normalizedWorkspaceTabs.some((tab) => tab.id === activeWorkspaceTabId)) setActiveWorkspaceTabId("today");
+  }, [activeWorkspaceTabId, normalizedWorkspaceTabs, setActiveWorkspaceTabId, setWorkspaceTabs, workspaceTabs]);
+
+  function selectWorkspaceTab(tabId: string) {
+    const tab = normalizedWorkspaceTabs.find((item) => item.id === tabId);
+    if (!tab) return;
+    setActiveWorkspaceTabId(tab.id);
+    if (tab.type === "today") setActiveSection("Dashboard");
+    if (tab.type === "plan") setActiveSection("Plan");
+    if (tab.type === "progress") setActiveSection("Progress");
+    if (tab.type === "profile") setActiveSection("Profile");
+    if (!tab.isPinned) setActiveSection("Plan");
+  }
+
+  function selectMainSection(section: SectionId) {
+    setActiveSection(section);
+    const pinnedId = sectionToWorkspaceTabId(section);
+    if (pinnedId) setActiveWorkspaceTabId(pinnedId);
+  }
+
+  function openWorkspaceTab(nextTab: WorkspaceTab) {
+    const normalized = normalizeWorkspaceTabs([...normalizedWorkspaceTabs, { ...nextTab, lastOpenedAt: new Date().toISOString() }], normalizedActivePlans, normalizedLongStudySessions);
+    const existing = normalized.find((tab) => tab.id === nextTab.id);
+    setWorkspaceTabs(normalized.map((tab) => (tab.id === nextTab.id ? { ...tab, ...nextTab, lastOpenedAt: new Date().toISOString() } : tab)));
+    setActiveWorkspaceTabId(existing?.id ?? nextTab.id);
+    setActiveSection(nextTab.isPinned ? workspaceTypeToSection(nextTab.type) : "Plan");
+  }
+
+  function closeWorkspaceTab(tabId: string) {
+    const tab = normalizedWorkspaceTabs.find((item) => item.id === tabId);
+    if (!tab || tab.isPinned) return;
+    const nextTabs = normalizedWorkspaceTabs.filter((item) => item.id !== tabId);
+    setWorkspaceTabs(nextTabs);
+    if (activeWorkspaceTabId === tabId) {
+      const fallback = nextTabs.find((item) => item.id === "plan") ?? nextTabs[0] ?? createDefaultWorkspaceTabs()[0];
+      setActiveWorkspaceTabId(fallback.id);
+      setActiveSection(workspaceTypeToSection(fallback.type));
+    }
+  }
+
+  function openPlanWorkspace(planItem: ActivePlan) {
+    const normalized = normalizeActivePlan(planItem);
+    openWorkspaceTab({
+      id: `plan:${normalized.id}`,
+      type: planTypeToWorkspaceType(normalized.type),
+      title: getWorkspacePlanTitle(normalized),
+      relatedPlanId: normalized.id,
+      isPinned: false,
+      lastOpenedAt: new Date().toISOString()
+    });
+  }
+
+  function openLongStudyWorkspaceTab(eventId: string, tab: "Run" | "Schedule" | "Review" = "Run") {
+    const session = normalizedLongStudySessions.find((item) => item.id === eventId);
+    if (!session) return;
+    setOpenLongStudyEventId(eventId);
+    openWorkspaceTab({
+      id: `long-study:${eventId}`,
+      type: "long_study_event",
+      title: `Long Study: ${session.subject || session.eventName || "Event"}`,
+      relatedEventId: eventId,
+      isPinned: false,
+      lastOpenedAt: new Date().toISOString()
+    });
+  }
 
   function addActivePlan(nextPlan: ActivePlan) {
     const normalizedPlan = normalizeActivePlan({ ...nextPlan, id: nextPlan.id || createPlanId(nextPlan.type) });
@@ -1831,6 +1919,8 @@ function HomeApp() {
     setLongStudySessions([]);
     setLongStudyReviews([]);
     setLongStudySessionStates({});
+    setWorkspaceTabs(createDefaultWorkspaceTabs());
+    setActiveWorkspaceTabId("today");
     setOpenLongStudyEventId(null);
     setTodayBackupBeforeEvent(null);
     setTodayEventMode(null);
@@ -1880,6 +1970,8 @@ function HomeApp() {
     setLongStudySessions([]);
     setLongStudyReviews([]);
     setLongStudySessionStates({});
+    setWorkspaceTabs(createDefaultWorkspaceTabs());
+    setActiveWorkspaceTabId("today");
     setOpenLongStudyEventId(null);
     setTodayBackupBeforeEvent(null);
     setTodayEventMode(null);
@@ -2270,14 +2362,45 @@ function HomeApp() {
       <div className="sunny-atmosphere pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(89,195,255,0.14),transparent_30%),radial-gradient(circle_at_84%_14%,rgba(166,30,44,0.10),transparent_28%),radial-gradient(circle_at_58%_0%,rgba(216,194,122,0.055),transparent_26%),linear-gradient(135deg,#060A14_0%,#0A1020_48%,#030711_100%)]" />
       {!isOnline ? <OfflineBanner /> : null}
       <div className={`app-shell relative grid min-h-screen min-w-0 max-w-full lg:grid-cols-[188px_minmax(0,1fr)] ${activeSection === "Dashboard" ? "" : "with-right-panel 2xl:grid-cols-[188px_minmax(0,1fr)_300px]"}`}>
-        <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
+        <Sidebar activeSection={activeSection} setActiveSection={selectMainSection} />
 
         <main className="sunny-main min-w-0 max-w-full overflow-x-hidden px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-5 lg:px-4 lg:pb-6 lg:pt-4 xl:px-5">
           <CommandHeader stats={stats} dayLevel={dayLevel} activeSection={activeSection} todayKey={todayKey} todayMode={todayMode} dayMeta={dayMeta} />
+          <WorkspaceTabBar tabs={normalizedWorkspaceTabs} activeTabId={activeWorkspaceTab.id} selectTab={selectWorkspaceTab} closeTab={closeWorkspaceTab} />
           {activeSection !== "Dashboard" && activeSection !== "Plan" ? <MobilePriorityPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} /> : null}
 
           <div className="mx-auto mt-6 w-full max-w-[1180px]">
-            {activeSection === "Dashboard" && (
+            {isCustomWorkspaceActive ? (
+              <WorkspaceTabContent
+                tab={activeWorkspaceTab}
+                activePlans={normalizedActivePlans}
+                updateActivePlan={updateActivePlan}
+                updatePlanStatus={updatePlanStatus}
+                foodLibrary={normalizedFoodLibrary}
+                setFoodLibrary={setFoodLibrary}
+                dailyFoodLogs={normalizedDailyFoodLogs}
+                setDailyFoodLogs={setDailyFoodLogs}
+                moneySpendingLogs={normalizedMoneySpendingLogs}
+                setMoneySpendingLogs={setMoneySpendingLogs}
+                moneyIncomeLogs={normalizedMoneyIncomeLogs}
+                setMoneyIncomeLogs={setMoneyIncomeLogs}
+                moneySavingLogs={normalizedMoneySavingLogs}
+                setMoneySavingLogs={setMoneySavingLogs}
+                moneyOpportunityLogs={normalizedMoneyOpportunityLogs}
+                setMoneyOpportunityLogs={setMoneyOpportunityLogs}
+                longStudySessions={normalizedLongStudySessions}
+                longStudyReviews={normalizedLongStudyReviews}
+                saveLongStudyReview={saveLongStudyReview}
+                longStudySessionStates={normalizedLongStudySessionStates}
+                setLongStudySessionStates={setLongStudySessionStates}
+                longTermPlanning={normalizeLongTermPlanning(longTermPlanning)}
+                setLongTermPlanning={setLongTermPlanning}
+                sendLongTermTaskToToday={sendLongTermTaskToToday}
+                todayKey={todayKey}
+                closeWorkspace={() => closeWorkspaceTab(activeWorkspaceTab.id)}
+              />
+            ) : null}
+            {!isCustomWorkspaceActive && activeSection === "Dashboard" && (
               <div className="grid gap-5">
                 {showBuildTodayFlow || tasks.length === 0 ? (
                   <BuildToday
@@ -2316,7 +2439,7 @@ function HomeApp() {
                 )}
               </div>
             )}
-            {activeSection === "Command Center" && (
+            {!isCustomWorkspaceActive && activeSection === "Command Center" && (
               <Dashboard
                 stats={stats}
                 dayLevel={dayLevel}
@@ -2339,7 +2462,7 @@ function HomeApp() {
                 setActiveSection={setActiveSection}
               />
             )}
-            {activeSection === "Plan" && (
+            {!isCustomWorkspaceActive && activeSection === "Plan" && (
               <PlanFoundation
                 plan={plan}
                 setPlan={setPlan}
@@ -2390,9 +2513,18 @@ function HomeApp() {
                 longTermPlanning={normalizeLongTermPlanning(longTermPlanning)}
                 setLongTermPlanning={setLongTermPlanning}
                 sendLongTermTaskToToday={sendLongTermTaskToToday}
+                openPlanWorkspace={openPlanWorkspace}
+                openLongStudyWorkspaceTab={openLongStudyWorkspaceTab}
+                openLongTermPlanningWorkspace={() => openWorkspaceTab({
+                  id: "long-term-planning",
+                  type: "long_term_planning",
+                  title: "Long-Term Planning",
+                  isPinned: false,
+                  lastOpenedAt: new Date().toISOString()
+                })}
               />
             )}
-            {activeSection === "Progress" && (
+            {!isCustomWorkspaceActive && activeSection === "Progress" && (
               <ProgressFoundation
                 review={review}
                 setReview={setReview}
@@ -2419,7 +2551,7 @@ function HomeApp() {
                 longTermPlanning={normalizeLongTermPlanning(longTermPlanning)}
               />
             )}
-            {activeSection === "Profile" && (
+            {!isCustomWorkspaceActive && activeSection === "Profile" && (
               <ProfileScreen
                 profile={normalizeProfile(profile)}
                 activePlans={normalizedActivePlans}
@@ -2437,10 +2569,10 @@ function HomeApp() {
                 resetDefaultTemplate={resetDefaultTemplate}
               />
             )}
-            {activeSection === "Today Task List" && (
+            {!isCustomWorkspaceActive && activeSection === "Today Task List" && (
               <TaskList tasks={tasks} todayMode={todayMode} updateTask={updateTask} resetToday={resetToday} addTask={addTask} editTask={editTask} deleteTask={deleteTask} />
             )}
-            {activeSection === "Plan Tomorrow" && (
+            {!isCustomWorkspaceActive && activeSection === "Plan Tomorrow" && (
               <PlanTomorrow
                 plan={plan}
                 setPlan={setPlan}
@@ -2454,16 +2586,16 @@ function HomeApp() {
                 tomorrowTasks={tomorrowTasks}
               />
             )}
-            {activeSection === "Evening Review" && (
+            {!isCustomWorkspaceActive && activeSection === "Evening Review" && (
               <EveningReview review={review} setReview={setReview} stats={stats} dayLevel={dayLevel} tasks={tasks} todayKey={todayKey} />
             )}
-            {activeSection === "History" && (
+            {!isCustomWorkspaceActive && activeSection === "History" && (
               <HistoryPage history={history} sevenDayTest={sevenDayTest} />
             )}
-            {activeSection === "Analytics" && (
+            {!isCustomWorkspaceActive && activeSection === "Analytics" && (
               <AnalyticsPage analytics={analytics} streaks={streaks} />
             )}
-            {activeSection === "Template Editor" && (
+            {!isCustomWorkspaceActive && activeSection === "Template Editor" && (
               <TemplateEditor
                 templateTasks={normalizeTemplate(templateTasks)}
                 shiftEarlier={settings.scheduleVersion === "5:00"}
@@ -2477,7 +2609,7 @@ function HomeApp() {
                 applyTemplateToToday={applyTemplateToToday}
               />
             )}
-            {activeSection === "Settings" && (
+            {!isCustomWorkspaceActive && activeSection === "Settings" && (
               <SettingsPanel
                 settings={settings}
                 setSettings={setSettings}
@@ -2491,7 +2623,7 @@ function HomeApp() {
                 generateTodayByMode={generateTodayByMode}
               />
             )}
-            {activeSection === "More" && (
+            {!isCustomWorkspaceActive && activeSection === "More" && (
               <MorePage setActiveSection={setActiveSection} />
             )}
           </div>
@@ -2500,7 +2632,7 @@ function HomeApp() {
         {activeSection !== "Dashboard" ? <RightPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} tasks={tasks} streaks={streaks} todayMode={todayMode} /> : null}
       </div>
 
-      <BottomNav activeSection={activeSection} setActiveSection={setActiveSection} />
+      <BottomNav activeSection={activeSection} setActiveSection={selectMainSection} />
       {activeFocusTask ? (
         <StartMissionModal
           task={activeFocusTask}
@@ -2614,7 +2746,7 @@ function Sidebar({
   setActiveSection
 }: {
   activeSection: SectionId;
-  setActiveSection: Dispatch<SetStateAction<SectionId>>;
+  setActiveSection: (section: SectionId) => void;
 }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-[188px] min-w-0 border-r border-cyan-200/10 bg-[#060A14]/80 p-3 backdrop-blur-xl lg:block">
@@ -2669,7 +2801,7 @@ function BottomNav({
   setActiveSection
 }: {
   activeSection: SectionId;
-  setActiveSection: Dispatch<SetStateAction<SectionId>>;
+  setActiveSection: (section: SectionId) => void;
 }) {
   return (
     <nav className="sunny-bottom-nav fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#070b14]/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl lg:hidden">
@@ -2692,6 +2824,213 @@ function BottomNav({
         })}
       </div>
     </nav>
+  );
+}
+
+function WorkspaceTabBar({
+  tabs,
+  activeTabId,
+  selectTab,
+  closeTab
+}: {
+  tabs: WorkspaceTab[];
+  activeTabId: string;
+  selectTab: (tabId: string) => void;
+  closeTab: (tabId: string) => void;
+}) {
+  return (
+    <div className="mt-3 min-w-0 max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-1.5 backdrop-blur-xl">
+      <div className="no-scrollbar flex max-w-full gap-1.5 overflow-x-auto">
+        {tabs.map((tab) => {
+          const active = tab.id === activeTabId;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => selectTab(tab.id)}
+              className={`group flex min-h-9 max-w-[15rem] shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-black transition ${
+                active
+                  ? "border-cyan-200/45 bg-cyan-300/[0.14] text-cyan-50 shadow-[0_0_24px_rgba(89,195,255,0.10)]"
+                  : "border-white/8 bg-white/[0.035] text-slate-300 hover:bg-white/[0.07]"
+              }`}
+            >
+              <span className="truncate">{tab.title}</span>
+              {!tab.isPinned ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Close ${tab.title}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    closeTab(tab.id);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      closeTab(tab.id);
+                    }
+                  }}
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white"
+                >
+                  <X size={13} />
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceTabContent({
+  tab,
+  activePlans,
+  updateActivePlan,
+  updatePlanStatus,
+  foodLibrary,
+  setFoodLibrary,
+  dailyFoodLogs,
+  setDailyFoodLogs,
+  moneySpendingLogs,
+  setMoneySpendingLogs,
+  moneyIncomeLogs,
+  setMoneyIncomeLogs,
+  moneySavingLogs,
+  setMoneySavingLogs,
+  moneyOpportunityLogs,
+  setMoneyOpportunityLogs,
+  longStudySessions,
+  longStudyReviews,
+  saveLongStudyReview,
+  longStudySessionStates,
+  setLongStudySessionStates,
+  longTermPlanning,
+  setLongTermPlanning,
+  sendLongTermTaskToToday,
+  todayKey,
+  closeWorkspace
+}: {
+  tab: WorkspaceTab;
+  activePlans: ActivePlan[];
+  updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
+  updatePlanStatus: (planId: string, status: PlanStatus) => void;
+  foodLibrary: FoodItem[];
+  setFoodLibrary: Dispatch<SetStateAction<FoodItem[]>>;
+  dailyFoodLogs: DailyFoodLogs;
+  setDailyFoodLogs: Dispatch<SetStateAction<DailyFoodLogs>>;
+  moneySpendingLogs: MoneySpendingLog[];
+  setMoneySpendingLogs: Dispatch<SetStateAction<MoneySpendingLog[]>>;
+  moneyIncomeLogs: MoneyIncomeLog[];
+  setMoneyIncomeLogs: Dispatch<SetStateAction<MoneyIncomeLog[]>>;
+  moneySavingLogs: MoneySavingLog[];
+  setMoneySavingLogs: Dispatch<SetStateAction<MoneySavingLog[]>>;
+  moneyOpportunityLogs: MoneyOpportunityLog[];
+  setMoneyOpportunityLogs: Dispatch<SetStateAction<MoneyOpportunityLog[]>>;
+  longStudySessions: LongStudySession[];
+  longStudyReviews: LongStudyReview[];
+  saveLongStudyReview: (review: LongStudyReview) => void;
+  longStudySessionStates: Record<string, LongStudySessionState>;
+  setLongStudySessionStates: Dispatch<SetStateAction<Record<string, LongStudySessionState>>>;
+  longTermPlanning: LongTermPlanningState;
+  setLongTermPlanning: Dispatch<SetStateAction<LongTermPlanningState>>;
+  sendLongTermTaskToToday: (source: "Weekly Mission" | "Next Action", item: WeeklyMission | NextAction) => void;
+  todayKey: string;
+  closeWorkspace: () => void;
+}) {
+  if (tab.type === "long_term_planning") {
+    return (
+      <LongTermPlanningHub
+        planning={longTermPlanning}
+        setPlanning={setLongTermPlanning}
+        activePlans={activePlans}
+        sendLongTermTaskToToday={sendLongTermTaskToToday}
+      />
+    );
+  }
+
+  if (tab.type === "long_study_event") {
+    const session = longStudySessions.find((item) => item.id === tab.relatedEventId);
+    if (!session) return <MissingWorkspace title="Long Study Event not found" closeWorkspace={closeWorkspace} />;
+    return (
+      <LongStudyEventWorkspace
+        session={session}
+        state={normalizeLongStudySessionState(longStudySessionStates[session.id], session)}
+        setState={(updater) => setLongStudySessionStates((current) => {
+          const currentState = normalizeLongStudySessionState(current[session.id], session);
+          const nextState = typeof updater === "function" ? (updater as (value: LongStudySessionState) => LongStudySessionState)(currentState) : updater;
+          return { ...current, [session.id]: normalizeLongStudySessionState(nextState, session) };
+        })}
+        reviews={longStudyReviews}
+        saveReview={saveLongStudyReview}
+        close={closeWorkspace}
+      />
+    );
+  }
+
+  const plan = activePlans.find((item) => item.id === tab.relatedPlanId);
+  if (!plan) return <MissingWorkspace title="Plan not found" closeWorkspace={closeWorkspace} />;
+  const planSetter: Dispatch<SetStateAction<ActivePlan | null>> = (updater) => updateActivePlan(plan.id, updater);
+
+  return (
+    <section className="grid gap-5">
+      <Panel compact>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Workspace</p>
+            <h2 className="mt-1 break-words text-2xl font-black text-white">{getPlanDisplayName(plan)}</h2>
+            <p className="mt-1 text-sm text-slate-400">{formatPlanType(plan.type)} · {plan.status}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => updatePlanStatus(plan.id, plan.status === "active" ? "paused" : "active")} className="secondary-button min-h-10 px-4 py-2 text-sm">{plan.status === "active" ? "Pause" : "Resume"}</button>
+            <button type="button" onClick={closeWorkspace} className="secondary-button min-h-10 px-4 py-2 text-sm">Close Tab</button>
+          </div>
+        </div>
+      </Panel>
+
+      {plan.type === "everyday_essentials" ? <EssentialsChecklistManager activePlan={normalizeEverydayEssentialsPlan(plan)} setActivePlan={planSetter} /> : null}
+      {plan.type === "get_lean_shred" ? (
+        <GetLeanPlanDetails
+          activePlan={normalizeGetLeanPlan(plan)}
+          setActivePlan={planSetter}
+          foodLibrary={foodLibrary}
+          setFoodLibrary={setFoodLibrary}
+          dailyFoodLogs={dailyFoodLogs}
+          setDailyFoodLogs={setDailyFoodLogs}
+          todayKey={todayKey}
+        />
+      ) : null}
+      {plan.type === "learn_master_subject" ? <LearnMasterPlanDetails activePlan={normalizeLearnMasterPlan(plan)} setActivePlan={planSetter} /> : null}
+      {plan.type === "fix_sleep_energy" ? <SleepEnergyPlanDetails activePlan={normalizeSleepEnergyPlan(plan)} setActivePlan={planSetter} /> : null}
+      {plan.type === "build_project" ? <BuildProjectPlanDetails activePlan={normalizeBuildProjectPlan(plan)} setActivePlan={planSetter} /> : null}
+      {plan.type === "money_plan" ? (
+        <MoneyPlanDetails
+          activePlan={normalizeMoneyPlan(plan)}
+          setActivePlan={planSetter}
+          spendingLogs={moneySpendingLogs}
+          setSpendingLogs={setMoneySpendingLogs}
+          incomeLogs={moneyIncomeLogs}
+          setIncomeLogs={setMoneyIncomeLogs}
+          savingLogs={moneySavingLogs}
+          setSavingLogs={setMoneySavingLogs}
+          opportunityLogs={moneyOpportunityLogs}
+          setOpportunityLogs={setMoneyOpportunityLogs}
+        />
+      ) : null}
+      {plan.type === "life_reset" ? <LifeResetPlanDetails activePlan={normalizeLifeResetPlan(plan)} setActivePlan={planSetter} /> : null}
+    </section>
+  );
+}
+
+function MissingWorkspace({ title, closeWorkspace }: { title: string; closeWorkspace: () => void }) {
+  return (
+    <Panel>
+      <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Workspace unavailable</p>
+      <h2 className="mt-2 text-2xl font-black text-white">{title}</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-400">This tab references data that no longer exists on this device. Closing the tab will not delete any app data.</p>
+      <button type="button" onClick={closeWorkspace} className="secondary-button mt-4">Close Tab</button>
+    </Panel>
   );
 }
 
@@ -5136,7 +5475,10 @@ function PlanFoundation({
   copyLongStudyBlocksToToday,
   longTermPlanning,
   setLongTermPlanning,
-  sendLongTermTaskToToday
+  sendLongTermTaskToToday,
+  openPlanWorkspace,
+  openLongStudyWorkspaceTab,
+  openLongTermPlanningWorkspace
 }: {
   plan: Plan;
   setPlan: Dispatch<SetStateAction<Plan>>;
@@ -5187,6 +5529,9 @@ function PlanFoundation({
   longTermPlanning: LongTermPlanningState;
   setLongTermPlanning: Dispatch<SetStateAction<LongTermPlanningState>>;
   sendLongTermTaskToToday: (source: "Weekly Mission" | "Next Action", item: WeeklyMission | NextAction) => void;
+  openPlanWorkspace: (plan: ActivePlan) => void;
+  openLongStudyWorkspaceTab: (eventId: string, tab?: "Run" | "Schedule" | "Review") => void;
+  openLongTermPlanningWorkspace: () => void;
 }) {
   const activeCount = activePlans.filter((item) => item.status === "active").length;
   const pausedCount = activePlans.filter((item) => item.status === "paused").length;
@@ -5411,7 +5756,7 @@ function PlanFoundation({
         </div>
       </Panel>
 
-      {showActiveSection ? <ActivePlansManager activePlans={activePlans} updateActivePlan={updateActivePlan} updatePlanStatus={updatePlanStatus} /> : null}
+      {showActiveSection ? <ActivePlansManager activePlans={activePlans} updateActivePlan={updateActivePlan} updatePlanStatus={updatePlanStatus} openPlanWorkspace={openPlanWorkspace} /> : null}
 
       {planTabFilter === "All" ? (
         <Panel compact>
@@ -5423,23 +5768,6 @@ function PlanFoundation({
 
       {showEventsSection ? (
       <CollapsibleSection title="Special Event Plans" subtitle="Special events do not replace your normal day unless you choose to connect them to Today." defaultOpen={true}>
-        {openLongStudyEvent ? (
-          <div className="mb-5">
-            <LongStudyEventWorkspace
-              session={openLongStudyEvent}
-              initialTab={longStudyWorkspaceInitialTab}
-              state={normalizeLongStudySessionState(longStudySessionStates[openLongStudyEvent.id], openLongStudyEvent)}
-              setState={(updater) => setLongStudySessionStates((current) => {
-                const currentState = normalizeLongStudySessionState(current[openLongStudyEvent.id], openLongStudyEvent);
-                const nextState = typeof updater === "function" ? (updater as (value: LongStudySessionState) => LongStudySessionState)(currentState) : updater;
-                return { ...current, [openLongStudyEvent.id]: normalizeLongStudySessionState(nextState, openLongStudyEvent) };
-              })}
-              reviews={longStudyReviews}
-              saveReview={saveLongStudyReview}
-              close={() => setOpenLongStudyEventId(null)}
-            />
-          </div>
-        ) : null}
         <LongStudyModePanel
           draft={longStudyDraft}
           setDraft={setLongStudyDraft}
@@ -5452,8 +5780,8 @@ function PlanFoundation({
           events={longStudySessions}
           eventStates={longStudySessionStates}
           copyKeyBlocksToToday={copyLongStudyBlocksToToday}
-          openEventWorkspace={(eventId) => openLongStudyWorkspace(eventId, "Run")}
-          openEventSchedule={(eventId) => openLongStudyWorkspace(eventId, "Schedule")}
+          openEventWorkspace={(eventId) => openLongStudyWorkspaceTab(eventId, "Run")}
+          openEventSchedule={(eventId) => openLongStudyWorkspaceTab(eventId, "Schedule")}
           deleteEvent={deleteLongStudyEvent}
           updateEventStatus={updateLongStudyEventStatus}
         />
@@ -5497,6 +5825,18 @@ function PlanFoundation({
       {showReviewsSection ? <WeeklyReviewsDue plans={reviewDuePlans} /> : null}
 
       {showArchivedSection ? <ArchivedPlansSection plans={archivedPlans} updatePlanStatus={updatePlanStatus} /> : null}
+
+      {planTabFilter === "All" ? (
+      <Panel compact>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Long-Term Planning</p>
+            <p className="mt-1 text-sm leading-6 text-slate-400">Open big goals, 90-day plans, monthly focus, weekly missions, and next actions as a workspace tab.</p>
+          </div>
+          <button type="button" onClick={openLongTermPlanningWorkspace} className="primary-button min-h-10 px-4 py-2 text-sm">Open Workspace</button>
+        </div>
+      </Panel>
+      ) : null}
 
       {planTabFilter === "All" ? (
       <LongTermPlanningHub
@@ -5904,11 +6244,13 @@ function PlanningCardActions({ edit, complete, archive, remove }: { edit: () => 
 function ActivePlansManager({
   activePlans,
   updateActivePlan,
-  updatePlanStatus
+  updatePlanStatus,
+  openPlanWorkspace
 }: {
   activePlans: ActivePlan[];
   updateActivePlan: (planId: string, updater: SetStateAction<ActivePlan | null>) => void;
   updatePlanStatus: (planId: string, status: PlanStatus) => void;
+  openPlanWorkspace: (plan: ActivePlan) => void;
 }) {
   const [filter, setFilter] = useState<PlanStatus | "all">("active");
   const [openPlanId, setOpenPlanId] = useState<string | null>(null);
@@ -5978,7 +6320,7 @@ function ActivePlansManager({
                 <SummaryRow label="Last log" value={getPlanLastLogText(plan)} />
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" onClick={() => setOpenPlanId(openPlanId === plan.id ? null : plan.id)} className="secondary-button min-h-9 px-3 py-2 text-xs">Open</button>
+                <button type="button" onClick={() => openPlanWorkspace(plan)} className="primary-button min-h-9 px-3 py-2 text-xs">Open Workspace</button>
                 <button type="button" onClick={() => setEditPlanId(plan.id)} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit Setup</button>
                 {plan.status === "active" ? (
                   <button type="button" onClick={() => updatePlanStatus(plan.id, "paused")} className="secondary-button min-h-9 px-3 py-2 text-xs">Pause</button>
@@ -11012,6 +11354,78 @@ function normalizeSettings(settings: Partial<SettingsState>): SettingsState {
     sevenDayTestStartDate,
     visualTheme
   };
+}
+
+function createDefaultWorkspaceTabs(): WorkspaceTab[] {
+  return [
+    { id: "today", type: "today", title: "Today Command", isPinned: true, lastOpenedAt: "pinned" },
+    { id: "plan", type: "plan", title: "Plan", isPinned: true, lastOpenedAt: "pinned" },
+    { id: "progress", type: "progress", title: "Progress", isPinned: true, lastOpenedAt: "pinned" },
+    { id: "profile", type: "profile", title: "Profile", isPinned: true, lastOpenedAt: "pinned" }
+  ];
+}
+
+function normalizeWorkspaceTabs(tabs: WorkspaceTab[] = [], activePlans: ActivePlan[] = [], longStudySessions: LongStudySession[] = []): WorkspaceTab[] {
+  const pinned = createDefaultWorkspaceTabs();
+  const planIds = new Set(activePlans.map((plan) => plan.id));
+  const eventIds = new Set(longStudySessions.map((event) => event.id));
+  const normalizedCustom = (Array.isArray(tabs) ? tabs : [])
+    .filter((tab) => tab && !tab.isPinned)
+    .filter((tab) => {
+      if (tab.type === "long_study_event") return Boolean(tab.relatedEventId && eventIds.has(tab.relatedEventId));
+      if (tab.type === "long_term_planning") return true;
+      return Boolean(tab.relatedPlanId && planIds.has(tab.relatedPlanId));
+    })
+    .map((tab) => ({
+      id: String(tab.id || `${tab.type}:${tab.relatedPlanId || tab.relatedEventId || Date.now()}`),
+      type: normalizeWorkspaceTabType(tab.type),
+      title: String(tab.title || "Workspace"),
+      relatedPlanId: tab.relatedPlanId,
+      relatedEventId: tab.relatedEventId,
+      isPinned: false,
+      lastOpenedAt: tab.lastOpenedAt || new Date().toISOString()
+    }));
+  const byId = new Map<string, WorkspaceTab>();
+  [...pinned, ...normalizedCustom].forEach((tab) => byId.set(tab.id, tab));
+  return Array.from(byId.values());
+}
+
+function normalizeWorkspaceTabType(type: WorkspaceTabType): WorkspaceTabType {
+  const allowed: WorkspaceTabType[] = ["today", "plan", "progress", "profile", "get_lean", "money_plan", "long_study_event", "build_project", "sleep_energy", "life_reset", "learn_master", "everyday_essentials", "long_term_planning", "plan_detail"];
+  return allowed.includes(type) ? type : "plan_detail";
+}
+
+function workspaceTypeToSection(type: WorkspaceTabType): SectionId {
+  if (type === "today") return "Dashboard";
+  if (type === "plan") return "Plan";
+  if (type === "progress") return "Progress";
+  if (type === "profile") return "Profile";
+  return "Plan";
+}
+
+function sectionToWorkspaceTabId(section: SectionId): string | null {
+  if (section === "Dashboard") return "today";
+  if (section === "Plan") return "plan";
+  if (section === "Progress") return "progress";
+  if (section === "Profile") return "profile";
+  return null;
+}
+
+function planTypeToWorkspaceType(type: string): WorkspaceTabType {
+  if (type === "get_lean_shred") return "get_lean";
+  if (type === "money_plan") return "money_plan";
+  if (type === "build_project") return "build_project";
+  if (type === "fix_sleep_energy") return "sleep_energy";
+  if (type === "life_reset") return "life_reset";
+  if (type === "learn_master_subject") return "learn_master";
+  if (type === "everyday_essentials") return "everyday_essentials";
+  return "plan_detail";
+}
+
+function getWorkspacePlanTitle(plan: ActivePlan): string {
+  if (plan.type === "learn_master_subject") return `Learn: ${normalizeLearnMasterPlan(plan).subjectName || "Subject"}`;
+  if (plan.type === "build_project") return `Build Project: ${normalizeBuildProjectPlan(plan).setup.projectName || "Project"}`;
+  return getPlanDisplayName(plan);
 }
 
 function normalizeProfile(profile: Partial<ProfileState>): ProfileState {
