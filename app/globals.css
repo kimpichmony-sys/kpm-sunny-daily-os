@@ -305,6 +305,21 @@ select option {
   color: #fecaca;
 }
 
+.timer-low-power {
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.timer-low-power,
+.timer-low-power * {
+  animation: none !important;
+  transition-duration: 80ms !important;
+}
+
+.timer-low-power-text {
+  text-shadow: none !important;
+}
+
 .manhwa-art-panel {
   isolation: isolate;
   max-width: 100%;

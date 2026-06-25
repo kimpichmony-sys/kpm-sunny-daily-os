@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Component } from "react";
 import type { Dispatch, ErrorInfo, ReactNode, SetStateAction } from "react";
 import type { LucideIcon } from "lucide-react";
@@ -125,6 +125,7 @@ type SettingsState = {
   mainLifeFocus?: MainLifeFocus;
   sevenDayTestStartDate?: string;
   visualTheme?: "kpm-command" | "apple-calm";
+  lowPowerTimerMode?: boolean;
 };
 
 type ProfileState = {
@@ -1019,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.8";
+const APP_VERSION = "V3.8.1";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -1039,7 +1040,8 @@ const defaultSettings: SettingsState = {
   onboardingComplete: false,
   defaultDailyMode: "Full Day",
   mainLifeFocus: "Stability",
-  visualTheme: "kpm-command"
+  visualTheme: "kpm-command",
+  lowPowerTimerMode: true
 };
 
 const defaultProfile: ProfileState = {
@@ -2397,6 +2399,7 @@ function HomeApp() {
                 setLongTermPlanning={setLongTermPlanning}
                 sendLongTermTaskToToday={sendLongTermTaskToToday}
                 todayKey={todayKey}
+                lowPowerTimerMode={settings.lowPowerTimerMode ?? true}
                 closeWorkspace={() => closeWorkspaceTab(activeWorkspaceTab.id)}
               />
             ) : null}
@@ -2636,6 +2639,7 @@ function HomeApp() {
       {activeFocusTask ? (
         <StartMissionModal
           task={activeFocusTask}
+          lowPowerTimerMode={settings.lowPowerTimerMode ?? true}
           updateTask={updateTask}
           snoozeTask={snoozeTask}
           close={() => setActiveFocusTaskId(null)}
@@ -2910,6 +2914,7 @@ function WorkspaceTabContent({
   setLongTermPlanning,
   sendLongTermTaskToToday,
   todayKey,
+  lowPowerTimerMode,
   closeWorkspace
 }: {
   tab: WorkspaceTab;
@@ -2937,6 +2942,7 @@ function WorkspaceTabContent({
   setLongTermPlanning: Dispatch<SetStateAction<LongTermPlanningState>>;
   sendLongTermTaskToToday: (source: "Weekly Mission" | "Next Action", item: WeeklyMission | NextAction) => void;
   todayKey: string;
+  lowPowerTimerMode: boolean;
   closeWorkspace: () => void;
 }) {
   if (tab.type === "long_term_planning") {
@@ -2964,6 +2970,7 @@ function WorkspaceTabContent({
         })}
         reviews={longStudyReviews}
         saveReview={saveLongStudyReview}
+        lowPowerTimerMode={lowPowerTimerMode}
         close={closeWorkspace}
       />
     );
@@ -4010,6 +4017,7 @@ function LongStudyEventWorkspace({
   initialTab = "Run",
   reviews,
   saveReview,
+  lowPowerTimerMode,
   close
 }: {
   session: LongStudySession;
@@ -4018,6 +4026,7 @@ function LongStudyEventWorkspace({
   initialTab?: "Run" | "Schedule" | "Review";
   reviews: LongStudyReview[];
   saveReview: (review: LongStudyReview) => void;
+  lowPowerTimerMode: boolean;
   close: () => void;
 }) {
   const blocks = getLongStudyBlocks(session);
@@ -4059,33 +4068,14 @@ function LongStudyEventWorkspace({
     }
   }, [session.id]);
 
-  useEffect(() => {
-    if (!activeBlock) return;
-
-    const syncTimer = () => {
-      setState((current) => {
-        const normalized = normalizeLongStudySessionState(current, session);
-        const synced = syncLongStudyTimerState(normalized, session, true);
-        if (synced.timerStatus === "time-up") setTimerNotice("Block time is up.");
-        return synced;
-      });
-    };
-
-    syncTimer();
-
-    const interval = window.setInterval(syncTimer, 1000);
-    const syncOnReturn = () => syncTimer();
-    document.addEventListener("visibilitychange", syncOnReturn);
-    window.addEventListener("focus", syncOnReturn);
-    window.addEventListener("pageshow", syncOnReturn);
-
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", syncOnReturn);
-      window.removeEventListener("focus", syncOnReturn);
-      window.removeEventListener("pageshow", syncOnReturn);
-    };
-  }, [activeBlock?.id, session, setState]);
+  function handleTimerComplete() {
+    setState((current) => {
+      const normalized = normalizeLongStudySessionState(current, session);
+      const synced = syncLongStudyTimerState(normalized, session, true);
+      if (synced.timerStatus === "time-up") setTimerNotice("Block time is up.");
+      return synced;
+    });
+  }
 
   function updateReviewDraft(patch: Partial<LongStudyReview>) {
     setReviewDraft((current) => ({ ...current, ...patch }));
@@ -4238,8 +4228,15 @@ function LongStudyEventWorkspace({
               <p className="mt-3 text-sm font-bold text-slate-400">Next: {nextBlocks[0]?.title ?? "No next block"}</p>
               {timerNotice ? <p className="mt-3 rounded-xl border border-cyan-200/20 bg-cyan-300/[0.08] px-3 py-2 text-sm font-bold text-cyan-100">{timerNotice}</p> : null}
               {blockTimeIsUp && state.eventStatus !== "completed" ? <p className="mt-3 rounded-xl border border-amber-200/25 bg-amber-300/[0.10] px-3 py-2 text-sm font-bold text-amber-100">Block time is up. Complete this block when you are ready to start the next one.</p> : null}
-              <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-center">
-                <p className="font-mono text-4xl font-black text-white sm:text-5xl">{formatTimerSeconds(displayRemainingSeconds)}</p>
+              <div className={`mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-center ${lowPowerTimerMode ? "timer-low-power" : ""}`}>
+                <TimestampCountdown
+                  targetEndAt={state.timerStatus === "running" ? state.blockTargetEndAt : null}
+                  fallbackSeconds={displayRemainingSeconds}
+                  running={state.timerStatus === "running"}
+                  lowPower={lowPowerTimerMode}
+                  className="font-mono text-4xl font-black text-white sm:text-5xl"
+                  onComplete={handleTimerComplete}
+                />
                 <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Current block timer</p>
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -4414,13 +4411,82 @@ function LongStudyProgressPanel({ sessions, reviews, todayKey, saveReview }: { s
   );
 }
 
+const TimestampCountdown = memo(function TimestampCountdown({
+  targetEndAt,
+  fallbackSeconds,
+  running,
+  lowPower,
+  className,
+  onComplete
+}: {
+  targetEndAt: number | null;
+  fallbackSeconds: number;
+  running: boolean;
+  lowPower: boolean;
+  className?: string;
+  onComplete: () => void;
+}) {
+  const getRemaining = useCallback(() => {
+    if (!running || !targetEndAt) return Math.max(0, fallbackSeconds);
+    return Math.max(0, Math.ceil((targetEndAt - Date.now()) / 1000));
+  }, [fallbackSeconds, running, targetEndAt]);
+  const [displaySeconds, setDisplaySeconds] = useState(getRemaining);
+  const [isVisible, setIsVisible] = useState(() => typeof document === "undefined" ? true : document.visibilityState !== "hidden");
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    completedRef.current = false;
+    setDisplaySeconds(getRemaining());
+  }, [getRemaining]);
+
+  useEffect(() => {
+    if (!running || !targetEndAt) return;
+    const sync = () => {
+      const remaining = getRemaining();
+      setDisplaySeconds(remaining);
+      if (remaining <= 0 && !completedRef.current) {
+        completedRef.current = true;
+        onComplete();
+      }
+    };
+
+    sync();
+    const syncOnReturn = () => {
+      setIsVisible(document.visibilityState !== "hidden");
+      sync();
+    };
+    document.addEventListener("visibilitychange", syncOnReturn);
+    window.addEventListener("focus", syncOnReturn);
+    window.addEventListener("pageshow", syncOnReturn);
+    if (!isVisible) {
+      return () => {
+        document.removeEventListener("visibilitychange", syncOnReturn);
+        window.removeEventListener("focus", syncOnReturn);
+        window.removeEventListener("pageshow", syncOnReturn);
+      };
+    }
+    const interval = window.setInterval(sync, 1000);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", syncOnReturn);
+      window.removeEventListener("focus", syncOnReturn);
+      window.removeEventListener("pageshow", syncOnReturn);
+    };
+  }, [getRemaining, isVisible, lowPower, onComplete, running, targetEndAt]);
+
+  return <span className={`${className ?? ""} ${lowPower ? "timer-low-power-text" : ""}`}>{formatTimerSeconds(displaySeconds)}</span>;
+});
+
 function StartMissionModal({
   task,
+  lowPowerTimerMode,
   updateTask,
   snoozeTask,
   close
 }: {
   task: Task;
+  lowPowerTimerMode: boolean;
   updateTask: (id: string, patch: Partial<Task>) => void;
   snoozeTask: (id: string) => void;
   close: () => void;
@@ -4430,34 +4496,27 @@ function StartMissionModal({
   const [phase, setPhase] = useState<FocusPhase>("work");
   const activeMinutes = phase === "rest" ? selectedPreset.restMinutes : selectedPreset.workMinutes;
   const defaultSeconds = activeMinutes * 60;
-  const [secondsLeft, setSecondsLeft] = useState(defaultSeconds);
-  const [isRunning, setIsRunning] = useState(false);
+  const [timerStatus, setTimerStatus] = useState<LongStudyTimerStatus>("idle");
+  const [targetEndAt, setTargetEndAt] = useState<number | null>(null);
+  const [pausedRemainingSeconds, setPausedRemainingSeconds] = useState(defaultSeconds);
+  const [durationSeconds, setDurationSeconds] = useState(defaultSeconds);
   const [showStuckHelp, setShowStuckHelp] = useState(false);
+  const displaySeconds = timerStatus === "running" && targetEndAt
+    ? Math.max(0, Math.ceil((targetEndAt - Date.now()) / 1000))
+    : timerStatus === "time-up"
+      ? 0
+      : pausedRemainingSeconds || defaultSeconds;
 
   useEffect(() => {
     const nextPreset = getSuggestedFocusPreset(task);
     setSelectedPreset(nextPreset);
     setPhase("work");
-    setSecondsLeft(nextPreset.workMinutes * 60);
-    setIsRunning(false);
+    setTimerStatus("idle");
+    setTargetEndAt(null);
+    setPausedRemainingSeconds(nextPreset.workMinutes * 60);
+    setDurationSeconds(nextPreset.workMinutes * 60);
     setShowStuckHelp(false);
   }, [task.id]);
-
-  useEffect(() => {
-    if (!isRunning) return;
-    const interval = window.setInterval(() => {
-      setSecondsLeft((current) => {
-        if (current <= 1) {
-          window.clearInterval(interval);
-          setIsRunning(false);
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [isRunning]);
 
   function markDone() {
     updateTask(task.id, { completed: true, skipped: false });
@@ -4477,26 +4536,57 @@ function StartMissionModal({
   function choosePreset(preset: FocusPreset) {
     setSelectedPreset(preset);
     setPhase("work");
-    setSecondsLeft(preset.workMinutes * 60);
-    setIsRunning(false);
+    setTimerStatus("idle");
+    setTargetEndAt(null);
+    setPausedRemainingSeconds(preset.workMinutes * 60);
+    setDurationSeconds(preset.workMinutes * 60);
   }
 
   function startRest() {
     if (selectedPreset.restMinutes <= 0) return;
     setPhase("rest");
-    setSecondsLeft(selectedPreset.restMinutes * 60);
-    setIsRunning(true);
+    startFocusTimer(selectedPreset.restMinutes * 60);
   }
 
   function continueSession() {
     setPhase("work");
-    setSecondsLeft(selectedPreset.workMinutes * 60);
-    setIsRunning(true);
+    startFocusTimer(selectedPreset.workMinutes * 60);
   }
 
   function resetTimer() {
-    setSecondsLeft(defaultSeconds);
-    setIsRunning(false);
+    setTimerStatus("idle");
+    setTargetEndAt(null);
+    setPausedRemainingSeconds(defaultSeconds);
+    setDurationSeconds(defaultSeconds);
+  }
+
+  function startFocusTimer(seconds = pausedRemainingSeconds || defaultSeconds) {
+    const safeSeconds = Math.max(0, seconds);
+    setDurationSeconds(safeSeconds);
+    setPausedRemainingSeconds(safeSeconds);
+    setTargetEndAt(Date.now() + safeSeconds * 1000);
+    setTimerStatus("running");
+  }
+
+  function pauseFocusTimer() {
+    const remaining = targetEndAt ? Math.max(0, Math.ceil((targetEndAt - Date.now()) / 1000)) : pausedRemainingSeconds;
+    setPausedRemainingSeconds(remaining);
+    setTargetEndAt(null);
+    setTimerStatus("paused");
+  }
+
+  function toggleTimer() {
+    if (timerStatus === "running") {
+      pauseFocusTimer();
+      return;
+    }
+    startFocusTimer(pausedRemainingSeconds || durationSeconds || defaultSeconds);
+  }
+
+  function completeTimerPhase() {
+    setTimerStatus("time-up");
+    setTargetEndAt(null);
+    setPausedRemainingSeconds(0);
   }
 
   return (
@@ -4526,7 +4616,7 @@ function StartMissionModal({
           <p className="mt-2 text-lg font-black leading-snug text-white">{getFirstMissionStep(task)}</p>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className={`mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 ${lowPowerTimerMode ? "timer-low-power" : ""}`}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Focus Timer</p>
@@ -4536,11 +4626,18 @@ function StartMissionModal({
                 <Badge tone="dark">Work: {selectedPreset.workMinutes} min</Badge>
                 <Badge tone="dark">Rest: {selectedPreset.restMinutes} min</Badge>
               </div>
-              <p className="mt-1 font-mono text-5xl font-black text-white">{formatTimer(secondsLeft)}</p>
+              <TimestampCountdown
+                targetEndAt={timerStatus === "running" ? targetEndAt : null}
+                fallbackSeconds={displaySeconds}
+                running={timerStatus === "running"}
+                lowPower={lowPowerTimerMode}
+                className="mt-1 block font-mono text-5xl font-black text-white"
+                onComplete={completeTimerPhase}
+              />
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
-              <button type="button" onClick={() => setIsRunning((running) => !running)} className="primary-button">
-                {isRunning ? "Pause" : "Start"}
+              <button type="button" onClick={toggleTimer} className="primary-button">
+                {timerStatus === "running" ? "Pause" : timerStatus === "paused" ? "Resume" : "Start"}
               </button>
               <button type="button" onClick={resetTimer} className="secondary-button">
                 Reset
@@ -4550,7 +4647,7 @@ function StartMissionModal({
               </button>
             </div>
           </div>
-          {secondsLeft === 0 && phase === "work" ? (
+          {displaySeconds === 0 && phase === "work" ? (
             <div className="mt-4 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 p-3">
               <p className="text-sm font-black text-emerald-100">Focus session complete. Choose your next move.</p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -4583,7 +4680,7 @@ function StartMissionModal({
           <div className="mt-5 rounded-2xl border border-orange-300/25 bg-orange-400/10 p-4">
             <p className="text-lg font-black text-white">Reduce the mission to 5 minutes.</p>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <button type="button" onClick={() => { choosePreset(focusPresets[0]); setIsRunning(true); }} className="secondary-button">
+              <button type="button" onClick={() => { choosePreset(focusPresets[0]); startFocusTimer(focusPresets[0].workMinutes * 60); }} className="secondary-button">
                 Do only 5 minutes
               </button>
               <button type="button" onClick={() => setShowStuckHelp(false)} className="secondary-button">
@@ -7448,6 +7545,23 @@ function ProfileAppSettingsSection({
                   <p className="mt-1 text-sm text-slate-400">{option.description}</p>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <h4 className="text-lg font-black text-white">Low Power Timer Mode</h4>
+                <p className="mt-1 text-sm leading-6 text-slate-400">Recommended for iPhone. Timer screens use timestamp sync, fewer visual effects, and lighter background work.</p>
+                <p className="mt-2 text-xs font-bold leading-5 text-slate-500">If your phone gets warm, turn this on, reduce screen brightness, and avoid keeping the timer screen open while charging.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, lowPowerTimerMode: !(settings.lowPowerTimerMode ?? true) })}
+                className={(settings.lowPowerTimerMode ?? true) ? "primary-button shrink-0" : "secondary-button shrink-0"}
+              >
+                {(settings.lowPowerTimerMode ?? true) ? "On" : "Off"}
+              </button>
             </div>
           </div>
 
@@ -11346,13 +11460,15 @@ function normalizeSettings(settings: Partial<SettingsState>): SettingsState {
   const mainLifeFocus = settings.mainLifeFocus && mainLifeFocusOptions.includes(settings.mainLifeFocus) ? settings.mainLifeFocus : "Stability";
   const sevenDayTestStartDate = settings.sevenDayTestStartDate && /^\d{4}-\d{2}-\d{2}$/.test(settings.sevenDayTestStartDate) ? settings.sevenDayTestStartDate : undefined;
   const visualTheme = settings.visualTheme === "apple-calm" ? "apple-calm" : "kpm-command";
+  const lowPowerTimerMode = settings.lowPowerTimerMode !== false;
   return {
     scheduleVersion,
     onboardingComplete: Boolean(settings.onboardingComplete),
     defaultDailyMode,
     mainLifeFocus,
     sevenDayTestStartDate,
-    visualTheme
+    visualTheme,
+    lowPowerTimerMode
   };
 }
 
