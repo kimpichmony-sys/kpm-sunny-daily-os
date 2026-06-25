@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.5";
+const APP_VERSION = "V4.6";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -7866,6 +7866,7 @@ function ProfileVersionSection() {
           <li>V4.3 Whole-app premium density + typography pass</li>
           <li>V4.4 Visual consistency pass</li>
           <li>V4.5 Mobile bottom navigation polish</li>
+          <li>V4.6 Collapsible section polish</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -10891,14 +10892,17 @@ function CollapsibleSection({
   defaultOpen?: boolean;
 }) {
   return (
-    <details className="group min-w-0 max-w-full rounded-xl border border-white/10 bg-white/[0.05] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-3.5" open={defaultOpen}>
+    <details className="collapsible-section group min-w-0 max-w-full rounded-xl border border-white/10 bg-white/[0.05] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-3.5" open={defaultOpen}>
       <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">{title}</p>
           {subtitle ? <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">{subtitle}</p> : null}
         </div>
-        <span className="details-open-label secondary-button min-h-8 shrink-0 px-2.5 py-1 text-xs">Open</span>
-        <span className="details-close-label secondary-button min-h-8 shrink-0 px-2.5 py-1 text-xs">Close</span>
+        <span className="details-toggle-pill shrink-0">
+          <span className="details-open-label">Open</span>
+          <span className="details-close-label">Close</span>
+          <ChevronRight className="details-toggle-icon" size={15} />
+        </span>
       </summary>
       <div className="mt-3 min-w-0">{children}</div>
     </details>
