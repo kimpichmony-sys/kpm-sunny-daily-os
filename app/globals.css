@@ -175,12 +175,12 @@ select option {
 }
 
 .form-control {
-  min-height: 3.25rem;
+  min-height: 2.75rem;
   width: 100%;
-  border-radius: 1rem;
+  border-radius: 0.8rem;
   border: 1px solid rgba(139, 233, 255, 0.12);
   background: rgba(17, 24, 39, 0.84);
-  padding: 0.85rem 1rem;
+  padding: 0.65rem 0.8rem;
   color: var(--sunny-text);
   outline: none;
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
@@ -629,18 +629,19 @@ details {
   .form-control {
     border-color: rgba(183, 194, 214, 0.14);
     background: rgba(15, 26, 46, 0.78);
-    border-radius: 1rem;
+    border-radius: 0.8rem;
   }
 
   .primary-button {
-    min-height: 3.25rem;
-    border-radius: 1rem;
+    min-height: 2.55rem;
+    border-radius: 0.8rem;
     background-image: linear-gradient(135deg, #f0d77a, #e8c86a);
     box-shadow: 0 14px 28px rgba(216, 194, 122, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.34);
   }
 
   .secondary-button {
-    min-height: 3.1rem;
+    min-height: 2.5rem;
+    border-radius: 0.8rem;
     border-color: rgba(139, 233, 255, 0.14);
     background: rgba(17, 24, 39, 0.84);
   }

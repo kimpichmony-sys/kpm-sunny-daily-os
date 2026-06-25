@@ -5887,19 +5887,19 @@ function PlanFoundation({
   }
 
   return (
-    <section className="grid gap-5">
+    <section className="grid gap-3">
       <Panel compact>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-200">Plan</p>
-            <h2 className="mt-1 text-2xl font-black text-white">Plan systems</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Control active plans, special events, reviews, and preset systems.</p>
+            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Plan systems</h2>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm">Control active plans, special events, reviews, and preset systems.</p>
           </div>
           <Badge tone="dark">{activePlanDetails}</Badge>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {(["All", "Active", "Presets", "Events", "Reviews Due", "Archived"] as PlanTabFilter[]).map((filter) => (
-            <button key={filter} type="button" onClick={() => setPlanTabFilter(filter)} className={`rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] ${planTabFilter === filter ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}>
+            <button key={filter} type="button" onClick={() => setPlanTabFilter(filter)} className={`rounded-lg border px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.13em] ${planTabFilter === filter ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.035] text-slate-300"}`}>
               {filter}
             </button>
           ))}
@@ -5911,8 +5911,8 @@ function PlanFoundation({
       {planTabFilter === "All" ? (
         <Panel compact>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Recommended Next Action</p>
-          <h3 className="mt-2 text-xl font-black text-white">{recommendation.title}</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">{recommendation.detail}</p>
+          <h3 className="mt-1 text-lg font-black text-white">{recommendation.title}</h3>
+          <p className="mt-1 text-sm leading-5 text-slate-400">{recommendation.detail}</p>
         </Panel>
       ) : null}
 
@@ -5940,25 +5940,25 @@ function PlanFoundation({
 
       {showPresetsSection ? (
       <CollapsibleSection title="Preset Plans Library" subtitle="Choose a system to start. Active plans stay in the Control Center above." defaultOpen={planTabFilter === "Presets"}>
-        <div className="grid gap-4">
+        <div className="grid gap-2.5">
           {presetGroups.map((group) => (
-            <section key={group.category} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <h4 className="text-lg font-black text-white">{group.category}</h4>
-              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <section key={group.category} className="rounded-xl border border-white/10 bg-black/20 p-3">
+              <h4 className="text-base font-black text-white">{group.category}</h4>
+              <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {group.plans.map((preset) => {
                   const isAvailable = true;
                   const activeMatch = activePlans.find((plan) => plan.name === preset.name && plan.status === "active");
                   return (
-                    <article key={preset.name} className="rounded-[1.1rem] border border-white/10 bg-white/[0.04] p-4">
+                    <article key={preset.name} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
                       <div className="flex items-start justify-between gap-3">
                         <h5 className="break-words text-base font-black text-white">{preset.name}</h5>
                         <Badge tone={activeMatch ? "green" : isAvailable ? "gold" : "dark"}>{activeMatch ? "Active" : "Available"}</Badge>
                       </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">{preset.purpose}</p>
+                      <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-slate-400 sm:text-sm">{preset.purpose}</p>
                       <button
                         type="button"
                         onClick={() => activeMatch ? document.getElementById("active-plan-control-center")?.scrollIntoView({ behavior: "smooth", block: "start" }) : openPresetSetup(preset.name)}
-                        className="secondary-button mt-4 w-full justify-center"
+                        className="secondary-button mt-3 min-h-8 w-full justify-center px-3 py-1.5 text-xs"
                       >
                         {activeMatch ? "Open Active Plan" : "Set Up Plan"}
                       </button>
@@ -7176,21 +7176,21 @@ function ProgressFoundation({
   const showReviews = progressFilter === "All" || progressFilter === "Reviews Needed";
 
   return (
-    <section className="grid gap-6">
+    <section className="grid gap-3">
       <Panel compact>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Progress Review Center</p>
-            <h2 className="mt-2 text-3xl font-black text-white">What is improving, and what needs attention?</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Daily completion, active plan progress, logs, weekly reviews, history, and analytics in one place.</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Progress Review Center</p>
+            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">What is improving?</h2>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm">Daily completion, plan progress, logs, weekly reviews, history, and analytics.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {progressFilters.map((filter) => (
               <button
                 key={filter}
                 type="button"
                 onClick={() => setProgressFilter(filter)}
-                className={`min-h-9 rounded-xl px-3 py-2 text-xs font-black transition ${progressFilter === filter ? "bg-amber-300 text-slate-950" : "border border-white/10 bg-white/[0.05] text-slate-300 hover:border-cyan-200/40"}`}
+                className={`min-h-8 rounded-lg px-2.5 py-1.5 text-[0.68rem] font-black transition ${progressFilter === filter ? "bg-amber-300 text-slate-950" : "border border-white/10 bg-white/[0.04] text-slate-300 hover:border-cyan-200/40"}`}
               >
                 {filter}
               </button>
@@ -7200,15 +7200,15 @@ function ProgressFoundation({
       </Panel>
 
       {showToday ? (
-        <Panel>
+        <Panel compact>
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Today Progress Summary</p>
-              <h3 className="mt-2 text-2xl font-black text-white">{todayKey}</h3>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Today Progress Summary</p>
+              <h3 className="mt-1 text-xl font-black text-white">{todayKey}</h3>
             </div>
             <Badge tone={todayCompletionPercent >= 70 ? "green" : todayCompletionPercent >= 40 ? "orange" : "dark"}>{todayCompletionPercent}% complete</Badge>
           </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <MiniMetric label="Completion" value={`${todayCompletionPercent}%`} />
             <MiniMetric label="Completed" value={stats.completed} />
             <MiniMetric label="Skipped" value={skippedToday} />
@@ -7218,17 +7218,17 @@ function ProgressFoundation({
             <MiniMetric label="Active Plan Tasks" value={`${activePlanTaskTotals.completed}/${activePlanTaskTotals.total}`} />
             <MiniMetric label="Remaining" value={stats.remaining} />
           </div>
-          <div className="mt-5">
+          <div className="mt-3">
             <ProgressLine label="Today missions" value={stats.completed} total={Math.max(tasks.length, 1)} percent={todayCompletionPercent} />
           </div>
         </Panel>
       ) : null}
 
       {showWeek ? (
-        <Panel>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-100">Weekly Snapshot</p>
-          <h3 className="mt-2 text-2xl font-black text-white">Last 7 days</h3>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Panel compact>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Weekly Snapshot</p>
+          <h3 className="mt-1 text-xl font-black text-white">Last 7 days</h3>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             <MiniMetric label="Days Active" value={`${weeklySnapshot.daysActive}/7`} />
             <MiniMetric label="Total Tasks Completed" value={weeklySnapshot.totalCompleted} />
             <MiniMetric label="Average Completion" value={`${weeklySnapshot.averageCompletion}%`} />
@@ -7240,29 +7240,29 @@ function ProgressFoundation({
       ) : null}
 
       {showReviews ? (
-        <Panel>
+        <Panel compact>
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Review Needed</p>
-              <h3 className="mt-2 text-2xl font-black text-white">What should I review next?</h3>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Review Needed</p>
+              <h3 className="mt-1 text-xl font-black text-white">What should I review next?</h3>
             </div>
-            <button type="button" onClick={() => setShowWeeklyReviewTargets((current) => !current)} className="primary-button justify-center">Start Weekly Review</button>
+            <button type="button" onClick={() => setShowWeeklyReviewTargets((current) => !current)} className="primary-button min-h-9 justify-center px-3 py-1.5 text-sm">Start Weekly Review</button>
           </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
             {reviewReminders.length ? reviewReminders.map((reminder) => (
-              <article key={`${reminder.title}-${reminder.detail}`} className="rounded-2xl border border-amber-200/15 bg-amber-300/[0.055] p-4">
+              <article key={`${reminder.title}-${reminder.detail}`} className="rounded-xl border border-amber-200/15 bg-amber-300/[0.055] p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h4 className="font-black text-white">{reminder.title}</h4>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">{reminder.detail}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">{reminder.detail}</p>
                   </div>
                   <Badge tone={reminder.tone}>{reminder.label}</Badge>
                 </div>
               </article>
-            )) : <p className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-400">No reviews are due right now.</p>}
+            )) : <p className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-slate-400">No reviews are due right now.</p>}
           </div>
           {showWeeklyReviewTargets ? (
-            <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
               <h4 className="font-black text-white">Plans needing weekly review</h4>
               <div className="mt-3 grid gap-2">
                 {plansNeedingWeeklyReview.length ? plansNeedingWeeklyReview.map((plan) => (
@@ -7280,19 +7280,19 @@ function ProgressFoundation({
       ) : null}
 
       {showPlans ? (
-        <Panel>
+        <Panel compact>
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Progress</p>
-              <h3 className="mt-2 text-2xl font-black text-white">Plan-specific signals</h3>
-              <p className="mt-2 text-sm text-slate-400">Only active plans feed Today. Paused and archived plans stay out of Today tasks.</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Active Plan Progress</p>
+              <h3 className="mt-1 text-xl font-black text-white">Plan-specific signals</h3>
+              <p className="mt-1 text-sm text-slate-400">Only active plans feed Today.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge tone="green">{activePlanCount} active</Badge>
               <Badge tone="orange">{inactiveProgressPlans.length} paused / archived</Badge>
             </div>
           </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-3 grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
             {activeProgressPlans.length ? activeProgressPlans.map((plan) => (
               <ProgressPlanReviewCard
                 key={plan.id}
@@ -7304,7 +7304,7 @@ function ProgressFoundation({
                 moneySavingLogs={moneySavingLogs}
                 moneyOpportunityLogs={moneyOpportunityLogs}
               />
-            )) : <p className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-400">No active plans yet.</p>}
+            )) : <p className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-slate-400">No active plans yet.</p>}
             <LongStudyProgressCard sessions={longStudySessions} reviews={longStudyReviews} />
           </div>
         </Panel>
@@ -7343,7 +7343,7 @@ function ProgressFoundation({
 
       {showLogs && activeProgressPlans.some((plan) => plan.type === "get_lean_shred" || plan.type === "learn_master_subject" || plan.type === "fix_sleep_energy" || plan.type === "build_project" || plan.type === "money_plan" || plan.type === "life_reset") ? (
         <CollapsibleSection title="Detailed Log Editors" subtitle="Fitness, sleep, project, money, reset, and study logs for active plans." defaultOpen={false}>
-          <div className="grid gap-5">
+          <div className="grid gap-3">
             {activeProgressPlans.some((plan) => plan.type === "get_lean_shred") ? (
               <GetLeanNutritionSummary activePlans={activeProgressPlans} dailyFoodLogs={dailyFoodLogs} />
             ) : null}
@@ -7436,22 +7436,22 @@ function ProfileScreen({
   }
 
   return (
-    <section className="grid gap-5">
-      <Panel>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className="grid gap-3">
+      <Panel compact>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Profile</p>
-            <h2 className="mt-2 text-3xl font-black text-white">Profile + Settings</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Your profile, app settings, storage backup, version notes, and danger actions live here.</p>
-            <p className="mt-2 text-sm font-bold text-amber-100">{activePlans.length} active plan{activePlans.length === 1 ? "" : "s"} saved locally.</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Profile</p>
+            <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Profile + Settings</h2>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm">Profile, settings, backup, version notes, and danger actions.</p>
+            <p className="mt-1 text-xs font-bold text-amber-100 sm:text-sm">{activePlans.length} active plan{activePlans.length === 1 ? "" : "s"} saved locally.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {(["Profile", "Settings", "Backup", "Version"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setProfileTab(tab)}
-                className={profileTab === tab ? "primary-button" : "secondary-button"}
+                className={`${profileTab === tab ? "primary-button" : "secondary-button"} min-h-8 px-2.5 py-1.5 text-xs`}
               >
                 {tab}
               </button>
@@ -7459,7 +7459,7 @@ function ProfileScreen({
           </div>
         </div>
         {!profile.name && !profile.dateOfBirth ? (
-          <div className="mt-5 rounded-2xl border border-amber-300/25 bg-amber-300/[0.08] p-4">
+          <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/[0.08] p-3">
             <p className="font-black text-white">Set up your local profile.</p>
             <p className="mt-1 text-sm leading-6 text-slate-300">No profile exists yet. Add the basics, then save.</p>
           </div>
@@ -7467,18 +7467,18 @@ function ProfileScreen({
       </Panel>
 
       {profileTab === "Profile" ? (
-        <Panel>
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Panel compact>
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">My Profile</p>
-              <h3 className="mt-2 text-2xl font-black text-white">Personal baseline</h3>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">My Profile</p>
+              <h3 className="mt-1 text-xl font-black text-white">Personal baseline</h3>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setEditing(true)} className="secondary-button">Edit Profile</button>
-              <button type="button" onClick={saveProfile} className="primary-button">Save Profile</button>
+            <div className="flex flex-wrap gap-1.5">
+              <button type="button" onClick={() => setEditing(true)} className="secondary-button min-h-8 px-3 py-1.5 text-xs">Edit Profile</button>
+              <button type="button" onClick={saveProfile} className="primary-button min-h-8 px-3 py-1.5 text-xs">Save Profile</button>
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <Field label="Name / nickname">
               <input disabled={!editing} value={draft.name} onChange={(event) => updateDraft({ name: event.target.value })} className={fieldClass} placeholder="Sunny" />
             </Field>
@@ -7514,7 +7514,7 @@ function ProfileScreen({
             </Field>
             <div className="md:col-span-2">
               <Field label="Active plan names">
-                <textarea readOnly value={activePlanNames.join("\n")} className="form-control min-h-24" placeholder="No active plans yet" />
+                <textarea readOnly value={activePlanNames.join("\n")} className="form-control min-h-20" placeholder="No active plans yet" />
               </Field>
             </div>
             <div className="md:col-span-2">
@@ -7523,7 +7523,7 @@ function ProfileScreen({
                   disabled={!editing}
                   value={draft.foodRules.join("\n")}
                   onChange={(event) => updateDraft({ foodRules: event.target.value.split("\n").map((rule) => rule.trim()).filter(Boolean) })}
-                  className="form-control min-h-28"
+                  className="form-control min-h-24"
                   placeholder="One rule per line"
                 />
               </Field>
@@ -7546,7 +7546,9 @@ function ProfileScreen({
       {profileTab === "Backup" ? (
         <>
           <ProfileBackupSection exportAllData={exportAllData} importAllData={importAllData} clearAllLocalData={clearAllLocalData} />
-          <ProfileDangerZone resetToday={resetToday} resetProfile={resetProfile} resetDefaultTemplate={resetDefaultTemplate} clearAllLocalData={clearAllLocalData} />
+          <CollapsibleSection title="Danger Zone" subtitle="Reset actions stay hidden until you need them." defaultOpen={false}>
+            <ProfileDangerZone resetToday={resetToday} resetProfile={resetProfile} resetDefaultTemplate={resetDefaultTemplate} clearAllLocalData={clearAllLocalData} />
+          </CollapsibleSection>
         </>
       ) : null}
 
@@ -7571,15 +7573,15 @@ function ProfileAppSettingsSection({
   generateTodayByMode: (mode?: DailyMode) => boolean;
 }) {
   return (
-    <section className="grid gap-5">
-      <Panel>
-        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">App Settings</p>
-        <h3 className="mt-2 text-2xl font-black text-white">Daily defaults</h3>
-        <div className="mt-5 grid gap-5">
+    <section className="grid gap-3">
+      <Panel compact>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">App Settings</p>
+        <h3 className="mt-1 text-xl font-black text-white">Daily defaults</h3>
+        <div className="mt-3 grid gap-3">
           <div>
-            <h4 className="text-lg font-black text-white">Visual style</h4>
-            <p className="mt-1 text-sm text-slate-400">Switch the app mood without changing your data or daily systems.</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <h4 className="text-base font-black text-white">Visual style</h4>
+            <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">Switch the app mood without changing your data.</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {[
                 { value: "kpm-command" as const, title: "KPM Command", description: "Dark manhwa command center with sharp energy." },
                 { value: "apple-calm" as const, title: "Apple Calm", description: "Cleaner glass surfaces, softer contrast, and a quieter premium feel." }
@@ -7588,30 +7590,30 @@ function ProfileAppSettingsSection({
                   key={option.value}
                   type="button"
                   onClick={() => setSettings({ ...settings, visualTheme: option.value })}
-                  className={`rounded-2xl border p-4 text-left transition ${
+                  className={`rounded-xl border p-3 text-left transition ${
                     (settings.visualTheme ?? "kpm-command") === option.value
                       ? "border-sky-200/60 bg-sky-200/[0.12] shadow-[0_0_30px_rgba(125,211,252,0.12)]"
                       : "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]"
                   }`}
                 >
-                  <p className="text-xl font-black text-white">{option.title}</p>
-                  <p className="mt-1 text-sm text-slate-400">{option.description}</p>
+                  <p className="text-base font-black text-white">{option.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">{option.description}</p>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-4">
+          <div className="rounded-xl border border-cyan-200/15 bg-cyan-300/[0.055] p-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <h4 className="text-lg font-black text-white">Low Power Timer Mode</h4>
-                <p className="mt-1 text-sm leading-6 text-slate-400">Recommended for iPhone. Timer screens use timestamp sync, fewer visual effects, and lighter background work.</p>
+                <h4 className="text-base font-black text-white">Low Power Timer Mode</h4>
+                <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">Recommended for iPhone. Timer screens use timestamp sync and lighter visual work.</p>
                 <p className="mt-2 text-xs font-bold leading-5 text-slate-500">If your phone gets warm, turn this on, reduce screen brightness, and avoid keeping the timer screen open while charging.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSettings({ ...settings, lowPowerTimerMode: !(settings.lowPowerTimerMode ?? true) })}
-                className={(settings.lowPowerTimerMode ?? true) ? "primary-button shrink-0" : "secondary-button shrink-0"}
+                className={`${(settings.lowPowerTimerMode ?? true) ? "primary-button" : "secondary-button"} min-h-8 shrink-0 px-3 py-1.5 text-xs`}
               >
                 {(settings.lowPowerTimerMode ?? true) ? "On" : "Off"}
               </button>
@@ -7619,8 +7621,8 @@ function ProfileAppSettingsSection({
           </div>
 
           <div>
-            <h4 className="text-lg font-black text-white">Default wake time / schedule start</h4>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <h4 className="text-base font-black text-white">Default wake time / schedule start</h4>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {[
                 { value: "5:30" as const, title: "5:30 AM", description: "Default Sunny schedule." },
                 { value: "5:00" as const, title: "5:00 AM", description: "Move all missions 30 minutes earlier." }
@@ -7628,23 +7630,23 @@ function ProfileAppSettingsSection({
                 <button
                   key={option.value}
                   onClick={() => setSettings({ ...settings, scheduleVersion: option.value })}
-                  className={`rounded-2xl border p-4 text-left transition ${
+                  className={`rounded-xl border p-3 text-left transition ${
                     settings.scheduleVersion === option.value
                       ? "border-amber-300/60 bg-amber-300/[0.12] shadow-[0_0_30px_rgba(245,158,11,0.12)]"
                       : "border-white/10 bg-white/[0.04] hover:bg-white/[0.07]"
                   }`}
                 >
-                  <p className="text-xl font-black text-white">{option.title}</p>
-                  <p className="mt-1 text-sm text-slate-400">{option.description}</p>
+                  <p className="text-base font-black text-white">{option.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">{option.description}</p>
                 </button>
               ))}
             </div>
           </div>
 
           <div>
-            <h4 className="text-lg font-black text-white">Default daily mode</h4>
+            <h4 className="text-base font-black text-white">Default daily mode</h4>
             <p className="mt-1 text-sm text-slate-400">Used by Quick Start Today and future generated days when no special mode is selected.</p>
-            <div className="mt-3">
+            <div className="mt-2">
               <ModeSelector value={settings.defaultDailyMode ?? "Full Day"} onChange={(defaultDailyMode) => setSettings({ ...settings, defaultDailyMode })} />
             </div>
           </div>
@@ -7652,11 +7654,11 @@ function ProfileAppSettingsSection({
           <div>
             <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h4 className="text-lg font-black text-white">Generate today by mode</h4>
+                <h4 className="text-base font-black text-white">Generate today by mode</h4>
                 <p className="mt-1 text-sm text-slate-400">{modeProfiles[todayMode].note}</p>
                 {selectedTodayMode !== todayMode ? <p className="mt-1 text-sm font-bold text-amber-100">Selected to generate: {selectedTodayMode} Mode</p> : null}
               </div>
-              <button onClick={() => generateTodayByMode()} className="primary-button justify-center">
+              <button onClick={() => generateTodayByMode()} className="primary-button min-h-9 justify-center px-3 py-1.5 text-sm">
                 <Sparkles size={18} />
                 Generate Today&apos;s Missions
               </button>
@@ -7666,18 +7668,18 @@ function ProfileAppSettingsSection({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel compact>
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#E7D79B] to-[#D8C27A] text-slate-950 shadow-[0_12px_28px_rgba(216,194,122,0.16)]">
-            <Download size={21} />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#E7D79B] to-[#D8C27A] text-slate-950 shadow-[0_12px_28px_rgba(216,194,122,0.16)]">
+            <Download size={18} />
           </div>
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Install App</p>
-            <h3 className="mt-1 text-2xl font-black text-white">PWA install instructions</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-300">Open KPM Sunny Daily OS like a normal app from your phone or computer.</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Install App</p>
+            <h3 className="mt-1 text-xl font-black text-white">PWA install instructions</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-300 sm:text-sm">Open KPM Sunny Daily OS like a normal app.</p>
           </div>
         </div>
-        <div className="mt-4 grid gap-3">
+        <div className="mt-3 grid gap-2">
           <InstallStep title="iPhone / Safari" body="Tap Share, then Add to Home Screen." />
           <InstallStep title="Android / Chrome" body="Tap menu, then Install app or Add to Home screen." />
           <InstallStep title="Desktop / Chrome" body="Click the install icon in the address bar if available." />
@@ -7722,30 +7724,30 @@ function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData 
       : "Storage looks healthy.";
 
   return (
-    <Panel>
+    <Panel compact>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Storage + Backup</p>
-          <h3 className="mt-2 text-2xl font-black text-white">Local data safety</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">Your data is saved only on this device until cloud sync is added. Export backup regularly.</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Storage + Backup</p>
+          <h3 className="mt-1 text-xl font-black text-white">Local data safety</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">Your data is saved only on this device. Export backup regularly.</p>
         </div>
-        <button onClick={exportAllData} className="primary-button justify-center">
+        <button onClick={exportAllData} className="primary-button min-h-9 justify-center px-3 py-1.5 text-sm">
           <Download size={18} />
           Export Data
         </button>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
         <MiniMetric label="Storage Used" value={formatBytes(storageInfo.usedBytes)} />
         <MiniMetric label="Storage Limit" value={formatBytes(storageInfo.limitBytes)} />
         <MiniMetric label="Used" value={`${storageInfo.percent}%`} />
       </div>
 
-      <div className={`mt-4 rounded-2xl border p-4 ${storageTone}`}>
+      <div className={`mt-3 rounded-xl border p-3 ${storageTone}`}>
         <p className="text-sm font-black">{storageWarning}</p>
       </div>
 
-      <div className="mt-4 grid gap-3">
+      <div className="mt-3 grid gap-3">
         <Field label="Import backup JSON file">
           <input
             type="file"
@@ -7758,15 +7760,15 @@ function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData 
           <textarea
             value={importText}
             onChange={(event) => setImportText(event.target.value)}
-            className="form-control min-h-32"
+            className="form-control min-h-24"
             placeholder="Paste a KPM Sunny Daily OS backup JSON file here"
           />
         </Field>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <button onClick={handleImport} className="secondary-button">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <button onClick={handleImport} className="secondary-button min-h-9 px-3 py-1.5 text-sm">
             Import Data
           </button>
-          <button onClick={clearAllLocalData} className="danger-button">
+          <button onClick={clearAllLocalData} className="danger-button min-h-9 px-3 py-1.5 text-sm">
             <Trash2 size={18} />
             Clear All Data
           </button>
@@ -7779,29 +7781,29 @@ function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData 
 
 function ProfileDangerZone({ resetToday, resetProfile, resetDefaultTemplate, clearAllLocalData }: { resetToday: () => void; resetProfile: () => void; resetDefaultTemplate: () => void; clearAllLocalData: () => void }) {
   return (
-    <Panel>
-      <p className="text-sm font-black uppercase tracking-[0.2em] text-red-200">Danger Zone</p>
-      <h3 className="mt-2 text-2xl font-black text-white">Confirmed reset actions</h3>
-      <p className="mt-1 text-sm leading-6 text-slate-400">These actions ask for confirmation before changing local data.</p>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <button onClick={resetToday} className="danger-button justify-center">
+    <div className="rounded-xl border border-red-300/20 bg-red-400/[0.06] p-3">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-red-200">Danger Zone</p>
+      <h3 className="mt-1 text-xl font-black text-white">Confirmed reset actions</h3>
+      <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">These actions ask for confirmation before changing local data.</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <button onClick={resetToday} className="danger-button min-h-9 justify-center px-3 py-1.5 text-sm">
           <RotateCcw size={18} />
           Reset Today
         </button>
-        <button onClick={resetProfile} className="danger-button justify-center">
+        <button onClick={resetProfile} className="danger-button min-h-9 justify-center px-3 py-1.5 text-sm">
           <RotateCcw size={18} />
           Reset Profile
         </button>
-        <button onClick={resetDefaultTemplate} className="danger-button justify-center">
+        <button onClick={resetDefaultTemplate} className="danger-button min-h-9 justify-center px-3 py-1.5 text-sm">
           <RotateCcw size={18} />
           Reset Template
         </button>
-        <button onClick={clearAllLocalData} className="danger-button justify-center">
+        <button onClick={clearAllLocalData} className="danger-button min-h-9 justify-center px-3 py-1.5 text-sm">
           <Trash2 size={18} />
           Clear Local Data
         </button>
       </div>
-    </Panel>
+    </div>
   );
 }
 
@@ -7809,23 +7811,23 @@ function ProfileVersionSection() {
   const environment = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname) ? "Local" : "Production";
 
   return (
-    <Panel>
+    <Panel compact>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">App Version</p>
-          <h3 className="mt-2 text-2xl font-black text-white">KPM Sunny Daily OS · {APP_VERSION}</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">Version, changelog, and deployment note.</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">App Version</p>
+          <h3 className="mt-1 text-xl font-black text-white">KPM Sunny Daily OS · {APP_VERSION}</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">Version, changelog, and deployment note.</p>
         </div>
         <Badge tone="gold">{environment}</Badge>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <MiniMetric label="Current version" value={APP_VERSION} />
         <MiniMetric label="Last updated" value={APP_LAST_UPDATED} />
         <MiniMetric label="Environment" value={environment} />
       </div>
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+      <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
         <p className="font-black text-white">Changelog</p>
-        <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-300">
+        <ul className="mt-2 grid gap-1 text-sm leading-5 text-slate-300">
           <li>V1.6 Stability + backup foundation</li>
           <li>V1.7 Vercel deployment</li>
           <li>V1.8 7-day real use test</li>
@@ -10858,7 +10860,7 @@ function RightPanel({
 
 function Panel({ children, compact = false, className = "" }: { children: ReactNode; compact?: boolean; className?: string }) {
   return (
-    <div className={`sunny-panel min-w-0 max-w-full rounded-[1.25rem] border border-white/10 bg-white/[0.06] shadow-[0_18px_46px_rgba(0,0,0,0.22)] backdrop-blur-xl ${compact ? "p-3.5" : "p-4 sm:p-5"} ${className}`}>
+    <div className={`sunny-panel min-w-0 max-w-full rounded-xl border border-white/10 bg-white/[0.055] shadow-[0_14px_34px_rgba(0,0,0,0.20)] backdrop-blur-xl ${compact ? "p-3" : "p-3.5 sm:p-4"} ${className}`}>
       {children}
     </div>
   );
@@ -10876,16 +10878,16 @@ function CollapsibleSection({
   defaultOpen?: boolean;
 }) {
   return (
-    <details className="group min-w-0 max-w-full rounded-[1.5rem] border border-white/10 bg-white/[0.055] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.20)] backdrop-blur-xl sm:p-5" open={defaultOpen}>
-      <summary className="flex cursor-pointer list-none flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <details className="group min-w-0 max-w-full rounded-xl border border-white/10 bg-white/[0.05] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-xl sm:p-3.5" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">{title}</p>
-          {subtitle ? <p className="mt-1 text-sm leading-6 text-slate-400">{subtitle}</p> : null}
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">{title}</p>
+          {subtitle ? <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">{subtitle}</p> : null}
         </div>
-        <span className="secondary-button min-h-10 shrink-0 px-3 py-2 text-xs group-open:hidden">Open</span>
-        <span className="secondary-button hidden min-h-10 shrink-0 px-3 py-2 text-xs group-open:inline-flex">Close</span>
+        <span className="secondary-button min-h-8 shrink-0 px-2.5 py-1 text-xs group-open:hidden">Open</span>
+        <span className="secondary-button hidden min-h-8 shrink-0 px-2.5 py-1 text-xs group-open:inline-flex">Close</span>
       </summary>
-      <div className="mt-4 min-w-0">{children}</div>
+      <div className="mt-3 min-w-0">{children}</div>
     </details>
   );
 }
@@ -10985,9 +10987,9 @@ function DailyNotesCard({ value, onChange }: { value: string; onChange: Dispatch
 
 function MiniMetric({ label, value, compact = false }: { label: string; value: string | number; compact?: boolean }) {
   return (
-    <div className={`min-w-0 rounded-2xl border border-white/10 bg-white/[0.06] ${compact ? "p-3" : "p-4"}`}>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className={`break-words font-black text-white ${compact ? "mt-1 text-xl" : "mt-2 text-2xl"}`}>{value}</p>
+    <div className={`min-w-0 rounded-xl border border-white/10 bg-white/[0.05] ${compact ? "p-2.5" : "p-3"}`}>
+      <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+      <p className={`break-words font-black text-white ${compact ? "mt-0.5 text-lg" : "mt-1 text-xl"}`}>{value}</p>
     </div>
   );
 }
@@ -11008,7 +11010,7 @@ function ProgressLine({ label, value, total, percent }: { label: string; value: 
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="grid gap-2 text-sm font-black text-slate-200">
+    <label className="grid gap-1.5 text-sm font-black text-slate-200">
       {label}
       {children}
     </label>
