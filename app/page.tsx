@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.9";
+const APP_VERSION = "V4.0";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -4644,37 +4644,37 @@ function StartMissionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-5">
-      <section className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-[1.5rem] border border-amber-300/25 bg-[#07101f] p-4 shadow-[0_28px_100px_rgba(0,0,0,0.55)] sm:p-6">
-        <div className="flex items-start justify-between gap-4">
+      <section className="max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-amber-300/25 bg-[#07101f] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.50)] sm:p-4">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-200">Focus Mode</p>
-            <h2 className="mt-2 break-words text-2xl font-black leading-tight text-white sm:text-4xl">{task.title}</h2>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Focus Mode</p>
+            <h2 className="mt-1.5 break-words text-xl font-black leading-tight text-white sm:text-3xl">{task.title}</h2>
           </div>
-          <button type="button" onClick={close} className="secondary-button min-h-11 shrink-0 rounded-full px-3" aria-label="Close focus mode">
+          <button type="button" onClick={close} className="secondary-button min-h-9 shrink-0 rounded-full px-3" aria-label="Close focus mode">
             <X size={18} />
           </button>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           <Badge tone="gold">{task.time}</Badge>
           <Badge tone={task.category}>{task.category}</Badge>
           <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
           <Badge tone="dark">{task.points} KPM</Badge>
         </div>
 
-        <p className="mt-4 text-sm leading-6 text-slate-300">{getMissionReason(task)}</p>
+        <p className="mt-3 text-sm leading-5 text-slate-300">{getMissionReason(task)}</p>
 
-        <div className="mt-5 rounded-2xl border border-teal-300/20 bg-teal-300/10 p-4">
-          <p className="text-sm font-black uppercase tracking-[0.18em] text-teal-100">Start with this small first step:</p>
-          <p className="mt-2 text-lg font-black leading-snug text-white">{getFirstMissionStep(task)}</p>
+        <div className="mt-3 rounded-xl border border-teal-300/20 bg-teal-300/10 p-3">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-teal-100">Start with this small first step:</p>
+          <p className="mt-1.5 text-base font-black leading-snug text-white">{getFirstMissionStep(task)}</p>
         </div>
 
-        <div className={`mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 ${lowPowerTimerMode ? "timer-low-power" : ""}`}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className={`mt-3 rounded-xl border border-white/10 bg-black/20 p-3 ${lowPowerTimerMode ? "timer-low-power" : ""}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-amber-200">Focus Timer</p>
-              <p className="mt-1 text-sm font-bold text-slate-300">Suggested: {suggestedPreset.name} - {suggestedPreset.workMinutes} min focus{suggestedPreset.restMinutes > 0 ? ` + ${suggestedPreset.restMinutes} min rest` : ""}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-200">Focus Timer</p>
+              <p className="mt-1 text-sm font-bold leading-5 text-slate-300">Suggested: {suggestedPreset.name} - {suggestedPreset.workMinutes} min focus{suggestedPreset.restMinutes > 0 ? ` + ${suggestedPreset.restMinutes} min rest` : ""}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 <Badge tone={phase === "rest" ? "green" : "gold"}>{phase === "rest" ? "Rest" : "Focus"}</Badge>
                 <Badge tone="dark">Work: {selectedPreset.workMinutes} min</Badge>
                 <Badge tone="dark">Rest: {selectedPreset.restMinutes} min</Badge>
@@ -4684,40 +4684,40 @@ function StartMissionModal({
                 fallbackSeconds={displaySeconds}
                 running={timerStatus === "running"}
                 lowPower={lowPowerTimerMode}
-                className="mt-1 block font-mono text-5xl font-black text-white"
+                className="mt-1 block font-mono text-4xl font-black text-white sm:text-5xl"
                 onComplete={completeTimerPhase}
               />
             </div>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <button type="button" onClick={toggleTimer} className="primary-button">
+            <div className="grid gap-1.5 sm:grid-cols-3">
+              <button type="button" onClick={toggleTimer} className="primary-button min-h-9 px-3 py-1.5 text-sm">
                 {timerStatus === "running" ? "Pause" : timerStatus === "paused" ? "Resume" : "Start"}
               </button>
-              <button type="button" onClick={resetTimer} className="secondary-button">
+              <button type="button" onClick={resetTimer} className="secondary-button min-h-9 px-3 py-1.5 text-sm">
                 Reset
               </button>
-              <button type="button" onClick={() => setShowStuckHelp(true)} className="secondary-button border-amber-300/25 text-amber-100">
+              <button type="button" onClick={() => setShowStuckHelp(true)} className="secondary-button min-h-9 border-amber-300/25 px-3 py-1.5 text-sm text-amber-100">
                 I&apos;m Stuck
               </button>
             </div>
           </div>
           {displaySeconds === 0 && phase === "work" ? (
-            <div className="mt-4 rounded-2xl border border-emerald-300/25 bg-emerald-400/10 p-3">
+            <div className="mt-3 rounded-xl border border-emerald-300/25 bg-emerald-400/10 p-3">
               <p className="text-sm font-black text-emerald-100">Focus session complete. Choose your next move.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={markDone} className="primary-button">Mark Done</button>
-                <button type="button" onClick={continueSession} className="secondary-button">Continue another session</button>
-                {selectedPreset.restMinutes > 0 ? <button type="button" onClick={startRest} className="secondary-button">Start {selectedPreset.restMinutes} min rest</button> : null}
-                <button type="button" onClick={skipMission} className="secondary-button border-orange-300/25 text-orange-100">Skip</button>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <button type="button" onClick={markDone} className="primary-button min-h-9 px-3 py-1.5 text-sm">Mark Done</button>
+                <button type="button" onClick={continueSession} className="secondary-button min-h-9 px-3 py-1.5 text-sm">Continue another session</button>
+                {selectedPreset.restMinutes > 0 ? <button type="button" onClick={startRest} className="secondary-button min-h-9 px-3 py-1.5 text-sm">Start {selectedPreset.restMinutes} min rest</button> : null}
+                <button type="button" onClick={skipMission} className="secondary-button min-h-9 border-orange-300/25 px-3 py-1.5 text-sm text-orange-100">Skip</button>
               </div>
             </div>
           ) : null}
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {focusPresets.map((preset) => (
               <button
                 key={preset.id}
                 type="button"
                 onClick={() => choosePreset(preset)}
-                className={`min-h-12 rounded-2xl px-4 text-left text-sm font-black ${
+                className={`min-h-9 rounded-lg px-3 py-1.5 text-left text-sm font-black ${
                   selectedPreset.id === preset.id
                     ? "bg-amber-300 text-slate-950"
                     : "border border-white/10 bg-white/[0.06] text-slate-300"
@@ -4730,36 +4730,36 @@ function StartMissionModal({
         </div>
 
         {showStuckHelp ? (
-          <div className="mt-5 rounded-2xl border border-orange-300/25 bg-orange-400/10 p-4">
-            <p className="text-lg font-black text-white">Reduce the mission to 5 minutes.</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <button type="button" onClick={() => { choosePreset(focusPresets[0]); startFocusTimer(focusPresets[0].workMinutes * 60); }} className="secondary-button">
+          <div className="mt-3 rounded-xl border border-orange-300/25 bg-orange-400/10 p-3">
+            <p className="text-base font-black text-white">Reduce the mission to 5 minutes.</p>
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+              <button type="button" onClick={() => { choosePreset(focusPresets[0]); startFocusTimer(focusPresets[0].workMinutes * 60); }} className="secondary-button min-h-9 px-3 py-1.5 text-sm">
                 Do only 5 minutes
               </button>
-              <button type="button" onClick={() => setShowStuckHelp(false)} className="secondary-button">
+              <button type="button" onClick={() => setShowStuckHelp(false)} className="secondary-button min-h-9 px-3 py-1.5 text-sm">
                 Break into smaller task
               </button>
-              <button type="button" onClick={skipMission} className="secondary-button border-orange-300/25 text-orange-100">
+              <button type="button" onClick={skipMission} className="secondary-button min-h-9 border-orange-300/25 px-3 py-1.5 text-sm text-orange-100">
                 Skip without guilt
               </button>
             </div>
           </div>
         ) : null}
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <button type="button" onClick={markDone} className="primary-button">
+        <div className="mt-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
+          <button type="button" onClick={markDone} className="primary-button min-h-9 px-3 py-1.5 text-sm">
             <CheckCircle2 size={18} />
             Mark Done
           </button>
-          <button type="button" onClick={skipMission} className="secondary-button border-orange-300/25 text-orange-100">
+          <button type="button" onClick={skipMission} className="secondary-button min-h-9 border-orange-300/25 px-3 py-1.5 text-sm text-orange-100">
             <X size={18} />
             Skip Mission
           </button>
-          <button type="button" onClick={snoozeMission} className="secondary-button">
+          <button type="button" onClick={snoozeMission} className="secondary-button min-h-9 px-3 py-1.5 text-sm">
             <Clock3 size={18} />
             Snooze 15 min
           </button>
-          <button type="button" onClick={close} className="secondary-button">
+          <button type="button" onClick={close} className="secondary-button min-h-9 px-3 py-1.5 text-sm">
             Close
           </button>
         </div>
@@ -4778,13 +4778,13 @@ function MorePage({ setActiveSection }: { setActiveSection: Dispatch<SetStateAct
   ];
 
   return (
-    <section className="grid gap-4">
-      <Panel>
-        <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">More</p>
-        <h2 className="mt-2 text-3xl font-black text-white">Advanced tools</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">The home screen stays simple. Everything deeper is still here when you need it.</p>
+    <section className="grid gap-3">
+      <Panel compact>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">More</p>
+        <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Advanced tools</h2>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400 sm:text-sm">The home screen stays simple. Deeper tools stay here.</p>
       </Panel>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-2 md:grid-cols-2">
         {links.map((link) => {
           const Icon = link.icon;
           return (
@@ -4792,14 +4792,14 @@ function MorePage({ setActiveSection }: { setActiveSection: Dispatch<SetStateAct
               key={link.id}
               type="button"
               onClick={() => setActiveSection(link.id)}
-              className="flex min-w-0 items-start gap-4 rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4 text-left shadow-[0_18px_44px_rgba(0,0,0,0.18)] transition hover:border-amber-300/30 hover:bg-white/[0.09]"
+              className="flex min-w-0 items-start gap-3 rounded-xl border border-white/10 bg-white/[0.055] p-3 text-left shadow-[0_14px_34px_rgba(0,0,0,0.16)] transition hover:border-amber-300/30 hover:bg-white/[0.08]"
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-300/15 text-amber-100">
-                <Icon size={21} />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-300/15 text-amber-100">
+                <Icon size={18} />
               </span>
               <span className="min-w-0">
-                <span className="block text-lg font-black text-white">{link.title}</span>
-                <span className="mt-1 block text-sm leading-6 text-slate-400">{link.body}</span>
+                <span className="block text-base font-black text-white">{link.title}</span>
+                <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-400 sm:text-sm">{link.body}</span>
               </span>
               <ChevronRight className="ml-auto shrink-0 text-slate-500" size={18} />
             </button>

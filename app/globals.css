@@ -69,11 +69,13 @@ h3,
 h4,
 h5,
 h6,
-span,
-button,
-label,
-div {
+label {
   overflow-wrap: anywhere;
+}
+
+button,
+span {
+  overflow-wrap: normal;
 }
 
 button,
