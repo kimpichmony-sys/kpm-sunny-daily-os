@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.1";
+const APP_VERSION = "V4.2";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -3663,19 +3663,19 @@ function TodayCommand({
         </div>
       </Panel>
 
-        <Panel compact>
+        <Panel compact className="today-support-panel">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Primary Objective</p>
               <h3 className="mt-1 break-words text-xl font-black leading-tight text-white sm:text-2xl">{mainMission?.title ?? "No main mission set"}</h3>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 <Badge tone={mainMissionStatus === "Done" ? "green" : "gold"}>{mainMissionStatus}</Badge>
                 {mainMission ? <Badge tone="dark">{mainMission.time}</Badge> : null}
                 {mainMission ? <Badge tone={mainMission.category}>{mainMission.category}</Badge> : null}
               </div>
             </div>
             {mainMission ? (
-              <button type="button" onClick={() => updateTask(mainMission.id, { completed: true, skipped: false })} className="primary-button text-sm sm:min-w-44">
+              <button type="button" onClick={() => updateTask(mainMission.id, { completed: true, skipped: false })} className="secondary-button min-h-9 px-3 py-1.5 text-sm sm:min-w-36">
                 <Check size={18} />
                 Mark done
               </button>
@@ -3685,7 +3685,7 @@ function TodayCommand({
 
       {focusItems.length > 0 ? <TodayFocusCard focusItems={focusItems} /> : null}
 
-      <Panel compact>
+      <Panel compact className="today-support-panel">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Next 3 Missions</p>
@@ -3696,15 +3696,18 @@ function TodayCommand({
         <div className="mt-3 grid gap-2">
           {nextMissions.length > 0 ? (
             nextMissions.map((task) => (
-              <div key={task.id} className="flex min-w-0 flex-col gap-2 rounded-lg border border-white/10 bg-black/20 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div key={task.id} className="today-mission-row flex min-w-0 flex-col gap-2 rounded-lg border border-white/10 bg-black/20 p-2.5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-xs font-black text-amber-100">{task.time}</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="shrink-0 text-xs font-black text-amber-100">{task.time}</p>
+                    <span className="h-1 w-1 rounded-full bg-slate-600" />
+                    <p className="text-xs font-bold text-slate-400">{getTaskSourceLabel(task)}</p>
+                  </div>
                   <p className="mt-0.5 break-words text-sm font-black leading-snug text-white sm:text-base">{task.title}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     <Badge tone={task.category}>{task.category}</Badge>
-                    <Badge tone={task.priority === "S" ? "gold" : "dark"}>{task.priority}-Tier</Badge>
+                    {task.priority === "S" ? <Badge tone="gold">S-Tier</Badge> : null}
                     <Badge tone="dark">{task.points} KPM</Badge>
-                    <Badge tone="dark">{getTaskSourceLabel(task)}</Badge>
                   </div>
                 </div>
                 <button type="button" onClick={() => updateTask(task.id, { completed: true, skipped: false })} className="secondary-button min-h-8 px-3 py-1.5 text-xs sm:min-w-24">
@@ -3721,7 +3724,7 @@ function TodayCommand({
 
       <aside className="grid min-w-0 gap-3 xl:sticky xl:top-4">
         <TodayQuickActions rebuildToday={rebuildToday} setActiveSection={setActiveSection} />
-        <Panel compact>
+        <Panel compact className="today-support-panel">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Progress Signal</p>
           <div className="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-1">
             <MiniMetric label="Done" value={stats.completed} compact />
@@ -3743,7 +3746,7 @@ function TodayQuickActions({
   setActiveSection: Dispatch<SetStateAction<SectionId>>;
 }) {
   return (
-    <Panel compact>
+    <Panel compact className="today-support-panel">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Quick Actions</p>
       <div className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-1">
         <button type="button" onClick={rebuildToday} className="secondary-button min-h-8 px-3 py-1.5 text-xs">
@@ -6509,7 +6512,7 @@ function ActivePlansManager({
 
 function WeeklyReviewsDue({ plans }: { plans: ActivePlan[] }) {
   return (
-    <Panel compact>
+    <Panel compact className="active-plan-today-panel">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Weekly Reviews Due</p>
@@ -7957,7 +7960,7 @@ function ActivePlanTasksSection({
 
 function TodayFocusCard({ focusItems }: { focusItems: TodayFocusItem[] }) {
   return (
-    <Panel compact className="border-cyan-200/15 bg-[linear-gradient(135deg,rgba(111,214,209,0.075),rgba(19,33,58,0.70))]">
+    <Panel compact className="today-focus-panel border-cyan-200/15 bg-[linear-gradient(135deg,rgba(111,214,209,0.075),rgba(19,33,58,0.70))]">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Core Priorities</p>
@@ -7965,9 +7968,9 @@ function TodayFocusCard({ focusItems }: { focusItems: TodayFocusItem[] }) {
         </div>
         <Badge tone="gold">{focusItems.length}/3 focus</Badge>
       </div>
-      <div className="mt-4 grid gap-2 lg:grid-cols-3">
+      <div className="mt-3 grid gap-2 lg:grid-cols-3">
         {focusItems.map((item) => (
-          <div key={`${item.source}-${item.title}`} className="min-w-0 rounded-2xl border border-white/10 bg-black/25 p-3">
+          <div key={`${item.source}-${item.title}`} className="today-focus-tile min-w-0 rounded-lg border border-white/10 bg-black/25 p-2.5">
             <p className="break-words text-sm font-black text-white">{item.title}</p>
             {item.detail ? <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{item.detail}</p> : null}
             <span className="mt-2 inline-flex">
@@ -7982,22 +7985,22 @@ function TodayFocusCard({ focusItems }: { focusItems: TodayFocusItem[] }) {
 
 function PlanTaskMiniRow({ row, onToggle }: { row: PlanTaskRow & { source?: string; filterGroup?: string }; onToggle: () => void }) {
   return (
-    <div className={`rounded-2xl border p-3 ${row.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : "border-white/10 bg-white/[0.04]"}`}>
-      <div className="flex items-start gap-3">
+    <div className={`today-plan-row rounded-lg border p-2.5 ${row.completed ? "border-emerald-300/35 bg-emerald-400/[0.08]" : "border-white/10 bg-white/[0.04]"}`}>
+      <div className="flex items-start gap-2.5">
         <button
           type="button"
           onClick={onToggle}
-          className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border ${row.completed ? "border-emerald-300 bg-emerald-400 text-slate-950" : "border-white/15 bg-black/20 text-slate-400"}`}
+          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border ${row.completed ? "border-emerald-300 bg-emerald-400 text-slate-950" : "border-white/15 bg-black/20 text-slate-400"}`}
         >
-          {row.completed ? <Check size={16} /> : null}
+          {row.completed ? <Check size={14} /> : null}
         </button>
         <div className="min-w-0 flex-1">
           <p className="break-words text-sm font-black text-white">{row.title}</p>
           {row.detail ? <p className="mt-1 break-words text-xs font-bold leading-5 text-slate-300">{row.detail}</p> : null}
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             <Badge tone="dark">{row.badge}</Badge>
             {row.source ? <Badge tone="gold">{row.source}</Badge> : null}
-            {row.filterGroup ? <Badge tone="dark">{row.filterGroup}</Badge> : null}
+            {row.filterGroup && row.filterGroup !== "Essentials" ? <Badge tone="dark">{row.filterGroup}</Badge> : null}
           </div>
         </div>
       </div>
