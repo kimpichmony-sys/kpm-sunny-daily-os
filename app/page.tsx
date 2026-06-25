@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.2";
+const APP_VERSION = "V4.3";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -4782,7 +4782,7 @@ function MorePage({ setActiveSection }: { setActiveSection: Dispatch<SetStateAct
   ];
 
   return (
-    <section className="grid gap-3">
+    <section className="premium-density more-density grid gap-2.5">
       <Panel compact>
         <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">More</p>
         <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">Advanced tools</h2>
@@ -5891,7 +5891,7 @@ function PlanFoundation({
   }
 
   return (
-    <section className="grid gap-3">
+    <section className="premium-density plan-density grid gap-2.5">
       <Panel compact>
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
@@ -7180,7 +7180,7 @@ function ProgressFoundation({
   const showReviews = progressFilter === "All" || progressFilter === "Reviews Needed";
 
   return (
-    <section className="grid gap-3">
+    <section className="premium-density progress-density grid gap-2.5">
       <Panel compact>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -7440,7 +7440,7 @@ function ProfileScreen({
   }
 
   return (
-    <section className="grid gap-3">
+    <section className="premium-density profile-density grid gap-2.5">
       <Panel compact>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -7857,6 +7857,10 @@ function ProfileVersionSection() {
           <li>V3.5 Full stability + data safety pass</li>
           <li>V3.6 7-Day Real Use Test Mode</li>
           <li>V3.7 Long-Term Planning Hub</li>
+          <li>V4.0 Browser-style workspace UI</li>
+          <li>V4.1 Premium visual system</li>
+          <li>V4.2 Today screen premium polish</li>
+          <li>V4.3 Whole-app premium density + typography pass</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
