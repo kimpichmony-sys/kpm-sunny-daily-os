@@ -779,3 +779,64 @@ details {
 .border-orange-400\/45 {
   border-color: rgba(199, 44, 65, 0.35) !important;
 }
+
+/* Browser-style workspace polish: keep the UI compact without changing app logic. */
+.workspace-tab-strip {
+  box-shadow:
+    inset 0 1px 0 rgba(139, 233, 255, 0.08),
+    0 12px 34px rgba(0, 0, 0, 0.22);
+}
+
+.workspace-tab-strip button {
+  letter-spacing: 0;
+}
+
+.long-study-workspace {
+  box-shadow:
+    inset 0 1px 0 rgba(139, 233, 255, 0.08),
+    0 18px 44px rgba(0, 0, 0, 0.28);
+}
+
+.long-study-current-block {
+  box-shadow: inset 0 1px 0 rgba(139, 233, 255, 0.10);
+}
+
+.workspace-control-center {
+  box-shadow: inset 0 1px 0 rgba(139, 233, 255, 0.07);
+}
+
+@media (max-width: 767px) {
+  .workspace-tab-strip {
+    margin-top: 0.35rem;
+    border-radius: 0.95rem 0.95rem 0.7rem 0.7rem;
+    padding: 0.3rem 0.3rem 0.25rem;
+  }
+
+  .workspace-tab-strip button {
+    min-height: 2rem;
+    max-width: 11rem;
+    padding: 0.35rem 0.55rem;
+  }
+
+  .long-study-workspace {
+    border-radius: 0.95rem !important;
+    padding: 0.7rem !important;
+  }
+
+  .long-study-workspace .primary-button,
+  .long-study-workspace .secondary-button,
+  .long-study-workspace .danger-button,
+  .workspace-control-center .primary-button,
+  .workspace-control-center .secondary-button,
+  .workspace-control-center .danger-button {
+    min-height: 2.15rem;
+    border-radius: 0.65rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  .long-study-workspace .form-control {
+    min-height: 2.65rem;
+    border-radius: 0.7rem;
+    padding: 0.6rem 0.7rem;
+  }
+}

@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V3.8.1";
+const APP_VERSION = "V3.8.2";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -2371,7 +2371,7 @@ function HomeApp() {
           <WorkspaceTabBar tabs={normalizedWorkspaceTabs} activeTabId={activeWorkspaceTab.id} selectTab={selectWorkspaceTab} closeTab={closeWorkspaceTab} />
           {activeSection !== "Dashboard" && activeSection !== "Plan" ? <MobilePriorityPanel stats={stats} dayLevel={dayLevel} mainMission={mainMission} nextTask={nextTask} /> : null}
 
-          <div className="mx-auto mt-6 w-full max-w-[1180px]">
+          <div className="mx-auto mt-4 w-full max-w-[1180px] lg:mt-5">
             {isCustomWorkspaceActive ? (
               <WorkspaceTabContent
                 tab={activeWorkspaceTab}
@@ -2843,8 +2843,8 @@ function WorkspaceTabBar({
   closeTab: (tabId: string) => void;
 }) {
   return (
-    <div className="mt-3 min-w-0 max-w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-1.5 backdrop-blur-xl">
-      <div className="no-scrollbar flex max-w-full gap-1.5 overflow-x-auto">
+    <div className="workspace-tab-strip mt-2 min-w-0 max-w-full overflow-hidden rounded-t-2xl rounded-b-xl border border-cyan-200/10 bg-[#07101f]/80 px-1.5 pb-1 pt-1.5 backdrop-blur-xl">
+      <div className="no-scrollbar flex max-w-full gap-1 overflow-x-auto">
         {tabs.map((tab) => {
           const active = tab.id === activeTabId;
           return (
@@ -2852,10 +2852,10 @@ function WorkspaceTabBar({
               key={tab.id}
               type="button"
               onClick={() => selectTab(tab.id)}
-              className={`group flex min-h-9 max-w-[15rem] shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-black transition ${
+              className={`group flex min-h-8 max-w-[13rem] shrink-0 items-center gap-1.5 rounded-t-xl rounded-b-md border px-2.5 py-1.5 text-left text-[0.72rem] font-black transition ${
                 active
-                  ? "border-cyan-200/45 bg-cyan-300/[0.14] text-cyan-50 shadow-[0_0_24px_rgba(89,195,255,0.10)]"
-                  : "border-white/8 bg-white/[0.035] text-slate-300 hover:bg-white/[0.07]"
+                  ? "border-cyan-200/45 bg-[#111827] text-cyan-50 shadow-[inset_0_1px_0_rgba(139,233,255,0.22)]"
+                  : "border-white/8 bg-white/[0.025] text-slate-300 hover:border-cyan-200/20 hover:bg-white/[0.055]"
               }`}
             >
               <span className="truncate">{tab.title}</span>
@@ -2875,9 +2875,9 @@ function WorkspaceTabBar({
                       closeTab(tab.id);
                     }
                   }}
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white"
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-white/10 hover:text-white"
                 >
-                  <X size={13} />
+                  <X size={11} />
                 </span>
               ) : null}
             </button>
@@ -4191,7 +4191,7 @@ function LongStudyEventWorkspace({
   }
 
   return (
-    <Panel compact className="long-study-workspace">
+    <Panel compact className="long-study-workspace border-cyan-200/15 bg-[#07101f]/80">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Long Study Event Workspace</p>
@@ -4204,18 +4204,18 @@ function LongStudyEventWorkspace({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-1.5">
         {(["Run", "Schedule", "Review"] as const).map((tab) => (
-          <button key={tab} type="button" onClick={() => setWorkspaceTab(tab)} className={`rounded-full border px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] ${workspaceTab === tab ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}>
+          <button key={tab} type="button" onClick={() => setWorkspaceTab(tab)} className={`rounded-lg border px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.13em] ${workspaceTab === tab ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.035] text-slate-300"}`}>
             {tab}
           </button>
         ))}
       </div>
 
       {workspaceTab === "Run" ? (
-        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="grid min-w-0 gap-3">
-            <section className="min-w-0 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.055] p-3 sm:p-4">
+        <div className="mt-3 grid gap-2.5 xl:grid-cols-[minmax(0,1fr)_17rem]">
+          <div className="grid min-w-0 gap-2.5">
+            <section className="long-study-current-block min-w-0 rounded-xl border border-cyan-200/18 bg-cyan-300/[0.05] p-2.5 sm:p-3.5">
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge tone="dark">{activeBlock?.time ?? session.startTime}</Badge>
                 <Badge tone="dark">{activeBlock ? getLongStudyBlockType(activeBlock) : "event"}</Badge>
@@ -4223,12 +4223,12 @@ function LongStudyEventWorkspace({
                 <Badge tone="dark">Block {blocks.length ? activeIndex + 1 : 0}/{blocks.length}</Badge>
                 <Badge tone={state.timerStatus === "running" ? "green" : state.timerStatus === "time-up" ? "gold" : "dark"}>{state.timerStatus}</Badge>
               </div>
-              <h3 className="mt-2 break-words text-lg font-black leading-snug text-white sm:text-2xl">{activeBlock?.title ?? "No block selected"}</h3>
+              <h3 className="mt-2 break-words text-lg font-black leading-snug text-white sm:text-xl">{activeBlock?.title ?? "No block selected"}</h3>
               <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-300">{activeBlock?.notes.replace("Source: Long Study Mode. ", "") ?? "This event has no blocks yet."}</p>
               <p className="mt-2 text-xs font-bold text-slate-400">Next: {nextBlocks[0]?.title ?? "No next block"}</p>
               {timerNotice ? <p className="mt-2 rounded-xl border border-cyan-200/20 bg-cyan-300/[0.08] px-3 py-1.5 text-xs font-bold text-cyan-100">{timerNotice}</p> : null}
               {blockTimeIsUp && state.eventStatus !== "completed" ? <p className="mt-2 rounded-xl border border-amber-200/25 bg-amber-300/[0.10] px-3 py-1.5 text-xs font-bold text-amber-100">Block time is up. Complete this block when you are ready to start the next one.</p> : null}
-              <div className={`mt-3 rounded-2xl border border-white/10 bg-black/30 p-3 text-center ${lowPowerTimerMode ? "timer-low-power" : ""}`}>
+              <div className={`mt-2.5 rounded-xl border border-white/10 bg-black/30 p-2.5 text-center ${lowPowerTimerMode ? "timer-low-power" : ""}`}>
                 <TimestampCountdown
                   targetEndAt={state.timerStatus === "running" ? state.blockTargetEndAt : null}
                   fallbackSeconds={displayRemainingSeconds}
@@ -4239,21 +4239,21 @@ function LongStudyEventWorkspace({
                 />
                 <p className="mt-1 text-[0.65rem] font-black uppercase tracking-[0.16em] text-slate-500">Current block timer</p>
               </div>
-              <div className="mt-3 grid gap-2">
+              <div className="mt-2.5 grid gap-1.5">
                 <div className="grid grid-cols-2 gap-2">
                 {state.eventStatus === "running" ? (
-                  <button type="button" onClick={pauseEvent} className="primary-button min-h-10 justify-center px-3 py-2 text-sm">Pause</button>
+                  <button type="button" onClick={pauseEvent} className="primary-button min-h-9 justify-center px-3 py-1.5 text-sm">Pause</button>
                 ) : (
-                  <button type="button" onClick={startEvent} className="primary-button min-h-10 justify-center px-3 py-2 text-sm">{state.eventStatus === "planned" ? "Start" : "Resume"}</button>
+                  <button type="button" onClick={startEvent} className="primary-button min-h-9 justify-center px-3 py-1.5 text-sm">{state.eventStatus === "planned" ? "Start" : "Resume"}</button>
                 )}
-                  <button type="button" onClick={completeActiveBlock} className="secondary-button min-h-10 justify-center px-3 py-2 text-sm">Complete</button>
+                  <button type="button" onClick={completeActiveBlock} className="secondary-button min-h-9 justify-center px-3 py-1.5 text-sm">Complete</button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={skipActiveBlock} className="secondary-button min-h-10 justify-center px-3 py-2 text-sm">Skip</button>
-                  <button type="button" onClick={resetBlock} className="secondary-button min-h-10 justify-center px-3 py-2 text-sm">Reset</button>
+                  <button type="button" onClick={skipActiveBlock} className="secondary-button min-h-9 justify-center px-3 py-1.5 text-sm">Skip</button>
+                  <button type="button" onClick={resetBlock} className="secondary-button min-h-9 justify-center px-3 py-1.5 text-sm">Reset</button>
                 </div>
-                <button type="button" onClick={endEvent} className="danger-button min-h-10 justify-center px-3 py-2 text-sm">End Event</button>
-                <label className="flex min-h-9 items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-black text-white">
+                <button type="button" onClick={endEvent} className="danger-button min-h-9 justify-center px-3 py-1.5 text-sm">End Event</button>
+                <label className="flex min-h-8 items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-1.5 text-xs font-black text-white">
                   <span>Auto next</span>
                   <input
                     type="checkbox"
@@ -4265,10 +4265,10 @@ function LongStudyEventWorkspace({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
+            <section className="rounded-xl border border-white/10 bg-black/20 p-2.5 sm:p-3">
               <div className="flex flex-row items-center justify-between gap-3">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Up Next</p>
-                <button type="button" onClick={() => setWorkspaceTab("Schedule")} className="secondary-button min-h-9 px-3 py-1.5 text-xs">Full Timeline</button>
+                <button type="button" onClick={() => setWorkspaceTab("Schedule")} className="secondary-button min-h-8 px-2.5 py-1 text-xs">Open Full Timeline</button>
               </div>
               <div className="mt-2 grid gap-1.5">
                 {nextBlocks.length ? nextBlocks.map((block) => (
@@ -4293,13 +4293,13 @@ function LongStudyEventWorkspace({
       ) : null}
 
       {workspaceTab === "Schedule" ? (
-        <section className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3 sm:p-4">
+        <section className="mt-3 rounded-xl border border-white/10 bg-black/20 p-2.5 sm:p-3">
           <div className="flex flex-row items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Schedule Timeline</p>
               <p className="mt-0.5 text-xs leading-5 text-slate-400">Compact full event timeline.</p>
             </div>
-            <button type="button" onClick={() => setWorkspaceTab("Run")} className="secondary-button min-h-9 px-3 py-1.5 text-xs">Close</button>
+            <button type="button" onClick={() => setWorkspaceTab("Run")} className="secondary-button min-h-8 px-2.5 py-1 text-xs">Close</button>
           </div>
           <div className="mt-3 max-h-[62vh] overflow-y-auto pr-1">
             <div className="grid gap-1.5">
@@ -4323,7 +4323,7 @@ function LongStudyEventWorkspace({
       ) : null}
 
       {workspaceTab === "Review" ? (
-        <section className="mt-3 rounded-2xl border border-amber-200/20 bg-amber-300/[0.06] p-3 sm:p-4">
+        <section className="mt-3 rounded-xl border border-amber-200/20 bg-amber-300/[0.06] p-2.5 sm:p-3">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-100">Event Review</p>
           {state.eventStatus !== "completed" && state.eventStatus !== "abandoned" ? <p className="mt-1 text-xs leading-5 text-slate-400">Finish or end the event when ready, then save the review.</p> : null}
           <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -4340,7 +4340,7 @@ function LongStudyEventWorkspace({
             <label className="flex min-h-10 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.ateEnough} onChange={(event) => updateReviewDraft({ ateEnough: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Ate enough?</label>
             <label className="flex min-h-10 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-black text-white"><input type="checkbox" checked={reviewDraft.finishedFollowUp} onChange={(event) => updateReviewDraft({ finishedFollowUp: event.target.checked })} className="h-5 w-5 accent-cyan-300" />Finished follow-up?</label>
           </div>
-          <button type="button" onClick={saveWorkspaceReview} className="primary-button mt-3 min-h-10 justify-center px-4 py-2 text-sm">Save Event Review</button>
+          <button type="button" onClick={saveWorkspaceReview} className="primary-button mt-3 min-h-9 justify-center px-4 py-1.5 text-sm">Save Event Review</button>
         </section>
       ) : null}
     </Panel>
@@ -4359,13 +4359,13 @@ function CompactLongStudyBlockRow({ block, status, onClick }: { block: Task; sta
   );
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className="grid min-w-0 grid-cols-[4.5rem_3.5rem_minmax(0,1fr)] gap-1.5 rounded-xl border border-white/10 bg-white/[0.035] p-2 text-left sm:grid-cols-[5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center">
+      <button type="button" onClick={onClick} className="grid min-w-0 grid-cols-[4rem_3.25rem_minmax(0,1fr)] gap-1.5 rounded-lg border border-white/10 bg-white/[0.035] p-1.5 text-left sm:grid-cols-[5rem_4rem_4.75rem_minmax(0,1fr)_5.5rem] sm:items-center">
         {content}
       </button>
     );
   }
   return (
-    <div className="grid min-w-0 grid-cols-[4.5rem_3.5rem_minmax(0,1fr)] gap-1.5 rounded-xl border border-white/10 bg-white/[0.035] p-2 sm:grid-cols-[5.5rem_4.5rem_5rem_minmax(0,1fr)_6rem] sm:items-center">
+    <div className="grid min-w-0 grid-cols-[4rem_3.25rem_minmax(0,1fr)] gap-1.5 rounded-lg border border-white/10 bg-white/[0.035] p-1.5 sm:grid-cols-[5rem_4rem_4.75rem_minmax(0,1fr)_5.5rem] sm:items-center">
       {content}
     </div>
   );
@@ -4373,9 +4373,9 @@ function CompactLongStudyBlockRow({ block, status, onClick }: { block: Task; sta
 
 function CompactMetric({ label, value, className = "" }: { label: string; value: string | number; className?: string }) {
   return (
-    <div className={`min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 ${className}`}>
-      <p className="truncate text-[0.65rem] font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
-      <p className="mt-0.5 break-words text-base font-black leading-tight text-white">{value}</p>
+    <div className={`min-w-0 rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-1.5 ${className}`}>
+      <p className="truncate text-[0.6rem] font-black uppercase tracking-[0.11em] text-slate-500">{label}</p>
+      <p className="mt-0.5 break-words text-sm font-black leading-tight text-white sm:text-base">{value}</p>
     </div>
   );
 }
@@ -6387,20 +6387,20 @@ function ActivePlansManager({
   }
 
   return (
-    <Panel>
+    <Panel compact className="workspace-control-center">
       <span id="active-plan-control-center" className="block scroll-mt-24" />
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">Active Plan Control Center</p>
-          <h3 className="mt-2 text-2xl font-black text-white">Control every life system from one place</h3>
-          <p className="mt-1 text-sm leading-6 text-slate-400">Open, edit, pause, review, and archive plans. Only active plans send tasks to Today.</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Active Plan Control Center</p>
+          <h3 className="mt-1 text-xl font-black text-white">Life systems workspace</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">Open plans as tabs. Only active plans send tasks to Today.</p>
         </div>
         <Badge tone="dark">{activePlans.length} plans</Badge>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         {(["active", "paused", "archived", "all"] as Array<PlanStatus | "all">).map((option) => (
-          <button key={option} type="button" onClick={() => setFilter(option)} className={`rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] ${filter === option ? "border-amber-200/50 bg-amber-300/[0.12] text-amber-100" : "border-white/10 bg-white/[0.04] text-slate-300"}`}>
+          <button key={option} type="button" onClick={() => setFilter(option)} className={`rounded-lg border px-2.5 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.13em] ${filter === option ? "border-cyan-200/50 bg-cyan-300/[0.12] text-cyan-100" : "border-white/10 bg-white/[0.035] text-slate-300"}`}>
             {option === "all" ? "All" : option}
           </button>
         ))}
@@ -6415,32 +6415,32 @@ function ActivePlansManager({
           No plans match this filter.
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
           {visiblePlans.map((plan) => (
-            <article key={plan.id} className="rounded-[1.35rem] border border-white/10 bg-black/20 p-4">
+            <article key={plan.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h4 className="break-words text-lg font-black text-white">{getPlanDisplayName(plan)}</h4>
+                  <h4 className="break-words text-base font-black text-white">{getPlanDisplayName(plan)}</h4>
                   <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{formatPlanType(plan.type)}</p>
                 </div>
                 <Badge tone={plan.status === "active" ? "green" : plan.status === "paused" ? "orange" : "dark"}>{plan.status}</Badge>
               </div>
-              <div className="mt-3 grid gap-2 text-sm leading-6 text-slate-400">
+              <div className="mt-2 grid gap-1.5 text-xs leading-5 text-slate-400">
                 <SummaryRow label="Started" value={plan.startDate || "Unknown"} />
                 <SummaryRow label="Today tasks" value={`${getPlanCompletion(plan).completed}/${getPlanCompletion(plan).total}`} />
                 <SummaryRow label="Weekly" value={getPlanWeeklyCompletionText(plan)} />
                 <SummaryRow label="Last log" value={getPlanLastLogText(plan)} />
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" onClick={() => openPlanWorkspace(plan)} className="primary-button min-h-9 px-3 py-2 text-xs">Open Workspace</button>
-                <button type="button" onClick={() => setEditPlanId(plan.id)} className="secondary-button min-h-9 px-3 py-2 text-xs">Edit Setup</button>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <button type="button" onClick={() => openPlanWorkspace(plan)} className="primary-button min-h-8 px-2.5 py-1.5 text-xs">Open Workspace</button>
+                <button type="button" onClick={() => setEditPlanId(plan.id)} className="secondary-button min-h-8 px-2.5 py-1.5 text-xs">Edit</button>
                 {plan.status === "active" ? (
-                  <button type="button" onClick={() => updatePlanStatus(plan.id, "paused")} className="secondary-button min-h-9 px-3 py-2 text-xs">Pause</button>
+                  <button type="button" onClick={() => updatePlanStatus(plan.id, "paused")} className="secondary-button min-h-8 px-2.5 py-1.5 text-xs">Pause</button>
                 ) : (
-                  <button type="button" onClick={() => updatePlanStatus(plan.id, "active")} className="secondary-button min-h-9 px-3 py-2 text-xs">Resume</button>
+                  <button type="button" onClick={() => updatePlanStatus(plan.id, "active")} className="secondary-button min-h-8 px-2.5 py-1.5 text-xs">Resume</button>
                 )}
-                <button type="button" onClick={() => setReviewPlanId(plan.id)} className="secondary-button min-h-9 px-3 py-2 text-xs">Weekly Review</button>
-                <button type="button" onClick={() => archivePlan(plan)} className="danger-button min-h-9 px-3 py-2 text-xs">Archive</button>
+                <button type="button" onClick={() => setReviewPlanId(plan.id)} className="secondary-button min-h-8 px-2.5 py-1.5 text-xs">Review</button>
+                <button type="button" onClick={() => archivePlan(plan)} className="danger-button min-h-8 px-2.5 py-1.5 text-xs">Archive</button>
               </div>
             </article>
           ))}
