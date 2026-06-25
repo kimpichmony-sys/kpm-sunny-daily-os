@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.0";
+const APP_VERSION = "V4.1";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -3593,16 +3593,17 @@ function TodayCommand({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Mission Directive</p>
+              {currentMission ? <span className="h-px w-10 rounded-full bg-cyan-200/35" /> : null}
             </div>
             {currentMission ? (
               <>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <Badge tone="gold">{currentMission.time}</Badge>
                   <Badge tone={currentMission.category}>{currentMission.category}</Badge>
                   <Badge tone={currentMission.priority === "S" ? "gold" : "dark"}>{currentMission.priority}-Tier</Badge>
                   <Badge tone="dark">{currentMission.points} KPM</Badge>
                 </div>
-                <h2 className="mt-2 break-words text-2xl font-black leading-tight text-white sm:text-3xl xl:text-[2.15rem]">{currentMission.title}</h2>
+                <h2 className="mission-title mt-2 break-words text-2xl font-black leading-tight text-white sm:text-3xl xl:text-[2.15rem]">{currentMission.title}</h2>
                 <p className="mt-1.5 line-clamp-2 max-w-2xl text-sm leading-5 text-slate-300">{getMissionReason(currentMission)}</p>
                 <details className="mt-2 text-xs font-bold text-slate-400">
                   <summary className="cursor-pointer text-amber-100">Details</summary>
@@ -10987,7 +10988,7 @@ function DailyNotesCard({ value, onChange }: { value: string; onChange: Dispatch
 
 function MiniMetric({ label, value, compact = false }: { label: string; value: string | number; compact?: boolean }) {
   return (
-    <div className={`min-w-0 rounded-xl border border-white/10 bg-white/[0.05] ${compact ? "p-2.5" : "p-3"}`}>
+    <div className={`sunny-stat-tile min-w-0 rounded-xl border border-white/10 bg-white/[0.05] ${compact ? "p-2.5" : "p-3"}`}>
       <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
       <p className={`break-words font-black text-white ${compact ? "mt-0.5 text-lg" : "mt-1 text-xl"}`}>{value}</p>
     </div>
@@ -11001,8 +11002,8 @@ function ProgressLine({ label, value, total, percent }: { label: string; value: 
         <span className="text-slate-200">{label}</span>
         <span className="text-amber-200">{value}/{total}</span>
       </div>
-      <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
-        <div className="h-full rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-emerald-400" style={{ width: `${percent}%` }} />
+      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-amber-200" style={{ width: `${percent}%` }} />
       </div>
     </div>
   );
@@ -11040,7 +11041,7 @@ function Badge({ children, tone = "dark" }: { children: ReactNode; tone?: Catego
     orange: "border-[#8B7BC6]/34 bg-[#8B7BC6]/12 text-[#d6d0ff]",
     dark: "border-[#B7C2D6]/12 bg-[#13213A]/70 text-[#B7C2D6]"
   };
-  return <span className={`inline-flex w-fit max-w-full shrink-0 items-center rounded-full border px-2.5 py-1 text-left text-xs font-black leading-none whitespace-nowrap ${tones[tone]}`}>{children}</span>;
+  return <span className={`sunny-badge inline-flex w-fit max-w-full shrink-0 items-center rounded-full border px-2.5 py-1 text-left text-xs font-black leading-none whitespace-nowrap ${tones[tone]}`}>{children}</span>;
 }
 
 function readStorage<T>(key: string, fallback: T): T {
