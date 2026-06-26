@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.7";
+const APP_VERSION = "V4.8";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -3579,6 +3579,7 @@ function TodayCommand({
   return (
     <section className="grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.75fr)] xl:items-start">
       <div className="grid min-w-0 gap-3">
+        <TodayCommandStatusBar stats={stats} currentMission={currentMission} mainMission={mainMission} dayMeta={dayMeta} />
       {todayEventMode ? (
         <Panel compact>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3739,6 +3740,39 @@ function TodayCommand({
         {activePlans.length > 0 ? <ActivePlanTasksSection activePlans={activePlans} updateActivePlan={updateActivePlan} foodLogs={foodLogs} todayKey={todayKey} moneySpendingLogs={moneySpendingLogs} moneyIncomeLogs={moneyIncomeLogs} moneySavingLogs={moneySavingLogs} moneyOpportunityLogs={moneyOpportunityLogs} /> : null}
       </aside>
     </section>
+  );
+}
+
+function TodayCommandStatusBar({
+  stats,
+  currentMission,
+  mainMission,
+  dayMeta
+}: {
+  stats: Stats;
+  currentMission?: Task;
+  mainMission?: Task;
+  dayMeta: DayMeta;
+}) {
+  const modeLabel = dayMeta.startTime ? `${dayMeta.dayType} · ${dayMeta.startTime}` : dayMeta.dayType;
+  const nextLabel = currentMission ? `${currentMission.time} · ${currentMission.title}` : "Evening Review";
+
+  return (
+    <div className="today-command-status-bar" aria-label="Today command status">
+      <div className="min-w-0">
+        <p className="today-command-status-kicker">Today Command</p>
+        <p className="today-command-status-title truncate">{mainMission?.title ?? "Build today, then execute one mission at a time"}</p>
+      </div>
+      <div className="today-command-status-metrics" aria-label="Today metrics">
+        <span><strong>{stats.points}</strong> KPM</span>
+        <span><strong>{stats.completed}</strong> done</span>
+        <span><strong>{stats.remaining}</strong> left</span>
+      </div>
+      <div className="today-command-status-next min-w-0">
+        <span className="shrink-0">{modeLabel}</span>
+        <span className="min-w-0 truncate">{nextLabel}</span>
+      </div>
+    </div>
   );
 }
 
@@ -7869,6 +7903,7 @@ function ProfileVersionSection() {
           <li>V4.5 Mobile bottom navigation polish</li>
           <li>V4.6 Collapsible section polish</li>
           <li>V4.7 Today Mission Directive polish</li>
+          <li>V4.8 Today Command status bar</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
