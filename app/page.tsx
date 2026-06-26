@@ -686,6 +686,20 @@ type StorageInfo = {
   percent: number;
 };
 
+type BackupMetadata = {
+  lastExportedAt: string;
+  schemaVersion: number;
+  appVersion: string;
+};
+
+type BackupHealth = {
+  label: string;
+  detail: string;
+  tone: "green" | "orange" | "red";
+  daysSinceBackup: number | null;
+  lastExportedLabel: string;
+};
+
 type SevenDayTestDay = {
   dayNumber: number;
   date: string;
@@ -1015,6 +1029,7 @@ const WORKSPACE_TABS_KEY = "kpm-sunny-workspace-tabs";
 const ACTIVE_WORKSPACE_TAB_KEY = "kpm-sunny-active-workspace-tab-id";
 const TODAY_BACKUP_BEFORE_EVENT_KEY = "kpm-sunny-today-backup-before-event";
 const TODAY_EVENT_MODE_KEY = "kpm-sunny-today-event-mode";
+const BACKUP_META_KEY = "kpm-sunny-backup-meta";
 const LEGACY_LONG_STUDY_SESSIONS_KEY = "kpm-sunny-long-study-sessions";
 const LEGACY_LONG_STUDY_REVIEWS_KEY = "kpm-sunny-long-study-reviews";
 const PLAN_KEY = "kpm-sunny-plan";
@@ -1028,8 +1043,9 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V5.0";
-const APP_LAST_UPDATED = "June 25, 2026";
+const BACKUP_SCHEMA_VERSION = 2;
+const APP_VERSION = "V5.1";
+const APP_LAST_UPDATED = "June 27, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
 const categories: Category[] = ["Knowledge", "Plan", "Monitoring", "Sunny"];
@@ -2123,10 +2139,18 @@ function HomeApp() {
   }
 
   function exportAllData() {
+    const exportedAt = new Date().toISOString();
+    const metadata: BackupMetadata = {
+      lastExportedAt: exportedAt,
+      schemaVersion: BACKUP_SCHEMA_VERSION,
+      appVersion: APP_VERSION
+    };
+    writeStorage(BACKUP_META_KEY, metadata);
     const payload = {
       app: "KPM Sunny Daily OS",
+      schemaVersion: BACKUP_SCHEMA_VERSION,
       version: APP_VERSION,
-      exportedAt: new Date().toISOString(),
+      exportedAt,
       data: getRawKpmLocalData()
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -7893,10 +7917,18 @@ function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData 
   const [importText, setImportText] = useState("");
   const [importStatus, setImportStatus] = useState("");
   const [storageInfo, setStorageInfo] = useState<StorageInfo>({ usedBytes: 0, limitBytes: LOCAL_STORAGE_LIMIT_BYTES, percent: 0 });
+  const [backupHealth, setBackupHealth] = useState<BackupHealth>(() => calculateBackupHealth(null));
 
   useEffect(() => {
     setStorageInfo(calculateStorageInfo());
+    setBackupHealth(calculateBackupHealth(getBackupMetadata()));
   }, [importStatus]);
+
+  function handleExport() {
+    exportAllData();
+    setBackupHealth(calculateBackupHealth(getBackupMetadata()));
+    setStorageInfo(calculateStorageInfo());
+  }
 
   async function handleImport() {
     const result = await importAllData(importText);
@@ -7931,7 +7963,7 @@ function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData 
           <h3 className="mt-1 text-xl font-black text-white">Local data safety</h3>
           <p className="mt-1 text-xs leading-5 text-slate-400 sm:text-sm">Your data is saved only on this device. Export backup regularly.</p>
         </div>
-        <button onClick={exportAllData} className="primary-button min-h-9 justify-center px-3 py-1.5 text-sm">
+        <button onClick={handleExport} className="primary-button min-h-9 justify-center px-3 py-1.5 text-sm">
           <Download size={18} />
           Export Data
         </button>
@@ -7946,6 +7978,8 @@ function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData 
       <div className={`mt-3 rounded-xl border p-3 ${storageTone}`}>
         <p className="text-sm font-black">{storageWarning}</p>
       </div>
+
+      <BackupHealthCard backupHealth={backupHealth} schemaVersion={BACKUP_SCHEMA_VERSION} />
 
       <div className="mt-3 grid gap-3">
         <Field label="Import backup JSON file">
@@ -7976,6 +8010,36 @@ function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData 
         </div>
       </div>
     </Panel>
+  );
+}
+
+function BackupHealthCard({ backupHealth, schemaVersion }: { backupHealth: BackupHealth; schemaVersion: number }) {
+  const toneClass = backupHealth.tone === "green"
+    ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100"
+    : backupHealth.tone === "orange"
+      ? "border-orange-300/30 bg-orange-400/10 text-orange-100"
+      : "border-red-300/30 bg-red-400/10 text-red-100";
+  const ageLabel = backupHealth.daysSinceBackup === null
+    ? "No backup age"
+    : backupHealth.daysSinceBackup === 0
+      ? "Backed up today"
+      : `${backupHealth.daysSinceBackup} day${backupHealth.daysSinceBackup === 1 ? "" : "s"} ago`;
+
+  return (
+    <div className={`mt-3 rounded-xl border p-3 ${toneClass}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.16em]">Backup Health</p>
+          <h4 className="mt-1 text-base font-black text-white">{backupHealth.label}</h4>
+          <p className="mt-1 text-xs font-bold leading-5 text-slate-300 sm:text-sm">{backupHealth.detail}</p>
+        </div>
+        <Badge tone="dark">Schema v{schemaVersion}</Badge>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <SummaryRow label="Last export" value={backupHealth.lastExportedLabel} />
+        <SummaryRow label="Backup age" value={ageLabel} />
+      </div>
+    </div>
   );
 }
 
@@ -8064,6 +8128,7 @@ function ProfileVersionSection() {
           <li>V4.8 Today Command status bar</li>
           <li>V4.9 Daily use friction pass</li>
           <li>V5.0 App-native confirmation sheets</li>
+          <li>V5.1 Backup health + export schema versioning</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -10809,10 +10874,18 @@ function SettingsPanel({
   const [importText, setImportText] = useState("");
   const [importStatus, setImportStatus] = useState("");
   const [storageInfo, setStorageInfo] = useState<StorageInfo>({ usedBytes: 0, limitBytes: LOCAL_STORAGE_LIMIT_BYTES, percent: 0 });
+  const [backupHealth, setBackupHealth] = useState<BackupHealth>(() => calculateBackupHealth(null));
 
   useEffect(() => {
     setStorageInfo(calculateStorageInfo());
+    setBackupHealth(calculateBackupHealth(getBackupMetadata()));
   }, [importStatus, settings]);
+
+  function handleExport() {
+    exportAllData();
+    setBackupHealth(calculateBackupHealth(getBackupMetadata()));
+    setStorageInfo(calculateStorageInfo());
+  }
 
   async function handleImport() {
     const result = await importAllData(importText);
@@ -10908,7 +10981,7 @@ function SettingsPanel({
               <h3 className="text-lg font-black text-white">Storage + Backup</h3>
               <p className="mt-1 text-sm leading-6 text-slate-400">Your data is saved only on this device until cloud sync is added. Export backup regularly.</p>
             </div>
-            <button onClick={exportAllData} className="primary-button justify-center">
+            <button onClick={handleExport} className="primary-button justify-center">
               <Download size={18} />
               Export Data
             </button>
@@ -10923,6 +10996,8 @@ function SettingsPanel({
           <div className={`mt-4 rounded-2xl border p-4 ${storageTone}`}>
             <p className="text-sm font-black">{storageWarning}</p>
           </div>
+
+          <BackupHealthCard backupHealth={backupHealth} schemaVersion={BACKUP_SCHEMA_VERSION} />
 
           <div className="mt-4 grid gap-3">
             <Field label="Import backup JSON file">
@@ -11378,6 +11453,65 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function getBackupMetadata(): BackupMetadata | null {
+  return readStorage<BackupMetadata | null>(BACKUP_META_KEY, null);
+}
+
+function calculateBackupHealth(metadata: BackupMetadata | null): BackupHealth {
+  if (!metadata?.lastExportedAt) {
+    return {
+      label: "No backup recorded",
+      detail: "Export a backup before daily use becomes serious.",
+      tone: "red",
+      daysSinceBackup: null,
+      lastExportedLabel: "Never"
+    };
+  }
+
+  const exportedAt = new Date(metadata.lastExportedAt);
+  const time = exportedAt.getTime();
+  if (Number.isNaN(time)) {
+    return {
+      label: "Backup date unreadable",
+      detail: "Export a fresh backup so the app can track backup health.",
+      tone: "orange",
+      daysSinceBackup: null,
+      lastExportedLabel: "Unknown"
+    };
+  }
+
+  const daysSinceBackup = Math.max(0, Math.floor((Date.now() - time) / (1000 * 60 * 60 * 24)));
+  if (daysSinceBackup >= 14) {
+    return {
+      label: "Backup overdue",
+      detail: "It has been two weeks or more. Export a fresh backup today.",
+      tone: "red",
+      daysSinceBackup,
+      lastExportedLabel: formatBackupDate(exportedAt)
+    };
+  }
+  if (daysSinceBackup >= 7) {
+    return {
+      label: "Backup getting old",
+      detail: "Export a backup soon so your local data stays protected.",
+      tone: "orange",
+      daysSinceBackup,
+      lastExportedLabel: formatBackupDate(exportedAt)
+    };
+  }
+  return {
+    label: "Backup healthy",
+    detail: "Your latest local backup is recent.",
+    tone: "green",
+    daysSinceBackup,
+    lastExportedLabel: formatBackupDate(exportedAt)
+  };
+}
+
+function formatBackupDate(date: Date): string {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 function isKpmBackupPayload(payload: unknown): payload is { app?: string; data: Record<string, unknown> } {
