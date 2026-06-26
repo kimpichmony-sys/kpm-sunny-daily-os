@@ -1025,6 +1025,39 @@ details {
   color: var(--sunny-cyan-soft) !important;
 }
 
+.quick-action-button {
+  justify-content: flex-start !important;
+  gap: 0.5rem !important;
+  border-color: rgba(139, 233, 255, 0.12) !important;
+  background:
+    linear-gradient(180deg, rgba(19, 33, 58, 0.58), rgba(8, 15, 29, 0.52)) !important;
+}
+
+.quick-action-button:hover {
+  border-color: rgba(139, 233, 255, 0.28) !important;
+  background:
+    linear-gradient(180deg, rgba(19, 33, 58, 0.76), rgba(8, 15, 29, 0.68)) !important;
+}
+
+.sunny-empty-state {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.65rem;
+  border-radius: 0.78rem;
+  border: 1px solid rgba(139, 233, 255, 0.10);
+  background:
+    linear-gradient(135deg, rgba(15, 26, 46, 0.62), rgba(6, 10, 20, 0.48));
+  padding: 0.72rem;
+  color: var(--sunny-text-soft);
+}
+
+.sunny-empty-state svg {
+  margin-top: 0.08rem;
+  flex-shrink: 0;
+  color: var(--sunny-cyan-soft);
+}
+
 .today-support-panel,
 .active-plan-today-panel,
 .today-focus-panel {

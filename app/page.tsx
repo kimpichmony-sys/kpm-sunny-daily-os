@@ -1020,7 +1020,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.8";
+const APP_VERSION = "V4.9";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -3625,7 +3625,7 @@ function TodayCommand({
             ) : (
               <>
                 <h2 className="mt-3 text-2xl font-black leading-tight text-white sm:text-3xl">All missions cleared.</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-300">Go to Evening Review and close the day cleanly.</p>
+                <p className="mt-2 text-sm leading-6 text-slate-300">Good. Capture the win in Evening Review, then shut the day down cleanly.</p>
               </>
             )}
           </div>
@@ -3721,7 +3721,13 @@ function TodayCommand({
               </div>
             ))
           ) : (
-            <p className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm font-semibold text-slate-300">No more upcoming missions. Evening Review is ready when you are.</p>
+            <div className="sunny-empty-state">
+              <CheckCircle2 size={18} />
+              <div>
+                <p className="font-black text-white">No more upcoming missions.</p>
+                <p className="mt-0.5 text-xs font-semibold text-slate-400">Evening Review is ready when you are.</p>
+              </div>
+            </div>
           )}
         </div>
       </Panel>
@@ -3737,7 +3743,23 @@ function TodayCommand({
             <MiniMetric label="KPM" value={stats.points} compact />
           </div>
         </Panel>
-        {activePlans.length > 0 ? <ActivePlanTasksSection activePlans={activePlans} updateActivePlan={updateActivePlan} foodLogs={foodLogs} todayKey={todayKey} moneySpendingLogs={moneySpendingLogs} moneyIncomeLogs={moneyIncomeLogs} moneySavingLogs={moneySavingLogs} moneyOpportunityLogs={moneyOpportunityLogs} /> : null}
+        {activePlans.length > 0 ? (
+          <ActivePlanTasksSection activePlans={activePlans} updateActivePlan={updateActivePlan} foodLogs={foodLogs} todayKey={todayKey} moneySpendingLogs={moneySpendingLogs} moneyIncomeLogs={moneyIncomeLogs} moneySavingLogs={moneySavingLogs} moneyOpportunityLogs={moneyOpportunityLogs} />
+        ) : (
+          <Panel compact className="today-support-panel">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Active Disciplines</p>
+            <div className="sunny-empty-state mt-3">
+              <Sparkles size={18} />
+              <div>
+                <p className="font-black text-white">No active plan tasks today.</p>
+                <p className="mt-0.5 text-xs font-semibold text-slate-400">Start one plan when you want extra structure.</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setActiveSection("Plan")} className="secondary-button mt-3 min-h-8 w-full justify-center px-3 py-1.5 text-xs">
+              Open Plan Library
+            </button>
+          </Panel>
+        )}
       </aside>
     </section>
   );
@@ -3787,16 +3809,20 @@ function TodayQuickActions({
     <Panel compact className="today-support-panel">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Quick Actions</p>
       <div className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-1">
-        <button type="button" onClick={rebuildToday} className="secondary-button min-h-8 px-3 py-1.5 text-xs">
+        <button type="button" onClick={rebuildToday} className="quick-action-button secondary-button min-h-8 px-3 py-1.5 text-xs">
+          <RotateCcw size={15} />
           Build / Rebuild Today
         </button>
-        <button type="button" onClick={() => setActiveSection("Today Task List")} className="secondary-button min-h-8 px-3 py-1.5 text-xs">
+        <button type="button" onClick={() => setActiveSection("Today Task List")} className="quick-action-button secondary-button min-h-8 px-3 py-1.5 text-xs">
+          <ListChecks size={15} />
           View Full Mission List
         </button>
-        <button type="button" onClick={() => setActiveSection("Plan")} className="secondary-button min-h-8 px-3 py-1.5 text-xs">
+        <button type="button" onClick={() => setActiveSection("Plan")} className="quick-action-button secondary-button min-h-8 px-3 py-1.5 text-xs">
+          <CalendarDays size={15} />
           Plan Tomorrow
         </button>
-        <button type="button" onClick={() => setActiveSection("Progress")} className="secondary-button min-h-8 px-3 py-1.5 text-xs">
+        <button type="button" onClick={() => setActiveSection("Progress")} className="quick-action-button secondary-button min-h-8 px-3 py-1.5 text-xs">
+          <CheckCircle2 size={15} />
           Evening Review
         </button>
       </div>
@@ -7904,6 +7930,7 @@ function ProfileVersionSection() {
           <li>V4.6 Collapsible section polish</li>
           <li>V4.7 Today Mission Directive polish</li>
           <li>V4.8 Today Command status bar</li>
+          <li>V4.9 Daily use friction pass</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
