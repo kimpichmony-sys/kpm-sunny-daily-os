@@ -1058,6 +1058,101 @@ details {
   color: var(--sunny-cyan-soft);
 }
 
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: end center;
+  background:
+    radial-gradient(circle at 50% 100%, rgba(89, 195, 255, 0.10), transparent 34%),
+    rgba(2, 6, 14, 0.72);
+  padding: 1rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  backdrop-filter: blur(14px);
+}
+
+.confirm-dialog-panel {
+  width: min(100%, 28rem);
+  min-width: 0;
+  border-radius: 1rem;
+  border: 1px solid rgba(139, 233, 255, 0.16);
+  background:
+    linear-gradient(145deg, rgba(17, 24, 39, 0.98), rgba(6, 10, 20, 0.98)),
+    radial-gradient(circle at 100% 0%, rgba(89, 195, 255, 0.12), transparent 30%);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: 0.9rem;
+}
+
+.confirm-dialog-panel.is-danger {
+  border-color: rgba(199, 44, 65, 0.34);
+  background:
+    linear-gradient(145deg, rgba(17, 24, 39, 0.98), rgba(6, 10, 20, 0.98)),
+    radial-gradient(circle at 100% 0%, rgba(199, 44, 65, 0.14), transparent 30%);
+}
+
+.confirm-dialog-icon {
+  display: inline-flex;
+  height: 2.4rem;
+  width: 2.4rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(139, 233, 255, 0.18);
+  background: rgba(89, 195, 255, 0.10);
+  color: var(--sunny-cyan-soft);
+}
+
+.confirm-dialog-panel.is-danger .confirm-dialog-icon {
+  border-color: rgba(199, 44, 65, 0.34);
+  background: rgba(199, 44, 65, 0.12);
+  color: #fecdd3;
+}
+
+.confirm-dialog-kicker {
+  margin-top: 0.75rem;
+  font-size: 0.66rem;
+  font-weight: 950;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--sunny-cyan-soft);
+}
+
+.confirm-dialog-panel.is-danger .confirm-dialog-kicker {
+  color: #fecdd3;
+}
+
+.confirm-dialog-title {
+  margin-top: 0.22rem;
+  font-size: 1.18rem;
+  font-weight: 950;
+  line-height: 1.12;
+  color: var(--sunny-text);
+}
+
+.confirm-dialog-message {
+  margin-top: 0.55rem;
+  color: var(--sunny-text-soft);
+  font-size: 0.88rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.confirm-dialog-actions {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+@media (min-width: 640px) {
+  .confirm-dialog-backdrop {
+    place-items: center;
+  }
+}
+
 .today-support-panel,
 .active-plan-today-panel,
 .today-focus-panel {

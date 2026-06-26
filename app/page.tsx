@@ -49,6 +49,14 @@ type WorkspaceTab = {
   isPinned: boolean;
   lastOpenedAt: string;
 };
+type ConfirmTone = "default" | "danger";
+type ConfirmOptions = {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: ConfirmTone;
+};
 type BuildDayType = "Normal Day" | "Late Wake Day" | "Night Shift Day" | "Recovery Day" | "Appointment / Busy Day" | "Custom Day";
 type BuildEnergy = Energy | "Very Low";
 type DayLengthType = "Normal" | "Compact" | "Short" | "Night Shift";
@@ -1020,7 +1028,7 @@ const TEMPLATE_KEY = "kpm-sunny-default-template";
 const MODE_KEY_PREFIX = "kpm-sunny-mode";
 const TOMORROW_MODE_KEY_PREFIX = "kpm-sunny-tomorrow-mode";
 const LOCAL_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
-const APP_VERSION = "V4.9";
+const APP_VERSION = "V5.0";
 const APP_LAST_UPDATED = "June 25, 2026";
 
 const priorities: Priority[] = ["S", "A", "B", "C"];
@@ -1466,6 +1474,72 @@ export default function Home() {
   );
 }
 
+function useConfirmDialog() {
+  const [request, setRequest] = useState<(ConfirmOptions & { resolve: (confirmed: boolean) => void }) | null>(null);
+
+  const confirmAction = useCallback((options: ConfirmOptions) => {
+    return new Promise<boolean>((resolve) => {
+      setRequest({
+        cancelLabel: "Cancel",
+        confirmLabel: "Confirm",
+        tone: "default",
+        ...options,
+        resolve
+      });
+    });
+  }, []);
+
+  const close = useCallback((confirmed: boolean) => {
+    setRequest((current) => {
+      current?.resolve(confirmed);
+      return null;
+    });
+  }, []);
+
+  const dialog = request ? <ConfirmDialog request={request} close={close} /> : null;
+
+  return { confirmAction, dialog };
+}
+
+function ConfirmDialog({
+  request,
+  close
+}: {
+  request: ConfirmOptions;
+  close: (confirmed: boolean) => void;
+}) {
+  const isDanger = request.tone === "danger";
+
+  return (
+    <div className="confirm-dialog-backdrop" role="presentation" onMouseDown={() => close(false)}>
+      <section
+        className={`confirm-dialog-panel ${isDanger ? "is-danger" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="confirm-dialog-icon">
+          {isDanger ? <Trash2 size={20} /> : <CheckCircle2 size={20} />}
+        </div>
+        <div className="min-w-0">
+          <p className="confirm-dialog-kicker">{isDanger ? "Confirm dangerous action" : "Confirm action"}</p>
+          <h2 id="confirm-dialog-title" className="confirm-dialog-title">{request.title}</h2>
+          <p className="confirm-dialog-message">{request.message}</p>
+        </div>
+        <div className="confirm-dialog-actions">
+          <button type="button" onClick={() => close(false)} className="secondary-button min-h-9 justify-center px-3 py-1.5 text-sm">
+            {request.cancelLabel ?? "Cancel"}
+          </button>
+          <button type="button" onClick={() => close(true)} className={`${isDanger ? "danger-button" : "primary-button"} min-h-9 justify-center px-3 py-1.5 text-sm`}>
+            {request.confirmLabel ?? "Confirm"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function HomeApp() {
   const [activeSection, setActiveSection] = useState<SectionId>("Dashboard");
   const [settings, setSettings] = useLocalStorage<SettingsState>(SETTINGS_KEY, defaultSettings);
@@ -1517,6 +1591,7 @@ function HomeApp() {
   const [quickStartMessage, setQuickStartMessage] = useState("");
   const [activeFocusTaskId, setActiveFocusTaskId] = useState<string | null>(null);
   const previousScheduleVersion = useRef(settings.scheduleVersion);
+  const { confirmAction, dialog: confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     try {
@@ -1894,16 +1969,26 @@ function HomeApp() {
     );
   }
 
-  function resetToday() {
-    if (!window.confirm("Reset today's mission list? This will replace today's current tasks, but history will stay safe.")) return;
+  async function resetToday() {
+    if (!(await confirmAction({
+      title: "Reset today's missions?",
+      message: "This replaces today's current mission list. Your history stays safe.",
+      confirmLabel: "Reset Today",
+      tone: "danger"
+    }))) return;
     setTasks(buildModeSchedule(defaultTasks, todayMode));
     setReview(defaultReview);
     setBuildTodayPreview(null);
     setShowBuildTodayFlow(false);
   }
 
-  function clearAllLocalData() {
-    if (!window.confirm("This deletes all local data on this device. Clear all KPM Sunny Daily OS data?")) return;
+  async function clearAllLocalData() {
+    if (!(await confirmAction({
+      title: "Clear all local data?",
+      message: "This deletes all KPM Sunny data on this device. Export a backup first if you need it.",
+      confirmLabel: "Clear Data",
+      tone: "danger"
+    }))) return;
     clearKpmLocalData();
     const currentDate = getCurrentDateKey();
     setSettings(defaultSettings);
@@ -2026,9 +2111,14 @@ function HomeApp() {
     });
   }
 
-  function deleteTask(id: string) {
+  async function deleteTask(id: string) {
     const task = tasks.find((item) => item.id === id);
-    if (!window.confirm(`Delete "${task?.title ?? "this task"}" from today's list?`)) return;
+    if (!(await confirmAction({
+      title: "Delete this mission?",
+      message: `Delete "${task?.title ?? "this task"}" from today's list?`,
+      confirmLabel: "Delete",
+      tone: "danger"
+    }))) return;
     setTasks((current) => current.filter((task) => task.id !== id));
   }
 
@@ -2048,7 +2138,7 @@ function HomeApp() {
     URL.revokeObjectURL(url);
   }
 
-  function importAllData(rawJson: string): string {
+  async function importAllData(rawJson: string): Promise<string> {
     let parsed: unknown;
     try {
       parsed = JSON.parse(rawJson);
@@ -2063,7 +2153,12 @@ function HomeApp() {
     const payload = parsed;
     const entries = Object.entries(payload.data).filter(([key]) => key.startsWith("kpm-sunny"));
     if (entries.length === 0) return "Import failed: no KPM Sunny data keys were found.";
-    if (!window.confirm(`Import ${entries.length} saved data keys? This will replace current KPM Sunny data on this device.`)) return "Import cancelled.";
+    if (!(await confirmAction({
+      title: "Import backup data?",
+      message: `Import ${entries.length} saved data keys? This will replace current KPM Sunny data on this device.`,
+      confirmLabel: "Import Data",
+      tone: "danger"
+    }))) return "Import cancelled.";
 
     clearKpmLocalData();
 
@@ -2157,9 +2252,14 @@ function HomeApp() {
     setBuildTodayPreview(preview);
   }
 
-  function applyBuildTodayPreview() {
+  async function applyBuildTodayPreview() {
     if (!buildTodayPreview) return;
-    if (tasks.length > 0 && !window.confirm("Today already has missions. Replace today's current mission list with this preview?")) return;
+    if (tasks.length > 0 && !(await confirmAction({
+      title: "Replace today's missions?",
+      message: "Today already has missions. Replace the current list with this Build Today preview?",
+      confirmLabel: "Replace Today",
+      tone: "danger"
+    }))) return;
 
     setTasks(buildTodayPreview.tasks);
     setTodayMode(buildTodayPreview.todayMode);
@@ -2217,17 +2317,25 @@ function HomeApp() {
     }));
   }
 
-  function addLongStudyPreviewKeyBlocksToToday() {
+  async function addLongStudyPreviewKeyBlocksToToday() {
     if (!longStudyPreview) return;
-    if (!window.confirm("This will add selected Long Study blocks to Today. Continue?")) return;
+    if (!(await confirmAction({
+      title: "Add Long Study blocks?",
+      message: "This will add selected Long Study blocks to Today without replacing the normal day.",
+      confirmLabel: "Add Blocks"
+    }))) return;
     saveLongStudyEvent(longStudyPreview);
     addLongStudyKeyBlocksToToday(longStudyPreview);
     setOpenLongStudyEventId(longStudyPreview.id);
     setLongStudyPreview(null);
   }
 
-  function copyLongStudyBlocksToToday(session: LongStudySession) {
-    if (!window.confirm("This will add selected Long Study blocks to Today. Continue?")) return;
+  async function copyLongStudyBlocksToToday(session: LongStudySession) {
+    if (!(await confirmAction({
+      title: "Copy key blocks to Today?",
+      message: "This will add selected Long Study blocks to Today without copying every block.",
+      confirmLabel: "Copy Blocks"
+    }))) return;
     addLongStudyKeyBlocksToToday(session);
   }
 
@@ -2236,8 +2344,12 @@ function HomeApp() {
     setTasks((current) => mergeSchedule(current, keyBlocks.map((task) => ({ ...task, id: `copy-${task.id}-${Date.now()}`, completed: false, skipped: false }))));
   }
 
-  function sendLongTermTaskToToday(source: "Weekly Mission" | "Next Action", item: WeeklyMission | NextAction) {
-    if (!window.confirm(`Send "${item.title}" to Today as a Long-Term Planning task?`)) return;
+  async function sendLongTermTaskToToday(source: "Weekly Mission" | "Next Action", item: WeeklyMission | NextAction) {
+    if (!(await confirmAction({
+      title: "Send to Today?",
+      message: `Send "${item.title}" to Today as a Long-Term Planning task?`,
+      confirmLabel: "Send to Today"
+    }))) return;
     const category = mapLongTermCategoryToTaskCategory(item.category);
     const time = source === "Weekly Mission" ? "8:00 AM" : "10:15 AM";
     const task: Task = {
@@ -2263,9 +2375,14 @@ function HomeApp() {
     }
   }
 
-  function useLongStudyPreviewAsTodayEvent() {
+  async function useLongStudyPreviewAsTodayEvent() {
     if (!longStudyPreview) return;
-    if (!window.confirm("Use this Long Study Event as today's main event? Your current Today plan will be backed up and can be restored.")) return;
+    if (!(await confirmAction({
+      title: "Use as today's main event?",
+      message: "Your current Today plan will be backed up and can be restored later.",
+      confirmLabel: "Use Event",
+      tone: "danger"
+    }))) return;
     saveLongStudyEvent(longStudyPreview);
     setTodayBackupBeforeEvent({ date: todayKey, tasks, dayMeta, todayMode });
     setTasks(buildTodayEventModeTasks(tasks, longStudyPreview));
@@ -2276,12 +2393,16 @@ function HomeApp() {
     setLongStudyPreview(null);
   }
 
-  function restoreNormalToday() {
+  async function restoreNormalToday() {
     if (!todayBackupBeforeEvent || todayBackupBeforeEvent.date !== todayKey) {
       setTodayEventMode(null);
       return;
     }
-    if (!window.confirm("Restore the normal Today plan from before Event Mode?")) return;
+    if (!(await confirmAction({
+      title: "Restore normal Today?",
+      message: "This restores the Today plan saved before Event Mode.",
+      confirmLabel: "Restore"
+    }))) return;
     setTasks(todayBackupBeforeEvent.tasks);
     setDayMeta(todayBackupBeforeEvent.dayMeta);
     setTodayMode(todayBackupBeforeEvent.todayMode);
@@ -2326,8 +2447,13 @@ function HomeApp() {
     setTemplateTasks((current) => normalizeTemplate(current).filter((task) => task.id !== id));
   }
 
-  function resetDefaultTemplate() {
-    if (!window.confirm("Reset the default schedule template to the original 5:30 AM version? Today and history will not be deleted.")) return;
+  async function resetDefaultTemplate() {
+    if (!(await confirmAction({
+      title: "Reset default template?",
+      message: "Restore the original 5:30 AM template. Today and history will not be deleted.",
+      confirmLabel: "Reset Template",
+      tone: "danger"
+    }))) return;
     setTemplateTasks(createOriginalTemplate());
   }
 
@@ -2337,8 +2463,13 @@ function HomeApp() {
     setMissionPreview([]);
   }
 
-  function applyTemplateToToday() {
-    if (!window.confirm("Apply the default template to today? This will overwrite today's current mission list.")) return;
+  async function applyTemplateToToday() {
+    if (!(await confirmAction({
+      title: "Apply template to Today?",
+      message: "This overwrites today's current mission list with the default template.",
+      confirmLabel: "Apply to Today",
+      tone: "danger"
+    }))) return;
     setTasks(buildModeSchedule(defaultTasks, todayMode));
     setReview(defaultReview);
   }
@@ -2645,6 +2776,7 @@ function HomeApp() {
           close={() => setActiveFocusTaskId(null)}
         />
       ) : null}
+      {confirmDialog}
     </div>
   );
 }
@@ -7467,7 +7599,7 @@ function ProfileScreen({
   resetToday: () => void;
   clearAllLocalData: () => void;
   exportAllData: () => void;
-  importAllData: (rawJson: string) => string;
+  importAllData: (rawJson: string) => Promise<string>;
   todayMode: DailyMode;
   activePlans: ActivePlan[];
   selectedTodayMode: DailyMode;
@@ -7757,7 +7889,7 @@ function ProfileAppSettingsSection({
   );
 }
 
-function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData }: { exportAllData: () => void; importAllData: (rawJson: string) => string; clearAllLocalData: () => void }) {
+function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData }: { exportAllData: () => void; importAllData: (rawJson: string) => Promise<string>; clearAllLocalData: () => void }) {
   const [importText, setImportText] = useState("");
   const [importStatus, setImportStatus] = useState("");
   const [storageInfo, setStorageInfo] = useState<StorageInfo>({ usedBytes: 0, limitBytes: LOCAL_STORAGE_LIMIT_BYTES, percent: 0 });
@@ -7766,8 +7898,8 @@ function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData 
     setStorageInfo(calculateStorageInfo());
   }, [importStatus]);
 
-  function handleImport() {
-    const result = importAllData(importText);
+  async function handleImport() {
+    const result = await importAllData(importText);
     setImportStatus(result);
     setStorageInfo(calculateStorageInfo());
   }
@@ -7775,8 +7907,8 @@ function ProfileBackupSection({ exportAllData, importAllData, clearAllLocalData 
   function handleImportFile(file?: File) {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = importAllData(typeof reader.result === "string" ? reader.result : "");
+    reader.onload = async () => {
+      const result = await importAllData(typeof reader.result === "string" ? reader.result : "");
       setImportStatus(result);
       setStorageInfo(calculateStorageInfo());
     };
@@ -7931,6 +8063,7 @@ function ProfileVersionSection() {
           <li>V4.7 Today Mission Directive polish</li>
           <li>V4.8 Today Command status bar</li>
           <li>V4.9 Daily use friction pass</li>
+          <li>V5.0 App-native confirmation sheets</li>
         </ul>
       </div>
       <p className="mt-4 text-sm leading-6 text-amber-100">If the live Vercel app looks old, push the latest Git commit and refresh the app.</p>
@@ -10667,7 +10800,7 @@ function SettingsPanel({
   resetToday: () => void;
   clearAllLocalData: () => void;
   exportAllData: () => void;
-  importAllData: (rawJson: string) => string;
+  importAllData: (rawJson: string) => Promise<string>;
   todayMode: DailyMode;
   selectedTodayMode: DailyMode;
   setSelectedTodayMode: Dispatch<SetStateAction<DailyMode>>;
@@ -10681,16 +10814,16 @@ function SettingsPanel({
     setStorageInfo(calculateStorageInfo());
   }, [importStatus, settings]);
 
-  function handleImport() {
-    const result = importAllData(importText);
+  async function handleImport() {
+    const result = await importAllData(importText);
     setImportStatus(result);
   }
 
   function handleImportFile(file?: File) {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = importAllData(typeof reader.result === "string" ? reader.result : "");
+    reader.onload = async () => {
+      const result = await importAllData(typeof reader.result === "string" ? reader.result : "");
       setImportStatus(result);
     };
     reader.onerror = () => setImportStatus("Import failed: backup file could not be read.");
